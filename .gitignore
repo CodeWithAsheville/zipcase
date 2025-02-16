@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.serverless/
+.esbuild/
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+
+# Editor files
+.vscode/*
+\!.vscode/extensions.json
+\!.vscode/settings.json
+\!.vscode/launch.json
+.idea/
+
+# Local files
+.local/
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS specific
+.DS_Store
+
+# Husky internal files
+.husky/_/*
+
