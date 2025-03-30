@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: InterVariable, sans-serif;
+  --color-primary: #336699;
+  --color-primary-light: #4070b0;
+  --color-primary-dark: #205080;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
