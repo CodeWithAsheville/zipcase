@@ -1,0 +1,199 @@
+service: app
+
+provider:
+    name: aws
+    runtime: nodejs20.x
+    region: us-east-2
+    stage: ${opt:stage, 'dev'}
+    profile: zipcase-${self:provider.stage}
+    memorySize: 512
+    environment:
+        CASE_SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseSearchQueueUrl}
+        CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
+        KMS_KEY_ID: ${cf:infra-${self:provider.stage}.ZipCaseEncryptionKeyId, 'key-not-set'}
+        ZIPCASE_DATA_TABLE: ${cf:infra-${self:provider.stage}.ZipCaseDataTableName, 'zipcase-data-${self:provider.stage}'}
+        DEFAULT_USAGE_PLAN_ID: ${cf:api-${self:provider.stage}.TestUsagePlanId}
+        PORTAL_URL: ${ssm:/zipcase/portal_url}
+        PORTAL_CASE_URL: ${ssm:/zipcase/portal_case_url}
+    iam:
+        role:
+            statements:
+                - Effect: Allow
+                  Action:
+                      - dynamodb:BatchGetItem
+                      - dynamodb:GetItem
+                      - dynamodb:PutItem
+                      - dynamodb:Query
+                      - dynamodb:UpdateItem
+                  Resource: arn:aws:dynamodb:*:*:table/*
+
+                - Effect: Allow
+                  Action:
+                      - logs:CreateLogGroup
+                      - logs:CreateLogStream
+                      - logs:PutLogEvents
+                  Resource: arn:aws:logs:*:*:*
+
+                - Effect: Allow
+                  Action:
+                      - sqs:SendMessage
+                      - sqs:ReceiveMessage
+                      - sqs:DeleteMessage
+                      - sqs:GetQueueAttributes
+                  Resource:
+                      - ${cf:infra-${self:provider.stage}.CaseSearchQueueArn}
+                      - ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
+
+                - Effect: Allow
+                  Action:
+                      - kms:Encrypt
+                      - kms:Decrypt
+                  Resource: !Sub 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*'
+
+                - Effect: Allow
+                  Action:
+                      - apigateway:GET
+                      - apigateway:POST
+                      - apigateway:PUT
+                      - apigateway:PATCH
+                      - apigateway:DELETE
+                  Resource: '*'
+    httpApi:
+        cors: true
+        disableDefaultEndpoint: true
+        authorizers:
+            cognitoAuth:
+                identitySource: '$request.header.Authorization'
+                issuerUrl: 'https://cognito-idp.${self:provider.region}.amazonaws.com/${ssm:/zipcase/cognito/user_pool_id}'
+                audience: '${ssm:/zipcase/cognito/app_client_id}'
+
+plugins:
+    - serverless-offline
+
+package:
+    individually: true
+
+build:
+    esbuild:
+        minify: false
+        sourcemap: true
+        target: node20
+        format: cjs # Use CommonJS format instead of ESM
+        bundle: true # Ensure all dependencies are bundled
+        external:
+            - '@aws-sdk/*'
+        define:
+            'process.env.NODE_ENV': '"production"'
+
+stages:
+    default:
+        params:
+            domain: ${env:DOMAIN, 'zipcase.org'}
+
+    dev:
+        params:
+            subdomain: app-dev
+
+    prod:
+        params:
+            subdomain: app
+
+resources:
+    Resources:
+        ApiGatewayBasePathMapping:
+            Type: AWS::ApiGatewayV2::ApiMapping
+            Properties:
+                DomainName: '${param:subdomain}.${param:domain}'
+                ApiId:
+                    Ref: HttpApi
+                Stage: '$default'
+
+functions:
+    getApiKey:
+        handler: handlers/apiKey.get
+        events:
+            - httpApi:
+                  path: /api-key
+                  method: get
+                  authorizer: cognitoAuth
+    postApiKey:
+        handler: handlers/apiKey.create
+        events:
+            - httpApi:
+                  path: /api-key
+                  method: post
+                  authorizer: cognitoAuth
+
+    getWebhook:
+        handler: handlers/webhook.getWebhook
+        events:
+            - httpApi:
+                  path: /webhook
+                  method: get
+                  authorizer: cognitoAuth
+
+    setWebhook:
+        handler: handlers/webhook.setWebhook
+        events:
+            - httpApi:
+                  path: /webhook
+                  method: post
+                  authorizer: cognitoAuth
+
+    getPortalCredentials:
+        handler: handlers/portal-credentials.get
+        events:
+            - httpApi:
+                  path: /portal-credentials
+                  method: get
+                  authorizer: cognitoAuth
+
+    postPortalCredentials:
+        handler: handlers/portal-credentials.set
+        events:
+            - httpApi:
+                  path: /portal-credentials
+                  method: post
+                  authorizer: cognitoAuth
+
+    postSearch:
+        handler: handlers/search.handler
+        memorySize: 1024
+        events:
+            - httpApi:
+                  path: /search
+                  method: post
+                  authorizer: cognitoAuth
+
+    postStatus:
+        handler: handlers/status.handler
+        memorySize: 512
+        events:
+            - httpApi:
+                  path: /status
+                  method: post
+                  authorizer: cognitoAuth
+
+    getCase:
+        handler: handlers/case.get
+        events:
+            - httpApi:
+                  path: /case/{caseNumber}
+                  method: get
+                  authorizer: cognitoAuth
+
+    processCaseSearch:
+        handler: handlers/case.processCaseSearch
+        timeout: 12
+        events:
+            - sqs:
+                  arn: ${cf:infra-${self:provider.stage}.CaseSearchQueueArn}
+                  batchSize: 1
+
+    processCaseData:
+        handler: handlers/case.processCaseData
+        timeout: 12
+        events:
+            - sqs:
+                  arn: ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
+                  batchSize: 10 # Higher concurrency for case data processing

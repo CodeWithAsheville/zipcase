@@ -1,0 +1,17 @@
+org: zipcase
+app: zipcase
+
+services:
+    infra:
+        path: infra
+
+    app:
+        path: app
+        dependsOn:
+            - infra
+            - api
+
+    api:
+        path: api
+        dependsOn:
+            - infra
