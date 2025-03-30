@@ -1,0 +1,80 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "jest": {
+    "preset": "ts-jest/presets/js-with-ts-esm",
+    "testEnvironment": "jsdom",
+    "extensionsToTreatAsEsm": [
+      ".ts",
+      ".tsx"
+    ],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "transform": {
+      "^.+\\.(ts|tsx)$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
+    },
+    "setupFilesAfterEnv": [
+      "<rootDir>/config/jest.setup.js"
+    ]
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:css": "tailwindcss -i ./src/index.css -o ./dist/output.css --watch",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run --config ./config/vitest.config.ts",
+    "test:watch": "vitest --config ./config/vitest.config.ts",
+    "test:coverage": "vitest run --coverage --config ./config/vitest.config.ts",
+    "test:jest": "jest --config ./config/jest.config.js",
+    "deploy:dev": "npm run build && aws s3 sync dist/ s3://zipcase-frontend-dev --profile zipcase-dev && aws cloudfront create-invalidation --distribution-id $(terraform -chdir=../infra/terraform/dev output -raw cloudfront_distribution_id) --paths \"/*\" --profile zipcase-dev"
+  },
+  "dependencies": {
+    "@aws-amplify/ui-react": "^6.9.5",
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.2.0",
+    "@tanstack/react-query": "^5.69.0",
+    "aws-amplify": "^6.14.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.4.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-loader-spinner": "^6.1.6",
+    "react-router-dom": "^7.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.19.0",
+    "@tailwindcss/vite": "^4.0.8",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^29.5.14",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^3.0.9",
+    "eslint": "^9.19.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.18",
+    "globals": "^15.14.0",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "jsdom": "^26.0.0",
+    "tailwindcss": "^4.0.9",
+    "ts-jest": "^29.3.0",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.22.0",
+    "vite": "^6.1.1",
+    "vitest": "^3.0.9"
+  }
+}
