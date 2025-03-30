@@ -1,0 +1,117 @@
+service: api
+
+provider:
+    name: aws
+    runtime: nodejs20.x
+    region: us-east-2
+    stage: ${opt:stage, 'dev'}
+    profile: zipcase-${self:provider.stage}
+    memorySize: 512
+    environment:
+        CASE_SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseSearchQueueUrl}
+        CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
+        ADMIN_USER_ID: ${ssm:/zipcase/admin/user_id, 'admin-user-id'}
+        PORTAL_URL: ${ssm:/zipcase/portal_url}
+        PORTAL_CASE_URL: ${ssm:/zipcase/portal_case_url}
+    iam:
+        role:
+            statements:
+                - Effect: Allow
+                  Action:
+                      - dynamodb:BatchGetItem
+                      - dynamodb:GetItem
+                      - dynamodb:PutItem
+                      - dynamodb:Query
+                      - dynamodb:UpdateItem
+                  Resource: arn:aws:dynamodb:*:*:table/*
+
+                - Effect: Allow
+                  Action:
+                      - logs:CreateLogGroup
+                      - logs:CreateLogStream
+                      - logs:PutLogEvents
+                  Resource: arn:aws:logs:*:*:*
+
+                - Effect: Allow
+                  Action:
+                      - sqs:SendMessage
+                  Resource:
+                      - ${cf:infra-${self:provider.stage}.CaseSearchQueueArn}
+                      - ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
+    apiGateway:
+        disableDefaultEndpoint: true
+        apiKeys:
+            - test:
+                  - test-api-key
+        usagePlan:
+            - test:
+                  quota:
+                      limit: 500
+                      period: MONTH
+                  throttle:
+                      burstLimit: 5
+                      rateLimit: 2
+            - community:
+                  quota:
+                      limit: 5000
+                      period: MONTH
+                  throttle:
+                      burstLimit: 20
+                      rateLimit: 10
+
+package:
+    patterns:
+        - 'handlers/search.ts'
+        - 'handlers/case.ts'
+
+stages:
+    default:
+        params:
+            domain: ${env:DOMAIN, 'zipcase.org'}
+
+    dev:
+        params:
+            subdomain: api-dev
+
+    prod:
+        params:
+            subdomain: api
+
+resources:
+    Resources:
+        ApiGatewayBasePathMapping:
+            Type: AWS::ApiGateway::BasePathMapping
+            Properties:
+                DomainName: '${param:subdomain}.${param:domain}'
+                RestApiId:
+                    Ref: ApiGatewayRestApi
+                Stage: ${sls:stage}
+
+    Outputs:
+        TestUsagePlanId:
+            Value: !Ref ApiGatewayUsagePlanTest
+            Export:
+                Name: ${self:service}-${self:provider.stage}-TestUsagePlanId
+
+        CommunityUsagePlanId:
+            Value: !Ref ApiGatewayUsagePlanCommunity
+            Export:
+                Name: ${self:service}-${self:provider.stage}-CommunityUsagePlanId
+
+functions:
+    search:
+        handler: handlers/search.execute
+        memorySize: 1024
+        events:
+            - http:
+                  path: search
+                  method: post
+                  private: true
+
+    getCase:
+        handler: handlers/case.get
+        events:
+            - http:
+                  path: case/{caseNumber}
+                  method: get
+                  private: true

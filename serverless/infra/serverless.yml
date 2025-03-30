@@ -1,0 +1,131 @@
+service: infra
+
+provider:
+    name: aws
+    region: us-east-2
+    stage: ${opt:stage, 'dev'}
+    profile: zipcase-${self:provider.stage}
+
+plugins:
+    - serverless-offline
+
+package:
+    individually: true
+    exclude:
+        - node_modules/**
+        - package.json
+        - package-lock.json
+    include:
+        - ../package.json
+        - ../node_modules/**
+
+resources:
+    Resources:
+        ZipCaseDataTable:
+            Type: AWS::DynamoDB::Table
+            Properties:
+                TableName: zipcase-data-${self:provider.stage}
+                BillingMode: PAY_PER_REQUEST
+                AttributeDefinitions:
+                    - AttributeName: PK
+                      AttributeType: S
+                    - AttributeName: SK
+                      AttributeType: S
+                KeySchema:
+                    - AttributeName: PK
+                      KeyType: HASH
+                    - AttributeName: SK
+                      KeyType: RANGE
+                TimeToLiveSpecification:
+                    AttributeName: expiresAt
+                    Enabled: true
+
+        CaseSearchQueue:
+            Type: AWS::SQS::Queue
+            Properties:
+                QueueName: ${self:service}-${self:provider.stage}-case-search.fifo
+                FifoQueue: true
+                DeduplicationScope: messageGroup
+                FifoThroughputLimit: perMessageGroupId
+                VisibilityTimeout: 60
+                MessageRetentionPeriod: 259200 # 3 days
+
+        CaseDataQueue:
+            Type: AWS::SQS::Queue
+            Properties:
+                QueueName: ${self:service}-${self:provider.stage}-case-data.fifo
+                FifoQueue: true
+                DeduplicationScope: messageGroup
+                FifoThroughputLimit: perMessageGroupId
+                VisibilityTimeout: 120
+                MessageRetentionPeriod: 259200 # 3 days
+
+        ZipCaseEncryptionKey:
+            Type: AWS::KMS::Key
+            Properties:
+                Description: KMS key for encrypting ZipCase sensitive data (${self:provider.stage})
+                EnableKeyRotation: true
+                KeyPolicy:
+                    Version: '2012-10-17'
+                    Statement:
+                        - Effect: Allow
+                          Principal:
+                              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+                          Action: 'kms:*'
+                          Resource: '*'
+                        - Effect: Allow
+                          Principal:
+                              Service: lambda.amazonaws.com
+                          Action:
+                              - kms:Encrypt
+                              - kms:Decrypt
+                          Resource: '*'
+
+        ZipCaseEncryptionKeyAlias:
+            Type: AWS::KMS::Alias
+            Properties:
+                AliasName: alias/zipcase-encryption-key-${self:provider.stage}
+                TargetKeyId: !Ref ZipCaseEncryptionKey
+
+        KmsKeyParameter:
+            Type: AWS::SSM::Parameter
+            Properties:
+                Name: /zipcase/kms/key_id
+                Type: String
+                Value: !GetAtt ZipCaseEncryptionKey.Arn
+
+    Outputs:
+        CaseSearchQueueUrl:
+            Value: !Ref CaseSearchQueue
+            Export:
+                Name: ${self:service}-${self:provider.stage}-CaseSearchQueueUrl
+
+        CaseSearchQueueArn:
+            Value: !GetAtt CaseSearchQueue.Arn
+            Export:
+                Name: ${self:service}-${self:provider.stage}-CaseSearchQueueArn
+
+        CaseDataQueueUrl:
+            Value: !Ref CaseDataQueue
+            Export:
+                Name: ${self:service}-${self:provider.stage}-CaseDataQueueUrl
+
+        CaseDataQueueArn:
+            Value: !GetAtt CaseDataQueue.Arn
+            Export:
+                Name: ${self:service}-${self:provider.stage}-CaseDataQueueArn
+
+        ZipCaseDataTableName:
+            Value: !Ref ZipCaseDataTable
+            Export:
+                Name: ${self:service}-${self:provider.stage}-ZipCaseDataTableName
+
+        ZipCaseEncryptionKeyId:
+            Value: !Ref ZipCaseEncryptionKey
+            Export:
+                Name: ${self:service}-${self:provider.stage}-ZipCaseEncryptionKeyId
+
+        ZipCaseEncryptionKeyArn:
+            Value: !GetAtt ZipCaseEncryptionKey.Arn
+            Export:
+                Name: ${self:service}-${self:provider.stage}-ZipCaseEncryptionKeyArn
