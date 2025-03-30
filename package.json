@@ -1,0 +1,23 @@
+{
+    "name": "zipcase",
+    "version": "1.0.0",
+    "description": "Accelerating access to public court data",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "prepare": "husky",
+        "lint-staged": "lint-staged"
+    },
+    "keywords": [],
+    "author": "Code with Asheville",
+    "license": "MIT",
+    "devDependencies": {
+        "@testing-library/jest-dom": "^6.6.3",
+        "husky": "^9.1.7",
+        "lint-staged": "^15.5.0",
+        "prettier": "^3.5.3"
+    },
+    "lint-staged": {
+        "*.{js,jsx,ts,tsx,json,md}": "prettier --write"
+    }
+}
