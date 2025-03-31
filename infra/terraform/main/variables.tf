@@ -1,6 +1,7 @@
 variable "aws_profile" {
   description = "AWS profile defined in ~/.aws/credentials"
   type        = string
+  default     = null
 }
 
 variable "use_profile" {

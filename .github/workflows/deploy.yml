@@ -91,7 +91,11 @@ jobs:
         
       - name: Terraform Apply
         working-directory: ./infra/terraform/${{ needs.determine-environment.outputs.environment_name }}
-        run: terraform apply -auto-approve
+        run: |
+          # Set variable to disable profile usage in CI/CD
+          export TF_VAR_use_profile=false
+
+          terraform apply -auto-approve
 
   deploy-backend:
     name: Deploy Backend

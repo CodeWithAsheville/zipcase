@@ -11,7 +11,7 @@ terraform {
 
 provider "aws" {
   region  = var.aws_region
-  profile = var.aws_profile
+  profile = var.use_profile ? var.aws_profile : null
 }
 
 # Create IAM user for GitHub Actions
