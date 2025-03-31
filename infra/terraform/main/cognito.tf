@@ -43,7 +43,3 @@ resource "aws_ssm_parameter" "zipcase_app_client_id" {
   value = aws_cognito_user_pool_client.zipcase_app_client.id
 }
 
-resource "aws_cognito_user_pool_domain" "zipcase_domain" {
-  domain = "zipcase-auth"
-  user_pool_id = aws_cognito_user_pool.zipcase_user_pool.id
-}
