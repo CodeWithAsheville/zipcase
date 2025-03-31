@@ -3,6 +3,12 @@ variable "aws_profile" {
   type        = string
 }
 
+variable "use_profile" {
+  description = "Whether to use AWS profile (local) or credentials (CI/CD)"
+  type        = bool
+  default     = true
+}
+
 variable "domain" {
   description = "Domain name for the application"
   type        = string
