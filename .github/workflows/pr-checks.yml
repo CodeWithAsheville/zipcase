@@ -1,0 +1,176 @@
+name: Pull Request Checks
+
+on:
+    pull_request:
+        branches: [main, live]
+
+env:
+    VITE_API_URL: https://test-api.example.com
+    VITE_PORTAL_URL: https://test-portal.example.com
+    VITE_PORTAL_CASE_URL: https://test-portal.example.com/cases
+
+jobs:
+    backend-tests:
+        name: Backend Tests
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: ./serverless
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Use Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+                  cache-dependency-path: './serverless/package-lock.json'
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Run backend tests
+              run: npm test -- --testPathIgnorePatterns=__integration_tests__
+
+    frontend-tests:
+        name: Frontend Tests
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: ./frontend
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Use Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+                  cache-dependency-path: './frontend/package-lock.json'
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Run frontend tests
+              run: npm test
+
+            - name: Lint frontend
+              run: npm run lint
+
+    terraform-plan-dev:
+        name: Terraform Plan (Dev)
+        if: github.base_ref == 'main'
+        runs-on: ubuntu-latest
+        environment: dev
+        defaults:
+            run:
+                working-directory: ./infra/terraform
+        permissions:
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: '1.5.7'
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: us-east-2
+
+            - name: Terraform Init
+              working-directory: ./infra/terraform/dev
+              run: terraform init
+
+            - name: Terraform Plan
+              working-directory: ./infra/terraform/dev
+              run: |
+                  # Set variable to disable profile usage in CI/CD
+                  export TF_VAR_use_profile=false
+
+                  terraform plan -no-color > plan.txt || { exit_code=$?; cat plan.txt; echo "plan<<EOF" >> $GITHUB_OUTPUT; cat plan.txt >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT; exit $exit_code; }
+                  cat plan.txt
+                  echo "plan<<EOF" >> $GITHUB_OUTPUT
+                  cat plan.txt >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+              id: plan-dev
+
+            - name: Add Dev Plan Comment
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  script: |
+                      const output = `#### Terraform Dev Plan 🧪
+                      \`\`\`terraform
+                      ${{ steps.plan-dev.outputs.plan || 'No output available' }}
+                      \`\`\`
+                      `;
+                      github.rest.issues.createComment({
+                        issue_number: context.issue.number,
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        body: output
+                      })
+
+    terraform-plan-prod:
+        name: Terraform Plan (Prod)
+        if: github.base_ref == 'live'
+        runs-on: ubuntu-latest
+        environment: prod
+        defaults:
+            run:
+                working-directory: ./infra/terraform
+        permissions:
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: '1.5.7'
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: us-east-2
+
+            - name: Terraform Init
+              working-directory: ./infra/terraform/prod
+              run: terraform init
+
+            - name: Terraform Plan
+              working-directory: ./infra/terraform/prod
+              run: |
+                  # Set variable to disable profile usage in CI/CD
+                  export TF_VAR_use_profile=false
+
+                  terraform plan -no-color > plan.txt || { exit_code=$?; cat plan.txt; echo "plan<<EOF" >> $GITHUB_OUTPUT; cat plan.txt >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT; exit $exit_code; }
+                  cat plan.txt
+                  echo "plan<<EOF" >> $GITHUB_OUTPUT
+                  cat plan.txt >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+              id: plan-prod
+
+            - name: Add Prod Plan Comment
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  script: |
+                      const output = `#### Terraform Prod Plan 🧪
+                      \`\`\`terraform
+                      ${{ steps.plan-prod.outputs.plan || 'No output available' }}
+                      \`\`\`
+                      `;
+                      github.rest.issues.createComment({
+                        issue_number: context.issue.number,
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        body: output
+                      })
