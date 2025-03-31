@@ -7,7 +7,7 @@ locals {
 provider "aws" {
   alias   = "us-east-1"
   region  = "us-east-1"
-  profile = var.aws_profile
+  profile = var.use_profile ? var.aws_profile : null
 }
 
 # Create a certificate in us-east-1 for CloudFront
@@ -15,7 +15,7 @@ resource "aws_acm_certificate" "cloudfront_cert" {
   provider                  = aws.us-east-1
   domain_name               = local.frontend_domain_name
   validation_method         = "DNS"
-  
+
   lifecycle {
     create_before_destroy = true
   }
