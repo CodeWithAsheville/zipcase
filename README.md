@@ -2,17 +2,17 @@
   <img src="frontend/src/assets/ZipCaseLogo.svg" alt="ZipCase Logo" width="200"/>
 </p>
 
-Accelerating access to public court data through automated case retrieval and management.
+Accelerating access to public court data
 
 ## Overview
 
-ZipCase is a web application designed to streamline the retrieval and management of public court case information. It provides a user-friendly interface for searching case numbers across various court portals, automatically retrieving case details, and presenting the information in a consistent format.
+ZipCase is a web application and API designed to streamline the retrieval of public court case information.
 
 ### Key Features
 
 - **Automated Case Search**: Search for cases across multiple jurisdictions
-- **Multiple Case Number Formats**: Support for standard (23CR123456-789) and LexisNexis (7892025CR 714844) formats
-- **Two-Stage Processing**: Cases are first identified (found) and then data is retrieved in parallel
+- **Multiple Case Number Formats**: Support for standard (23CR123456-789) and LexisNexis (7892025CR 714844) formats can be pasted from virtually any text source
+- **Multi-Stage Processing**: Case links are quickly provided and then full case data are retrieved in the background
 - **Real-time Status Updates**: Visual indicators show search progress and results
 - **Portal Authentication**: Secure login to court portals to access case data
 - **API Access**: Developer API for programmatic access to case data
@@ -40,7 +40,7 @@ ZipCase follows a serverless architecture built on AWS:
 
 - **Frontend**: React application served via CloudFront and S3
 - **Backend**: AWS Lambda functions with API Gateway
-- **Storage**: DynamoDB for case data and user preferences
+- **Storage**: DynamoDB and S3 for case data and user preferences
 - **Authentication**: Cognito for user authentication
 - **Queuing**: SQS for asynchronous case processing
 - **Infrastructure**: Defined with Terraform and Serverless Framework
