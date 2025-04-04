@@ -1,196 +1,209 @@
 name: Manual Deploy
 
 on:
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to deploy'
-        required: true
-        default: 'main'
-        type: string
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - prod
+    workflow_dispatch:
+        inputs:
+            branch:
+                description: 'Branch to deploy'
+                required: true
+                default: 'main'
+                type: string
+            environment:
+                description: 'Environment to deploy to'
+                required: true
+                default: 'dev'
+                type: choice
+                options:
+                    - dev
+                    - prod
+            deploy_backend:
+                description: 'Deploy backend'
+                required: true
+                default: true
+                type: boolean
+            deploy_frontend:
+                description: 'Deploy frontend'
+                required: true
+                default: true
+                type: boolean
+
+env:
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    AWS_REGION: us-east-2
 
 jobs:
-  verify-ssm-parameters:
-    name: Verify SSM Parameters
-    runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
+    verify-ssm-parameters:
+        name: Verify SSM Parameters
+        runs-on: ubuntu-latest
+        environment: ${{ github.event.inputs.environment }}
+        steps:
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: us-east-2
 
-      - name: Check required SSM parameters
-        run: |
-          REQUIRED_PARAMS=(
-            "/zipcase/portal_url"
-            "/zipcase/portal_case_url"
-            "/zipcase/cognito/user_pool_id"
-            "/zipcase/cognito/app_client_id"
-            "/zipcase/admin/user_id"
-          )
-          
-          MISSING_PARAMS=0
-          
-          for param in "${REQUIRED_PARAMS[@]}"; do
-            echo "Checking SSM parameter: $param"
-            if ! aws ssm get-parameter --name "$param" --with-decryption 2>/dev/null; then
-              echo "::error::Missing required SSM parameter: $param"
-              MISSING_PARAMS=1
-            fi
-          done
-          
-          if [ $MISSING_PARAMS -ne 0 ]; then
-            echo "::error::One or more required SSM parameters are missing"
-            exit 1
-          fi
-          
-          echo "All required SSM parameters are present"
+            - name: Check required SSM parameters
+              run: |
+                  REQUIRED_PARAMS=(
+                    "/zipcase/portal_url"
+                    "/zipcase/portal_case_url"
+                    "/zipcase/cognito/user_pool_id"
+                    "/zipcase/cognito/app_client_id"
+                  )
 
-  terraform-apply:
-    name: Terraform Apply
-    runs-on: ubuntu-latest
-    needs: verify-ssm-parameters
-    environment: ${{ github.event.inputs.environment }}
-    defaults:
-      run:
-        working-directory: ./infra/terraform
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch }}
-      
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: '1.5.7'
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
-          
-      - name: Terraform Init
-        working-directory: ./infra/terraform/${{ github.event.inputs.environment }}
-        run: terraform init
-        
-      - name: Terraform Apply
-        working-directory: ./infra/terraform/${{ github.event.inputs.environment }}
-        run: |
-          # Set variable to disable profile usage in CI/CD
-          export TF_VAR_use_profile=false
+                  MISSING_PARAMS=0
 
-          terraform apply -auto-approve
+                  for param in "${REQUIRED_PARAMS[@]}"; do
+                    echo "Checking SSM parameter: $param"
+                    if ! aws ssm get-parameter --name "$param" --with-decryption 2>/dev/null; then
+                      echo "::error::Missing required SSM parameter: $param"
+                      MISSING_PARAMS=1
+                    fi
+                  done
 
-  deploy-backend:
-    name: Deploy Backend
-    runs-on: ubuntu-latest
-    needs: terraform-apply
-    environment: ${{ github.event.inputs.environment }}
-    defaults:
-      run:
-        working-directory: ./serverless
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch }}
-      
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: './serverless/package-lock.json'
-      
-      - name: Install dependencies
-        run: npm ci
-        
-      - name: Install serverless framework
-        run: npm install -g serverless
+                  if [ $MISSING_PARAMS -ne 0 ]; then
+                    echo "::error::One or more required SSM parameters are missing"
+                    exit 1
+                  fi
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
+                  echo "All required SSM parameters are present"
 
-      - name: Configure AWS profile
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile zipcase-${{ github.event.inputs.environment }}
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile zipcase-${{ github.event.inputs.environment }}
-          aws configure set region us-east-2 --profile zipcase-${{ github.event.inputs.environment }}
-          
-      - name: Deploy with serverless compose
-        env:
-          SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
-        run: serverless deploy --stage ${{ github.event.inputs.environment }}
+    terraform-apply:
+        name: Terraform Apply
+        runs-on: ubuntu-latest
+        needs: verify-ssm-parameters
+        environment: ${{ github.event.inputs.environment }}
+        defaults:
+            run:
+                working-directory: ./infra/terraform
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.inputs.branch }}
 
-  deploy-frontend:
-    name: Deploy Frontend
-    runs-on: ubuntu-latest
-    needs: deploy-backend
-    environment: ${{ github.event.inputs.environment }}
-    defaults:
-      run:
-        working-directory: ./frontend
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch }}
-      
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: './frontend/package-lock.json'
-      
-      - name: Install dependencies
-        run: npm ci
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: '1.5.7'
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: us-east-2
 
-      - name: Retrieve environment values from SSM
-        run: |
-          aws ssm get-parameter --name "/zipcase/portal_url" --with-decryption --query "Parameter.Value" --output text > .env.production
-          echo "VITE_API_URL=https://app${{ github.event.inputs.environment == 'prod' && '' || '-dev' }}.zipcase.org" >> .env.production
-          echo "VITE_PORTAL_URL=$(cat .env.production)" >> .env.production
-          aws ssm get-parameter --name "/zipcase/cognito/user_pool_id" --with-decryption --query "Parameter.Value" --output text >> .env.production
-          echo "VITE_COGNITO_USER_POOL_ID=$(tail -n 1 .env.production)" >> .env.production
-          sed -i '$ d' .env.production # remove the last line since we captured it
-          aws ssm get-parameter --name "/zipcase/cognito/app_client_id" --with-decryption --query "Parameter.Value" --output text >> .env.production
-          echo "VITE_COGNITO_CLIENT_ID=$(tail -n 1 .env.production)" >> .env.production
-          sed -i '$ d' .env.production # remove the last line since we captured it
-          aws ssm get-parameter --name "/zipcase/portal_case_url" --with-decryption --query "Parameter.Value" --output text >> .env.production || echo "/app/RegisterOfActions" >> .env.production
-          echo "VITE_PORTAL_CASE_URL=$(tail -n 1 .env.production)" >> .env.production
-          sed -i '$ d' .env.production # remove the last line since we captured it
-          
-      - name: Build frontend
-        run: npm run build
-          
-      - name: Deploy to S3
-        run: |
-          aws s3 sync dist/ s3://zipcase-frontend-${{ github.event.inputs.environment }} --delete
-          
-      - name: Invalidate CloudFront cache
-        run: |
-          DISTRIBUTION_ID=$(aws cloudformation list-exports --query "Exports[?Name=='zipcase-frontend-${{ github.event.inputs.environment }}-distribution-id'].Value" --output text)
-          aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+            - name: Terraform Init
+              working-directory: ./infra/terraform/${{ github.event.inputs.environment }}
+              run: terraform init
+
+            - name: Terraform Apply
+              working-directory: ./infra/terraform/${{ github.event.inputs.environment }}
+              run: |
+                  terraform apply -auto-approve
+
+    deploy-backend:
+        name: Deploy Backend
+        runs-on: ubuntu-latest
+        needs: terraform-apply
+        if: ${{ github.event.inputs.deploy_backend == 'true' }}
+        environment: ${{ github.event.inputs.environment }}
+        defaults:
+            run:
+                working-directory: ./serverless
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.inputs.branch }}
+
+            - name: Use Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+                  cache-dependency-path: './serverless/package-lock.json'
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Install serverless framework
+              run: npm install -g serverless
+
+            - name: Deploy with serverless compose
+              env:
+                  SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
+              run: serverless deploy --stage ${{ github.event.inputs.environment }}
+
+    deploy-frontend:
+        name: Deploy Frontend
+        runs-on: ubuntu-latest
+        needs: terraform-apply
+        if: ${{ github.event.inputs.deploy_frontend == 'true' }}
+        environment: ${{ github.event.inputs.environment }}
+        defaults:
+            run:
+                working-directory: ./frontend
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.inputs.branch }}
+
+            - name: Use Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+                  cache-dependency-path: './frontend/package-lock.json'
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: us-east-2
+
+            - name: Retrieve environment values from SSM
+              run: |
+                  # Start with a clean .env.production file
+                  echo "# ZipCase Environment Variables" > .env.production
+                  
+                  # Get Portal URL
+                  PORTAL_URL=$(aws ssm get-parameter --name "/zipcase/portal_url" --with-decryption --query "Parameter.Value" --output text)
+                  echo "VITE_PORTAL_URL=$PORTAL_URL" >> .env.production
+                  
+                  # Set API URL from environment variables
+                  echo "VITE_API_URL=${{ vars.API_BASE_URL }}" >> .env.production
+                  
+                  # Get Cognito User Pool ID
+                  USER_POOL_ID=$(aws ssm get-parameter --name "/zipcase/cognito/user_pool_id" --with-decryption --query "Parameter.Value" --output text)
+                  echo "VITE_COGNITO_USER_POOL_ID=$USER_POOL_ID" >> .env.production
+                  
+                  # Get Cognito App Client ID
+                  APP_CLIENT_ID=$(aws ssm get-parameter --name "/zipcase/cognito/app_client_id" --with-decryption --query "Parameter.Value" --output text)
+                  echo "VITE_COGNITO_CLIENT_ID=$APP_CLIENT_ID" >> .env.production
+                  
+                  # Get Portal Case URL (with fallback)
+                  PORTAL_CASE_URL=$(aws ssm get-parameter --name "/zipcase/portal_case_url" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "/app/RegisterOfActions")
+                  echo "VITE_PORTAL_CASE_URL=$PORTAL_CASE_URL" >> .env.production
+                  
+                  # Display the environment variables (with redacted values for security)
+                  echo "Environment variables set (values redacted):"
+                  grep -o "^VITE_[A-Z_]*=" .env.production
+
+            - name: Build frontend
+              run: npm run build
+
+            - name: Deploy to S3
+              run: |
+                  aws s3 sync dist/ s3://zipcase-frontend-${{ github.event.inputs.environment }} --delete
+
+            - name: Invalidate CloudFront cache
+              run: |
+                  DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Items[?contains(@, 'zipcase')]].Id" --output text)
+                  aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
