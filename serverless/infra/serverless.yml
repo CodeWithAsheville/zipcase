@@ -4,6 +4,8 @@ provider:
     name: aws
     region: us-east-2
     stage: ${opt:stage, 'dev'}
+    deploymentBucket:
+        name: zipcase-serverless-deployments-${self:provider.stage}
 
 plugins:
     - serverless-offline
