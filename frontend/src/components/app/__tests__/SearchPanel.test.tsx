@@ -15,6 +15,21 @@ vi.mock('../../../hooks', () => ({
             }
         }),
         isPending: false,
+        isLoading: false,
+        isError: false,
+        isSuccess: false,
+        isIdle: true,
+        status: 'idle',
+        data: undefined,
+        error: null,
+        reset: vi.fn(),
+        variables: '',
+        failureCount: 0,
+        failureReason: null,
+        context: undefined,
+        mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+        isPaused: false,
+        submittedAt: Date.now(),
     })),
 }));
 
@@ -150,6 +165,21 @@ describe('SearchPanel Component', () => {
         mockUseCaseSearch.mockImplementation(() => ({
             mutate: vi.fn(),
             isPending: true,
+            isLoading: true,
+            isError: false,
+            isSuccess: false,
+            isIdle: false,
+            status: 'pending',
+            data: undefined,
+            error: null,
+            reset: vi.fn(),
+            variables: '',
+            failureCount: 0,
+            failureReason: null,
+            context: undefined,
+            mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+            isPaused: false,
+            submittedAt: Date.now(),
         }));
 
         render(<SearchPanel />, { wrapper: createWrapper() });
@@ -175,6 +205,21 @@ describe('SearchPanel Component', () => {
                 }
             }),
             isPending: false,
+            isLoading: false,
+            isError: true,
+            isSuccess: false,
+            isIdle: false,
+            status: 'error',
+            data: undefined,
+            error: new Error('Search failed'),
+            reset: vi.fn(),
+            variables: '',
+            failureCount: 1,
+            failureReason: new Error('Search failed'),
+            context: undefined,
+            mutateAsync: vi.fn().mockRejectedValue(new Error('Search failed')),
+            isPaused: false,
+            submittedAt: Date.now(),
         }));
 
         render(<SearchPanel />, { wrapper: createWrapper() });

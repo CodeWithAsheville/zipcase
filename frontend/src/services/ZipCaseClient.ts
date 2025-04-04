@@ -92,9 +92,9 @@ export class ZipCaseClient {
     /**
      * Core request method that handles all API interactions
      */
-    private async request<T, D = Record<string, unknown>>(
+    private async request<T>(
         endpoint: string,
-        options: { method?: string; data?: D } = {}
+        options: { method?: string; data?: unknown } = {}
     ): Promise<ZipCaseResponse<T>> {
         const { method = 'GET', data } = options;
 
