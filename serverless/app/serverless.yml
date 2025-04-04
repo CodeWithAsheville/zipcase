@@ -93,11 +93,11 @@ stages:
 
     dev:
         params:
-            subdomain: app-dev
+            subdomain: app-api-dev
 
     prod:
         params:
-            subdomain: app
+            subdomain: app-api
 
 resources:
     Resources:

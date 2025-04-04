@@ -13,7 +13,3 @@ variable "region" {
   type        = string
 }
 
-variable "subdomain_suffix" {
-  description = "Subdomain suffix for the environment ('-dev')"
-  type        = string
-}
