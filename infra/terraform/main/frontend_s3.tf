@@ -31,22 +31,6 @@ resource "aws_s3_bucket_website_configuration" "frontend" {
   }
 }
 
-resource "aws_s3_bucket_policy" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect    = "Allow"
-        Principal = "*"
-        Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.frontend.arn}/*"
-      },
-    ]
-  })
-
-  depends_on = [aws_s3_bucket_public_access_block.frontend]
-}
 
 resource "aws_s3_bucket_cors_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
@@ -54,10 +38,9 @@ resource "aws_s3_bucket_cors_configuration" "frontend" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "HEAD"]
-    allowed_origins = [
-      # For dev: https://dev.zipcase.org, for prod: https://zipcase.org
-      "https://${var.environment == "prod" ? var.domain : "${var.environment}.${var.domain}"}"
-    ]
+    allowed_origins = concat(
+      [for domain in local.all_frontend_domains : "https://${domain}"]
+    )
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }
