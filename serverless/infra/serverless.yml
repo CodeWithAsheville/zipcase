@@ -44,7 +44,7 @@ resources:
         CaseSearchQueue:
             Type: AWS::SQS::Queue
             Properties:
-                QueueName: ${self:service}-${self:provider.stage}-case-search.fifo
+                QueueName: zipcase-case-search.fifo
                 FifoQueue: true
                 DeduplicationScope: messageGroup
                 FifoThroughputLimit: perMessageGroupId
@@ -54,7 +54,7 @@ resources:
         CaseDataQueue:
             Type: AWS::SQS::Queue
             Properties:
-                QueueName: ${self:service}-${self:provider.stage}-case-data.fifo
+                QueueName: zipcase-case-data.fifo
                 FifoQueue: true
                 DeduplicationScope: messageGroup
                 FifoThroughputLimit: perMessageGroupId
