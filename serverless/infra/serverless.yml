@@ -4,7 +4,6 @@ provider:
     name: aws
     region: us-east-2
     stage: ${opt:stage, 'dev'}
-    profile: zipcase-${self:provider.stage}
 
 plugins:
     - serverless-offline

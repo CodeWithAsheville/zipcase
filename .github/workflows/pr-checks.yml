@@ -89,9 +89,6 @@ jobs:
             - name: Terraform Plan
               working-directory: ./infra/terraform/dev
               run: |
-                  # Set variable to disable profile usage in CI/CD
-                  export TF_VAR_use_profile=false
-
                   terraform plan -no-color > plan.txt || { exit_code=$?; cat plan.txt; echo "plan<<EOF" >> $GITHUB_OUTPUT; cat plan.txt >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT; exit $exit_code; }
                   cat plan.txt
                   echo "plan<<EOF" >> $GITHUB_OUTPUT
@@ -148,9 +145,6 @@ jobs:
             - name: Terraform Plan
               working-directory: ./infra/terraform/prod
               run: |
-                  # Set variable to disable profile usage in CI/CD
-                  export TF_VAR_use_profile=false
-
                   terraform plan -no-color > plan.txt || { exit_code=$?; cat plan.txt; echo "plan<<EOF" >> $GITHUB_OUTPUT; cat plan.txt >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT; exit $exit_code; }
                   cat plan.txt
                   echo "plan<<EOF" >> $GITHUB_OUTPUT

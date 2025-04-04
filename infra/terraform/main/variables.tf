@@ -1,15 +1,3 @@
-variable "aws_profile" {
-  description = "AWS profile defined in ~/.aws/credentials"
-  type        = string
-  default     = null
-}
-
-variable "use_profile" {
-  description = "Whether to use AWS profile (local) or credentials (CI/CD)"
-  type        = bool
-  default     = true
-}
-
 variable "domain" {
   description = "Domain name for the application"
   type        = string
