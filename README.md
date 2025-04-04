@@ -1,4 +1,6 @@
-# ZipCase
+<p align="center">
+  <img src="frontend/src/assets/ZipCaseLogo.svg" alt="ZipCase Logo" width="200"/>
+</p>
 
 Accelerating access to public court data through automated case retrieval and management.
 
