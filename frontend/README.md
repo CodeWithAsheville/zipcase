@@ -73,7 +73,7 @@ This script:
 To deploy to production, create a similar `deploy:prod` script in package.json:
 
 ```json
-"deploy:prod": "npm run build && aws s3 sync dist/ s3://zipcase-frontend-prod --profile prod && aws cloudfront create-invalidation --distribution-id YOUR_PROD_DISTRIBUTION_ID --paths \"/*\" --profile prod"
+"deploy:prod": "npm run build && aws s3 sync dist/ s3://zipcase-frontend-prod && aws cloudfront create-invalidation --distribution-id YOUR_PROD_DISTRIBUTION_ID --paths \"/*\""
 ```
 
 ## Infrastructure
