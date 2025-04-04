@@ -11,9 +11,9 @@ const SearchParser = {
             '$<year>$<case_type>$<case_no>-$<county_code>'
         );
 
-        // Extract case numbers matching the format: YYCRnnnnnn-CCC with optional single letter at the end
+        // Extract case numbers matching the format: YYCRnnnnnn-CCC
         const caseNumbers = [];
-        const regex = /\d{2}[A-Za-z]{2}\d{6}-\d{3}[A-Za-z]?/g;
+        const regex = /\d{2}[A-Za-z]{2}\d{6}-\d{3}/g;
         let match;
 
         while ((match = regex.exec(normalized)) !== null) {

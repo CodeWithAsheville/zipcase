@@ -17,10 +17,12 @@ describe('SearchParser', () => {
             ).toEqual(['23CV123456-123', '21PR987654-789']);
         });
 
-        it('should handle case numbers with optional single letter at the end', () => {
-            expect(SearchParser.parseSearchInput('22CR123456-590A')).toEqual(['22CR123456-590A']);
+        it('should match case numbers within arbitrary text', () => {
+            expect(
+                SearchParser.parseSearchInput('ABCXYZ22CR123456-590123 @#%^&17IF987654-3210000!@#$')
+            ).toEqual(['22CR123456-590', '17IF987654-321']);
             expect(SearchParser.parseSearchInput('This has letter 23CV123456-123B')).toEqual([
-                '23CV123456-123B',
+                '23CV123456-123',
             ]);
         });
 
