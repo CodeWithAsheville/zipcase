@@ -72,36 +72,40 @@ ZipCase follows a serverless architecture built on AWS:
 ### Development Setup
 
 1. Clone the repository
-   ```bash
-   git clone https://github.com/yourusername/zipcase.git
-   cd zipcase
-   ```
+
+    ```bash
+    git clone https://github.com/yourusername/zipcase.git
+    cd zipcase
+    ```
 
 2. Set up the backend
-   ```bash
-   cd serverless
-   npm install
-   ```
+
+    ```bash
+    cd serverless
+    npm install
+    ```
 
 3. Set up the frontend
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
+
+    ```bash
+    cd frontend
+    npm install
+    npm run dev
+    ```
 
 4. Deploy infrastructure
-   ```bash
-   cd infra/terraform/dev
-   terraform init
-   terraform apply
-   ```
+
+    ```bash
+    cd infra/terraform/dev
+    terraform init
+    terraform apply
+    ```
 
 5. Deploy services
-   ```bash
-   cd serverless
-   serverless deploy
-   ```
+    ```bash
+    cd serverless
+    serverless deploy
+    ```
 
 For more detailed instructions, see the README files in each subdirectory.
 
