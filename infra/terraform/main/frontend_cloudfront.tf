@@ -5,9 +5,8 @@ locals {
 
 # Provider specifically for us-east-1 resources (required for CloudFront certificates)
 provider "aws" {
-  alias   = "us-east-1"
-  region  = "us-east-1"
-  profile = var.use_profile ? var.aws_profile : null
+  alias  = "us-east-1"
+  region = "us-east-1"
 }
 
 # Create a certificate in us-east-1 for CloudFront

@@ -5,7 +5,6 @@ provider:
     runtime: nodejs20.x
     region: us-east-2
     stage: ${opt:stage, 'dev'}
-    profile: zipcase-${self:provider.stage}
     memorySize: 512
     environment:
         CASE_SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseSearchQueueUrl}
