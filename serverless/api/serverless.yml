@@ -9,7 +9,6 @@ provider:
     environment:
         CASE_SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseSearchQueueUrl}
         CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
-        ADMIN_USER_ID: ${ssm:/zipcase/admin/user_id, 'admin-user-id'}
         PORTAL_URL: ${ssm:/zipcase/portal_url}
         PORTAL_CASE_URL: ${ssm:/zipcase/portal_case_url}
     iam:
