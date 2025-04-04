@@ -2,7 +2,7 @@
  * Tests for the useCaseSearch hooks
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useSearchResults, useConsolidatedPolling } from '../useCaseSearch';
@@ -24,7 +24,7 @@ const createTestQueryClient = (initialData = null) => {
     return queryClient;
 };
 
-const createWrapper = (queryClient = null) => {
+const createWrapper = (queryClient?: QueryClient) => {
     const testQueryClient = queryClient || createTestQueryClient();
     return ({ children }: { children: React.ReactNode }) => (
         <QueryClientProvider client={testQueryClient}>{children}</QueryClientProvider>
@@ -65,7 +65,8 @@ describe('useSearchResults', () => {
             searchBatches: [['case123']],
         };
 
-        const queryClient = createTestQueryClient(testData);
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(['searchResults'], testData);
         const wrapper = createWrapper(queryClient);
 
         const { result } = renderHook(() => useSearchResults(), { wrapper });

@@ -31,7 +31,7 @@ interface SearchPanelProps {
     onSearch?: (caseNumber: string) => void;
 }
 
-const SearchPanel: React.FC = ({ onSearch }: SearchPanelProps) => {
+const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch }) => {
     const [localState, localDispatch] = useReducer(reducer, initialState);
     const caseSearch = useCaseSearch();
 
