@@ -1,3 +1,29 @@
+# ZipCase Infrastructure Bootstrap
+
+To bootstrap our main Terraform with state stored in S3 and state locking in DynamoDB, we must first create the associated bucket and table.
+
+### For Development Environment
+
+```bash
+aws s3 mb s3://zipcase-tf-state-dev --region us-east-2
+
+aws dynamodb create-table --table-name terraform-state-lock \
+    --attribute-definitions AttributeName=LockID,AttributeType=S \
+    --key-schema AttributeName=LockID,KeyType=HASH \
+    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+```
+
+### For Production Environment
+
+```bash
+aws s3 mb s3://zipcase-tf-state-prod --region us-east-2
+
+aws dynamodb create-table --table-name terraform-state-lock \
+    --attribute-definitions AttributeName=LockID,AttributeType=S \
+    --key-schema AttributeName=LockID,KeyType=HASH \
+    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+```
+
 # ZipCase GitHub Actions CI/CD Bootstrap
 
 This Terraform configuration sets up the necessary AWS IAM resources for GitHub Actions CI/CD pipelines.
@@ -40,8 +66,8 @@ terraform apply -var="aws_profile=zipcase-prod"
 
 1. Follow the instructions in the output to create access keys in the AWS console
 2. Add the access keys as secrets in your GitHub repository:
-   - `AWS_ACCESS_KEY_ID_DEV` and `AWS_SECRET_ACCESS_KEY_DEV` for development
-   - `AWS_ACCESS_KEY_ID_PROD` and `AWS_SECRET_ACCESS_KEY_PROD` for production
+    - `AWS_ACCESS_KEY_ID_DEV` and `AWS_SECRET_ACCESS_KEY_DEV` for development
+    - `AWS_ACCESS_KEY_ID_PROD` and `AWS_SECRET_ACCESS_KEY_PROD` for production
 
 ## Security Note
 
