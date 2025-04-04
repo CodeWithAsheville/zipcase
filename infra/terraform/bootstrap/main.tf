@@ -10,8 +10,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = var.aws_region
-  profile = var.use_profile ? var.aws_profile : null
+  region = var.aws_region
 }
 
 # Create IAM user for GitHub Actions
@@ -34,7 +33,7 @@ resource "aws_iam_policy" "github_actions_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # S3 permissions for frontend deployment and Terraform state
+      # S3 permissions for frontend deployment, Terraform state, and Serverless state/deployment
       {
         Effect = "Allow"
         Action = [
@@ -44,8 +43,23 @@ resource "aws_iam_policy" "github_actions_policy" {
           "arn:aws:s3:::zipcase-frontend-*",
           "arn:aws:s3:::zipcase-frontend-*/*",
           "arn:aws:s3:::zipcase-tf-state-*",
-          "arn:aws:s3:::zipcase-tf-state-*/*"
+          "arn:aws:s3:::zipcase-tf-state-*/*",
+          "arn:aws:s3:::serverless-framework-state-*",
+          "arn:aws:s3:::serverless-framework-state-*/*",
+          "arn:aws:s3:::zipcase-serverless-deployments-*",
+          "arn:aws:s3:::zipcase-serverless-deployments-*/*"
         ]
+      },
+
+      # S3 bucket creation permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:CreateBucket",
+          "s3:ListAllMyBuckets",
+          "s3:HeadBucket"
+        ]
+        Resource = "*"
       },
 
       # CloudFront permissions for cache invalidation and origin access control
@@ -57,12 +71,11 @@ resource "aws_iam_policy" "github_actions_policy" {
         Resource = "*"
       },
 
-      # CloudFormation permissions to read exports
+      # CloudFormation permissions for Serverless Framework
       {
         Effect = "Allow"
         Action = [
-          "cloudformation:ListExports",
-          "cloudformation:ListStacks"
+          "cloudformation:*"
         ]
         Resource = "*"
       },
@@ -73,7 +86,23 @@ resource "aws_iam_policy" "github_actions_policy" {
         Action = [
           "ssm:*"
         ]
-        Resource = "arn:aws:ssm:${var.aws_region}:*:parameter/zipcase/*"
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:*:parameter/zipcase/*",
+          "arn:aws:ssm:us-east-1:*:parameter/zipcase/*"
+        ]
+      },
+
+      # Serverless Framework SSM permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:PutParameter"
+        ]
+        Resource = [
+          "arn:aws:ssm:us-east-1:*:parameter/serverless-framework/*",
+          "arn:aws:ssm:${var.aws_region}:*:parameter/serverless-framework/*"
+        ]
       },
 
       # Additional SSM permissions for DescribeParameters (requires * resource)
@@ -100,7 +129,12 @@ resource "aws_iam_policy" "github_actions_policy" {
         Action = [
           "lambda:*"
         ]
-        Resource = "arn:aws:lambda:${var.aws_region}:*:function:zipcase-*"
+        Resource = [
+          "arn:aws:lambda:${var.aws_region}:*:function:zipcase-*",
+          "arn:aws:lambda:${var.aws_region}:*:function:api-*",
+          "arn:aws:lambda:${var.aws_region}:*:function:app-*",
+          "arn:aws:lambda:${var.aws_region}:*:function:infra-*"
+        ]
       },
 
       # API Gateway permissions for Serverless Framework
@@ -109,14 +143,7 @@ resource "aws_iam_policy" "github_actions_policy" {
         Action = [
           "apigateway:*"
         ]
-        Resource = [
-          "arn:aws:apigateway:${var.aws_region}::/restapis",
-          "arn:aws:apigateway:${var.aws_region}::/restapis/*",
-          "arn:aws:apigateway:${var.aws_region}::/apis",
-          "arn:aws:apigateway:${var.aws_region}::/apis/*",
-          "arn:aws:apigateway:${var.aws_region}::/domainnames",
-          "arn:aws:apigateway:${var.aws_region}::/domainnames/*"
-        ]
+        Resource = "*"
       },
 
       # IAM permissions for Serverless Framework
@@ -125,7 +152,12 @@ resource "aws_iam_policy" "github_actions_policy" {
         Action = [
           "iam:*"
         ]
-        Resource = "arn:aws:iam::*:role/zipcase-*"
+        Resource = [
+          "arn:aws:iam::*:role/zipcase-*",
+          "arn:aws:iam::*:role/api-*",
+          "arn:aws:iam::*:role/app-*",
+          "arn:aws:iam::*:role/infra-*"
+        ]
       },
 
       # Additional IAM permissions for managed policies
@@ -147,7 +179,13 @@ resource "aws_iam_policy" "github_actions_policy" {
         ]
         Resource = [
           "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/zipcase-*",
-          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/zipcase-*:*"
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/zipcase-*:*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/api-*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/api-*:*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/app-*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/app-*:*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/infra-*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/infra-*:*"
         ]
       },
 
@@ -157,7 +195,10 @@ resource "aws_iam_policy" "github_actions_policy" {
         Action = [
           "sqs:*"
         ]
-        Resource = "arn:aws:sqs:${var.aws_region}:*:zipcase-*"
+        Resource = [
+          "arn:aws:sqs:${var.aws_region}:*:zipcase-*",
+          "arn:aws:sqs:${var.aws_region}:*:infra-*"
+        ]
       },
 
       # Route53 permissions (if needed for custom domains)
@@ -205,6 +246,26 @@ resource "aws_iam_policy" "github_actions_policy" {
           "cognito-idp:ListUserPoolClients"
         ]
         Resource = "*"
+      },
+
+      # KMS permissions for Serverless Framework
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:*"
+        ]
+        Resource = "*"
+      },
+
+      # Additional required permissions for Serverless Framework services
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:*",
+          "events:*",
+          "cloudformation:*"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -235,9 +296,9 @@ To complete setup:
 6. Click through the wizard to create the access key
 7. IMPORTANT: Download or copy the Access Key ID and Secret Access Key
    These will ONLY be shown once!
-8. Add these as secrets in your GitHub repository:
-   - AWS_ACCESS_KEY_ID_DEV or AWS_ACCESS_KEY_ID_PROD (depending on environment)
-   - AWS_SECRET_ACCESS_KEY_DEV or AWS_SECRET_ACCESS_KEY_PROD
+8. Add these as environment secrets in your GitHub repository:
+   - AWS_ACCESS_KEY_ID
+   - AWS_SECRET_ACCESS_KEY
 
 ===========================================================================
 EOT
