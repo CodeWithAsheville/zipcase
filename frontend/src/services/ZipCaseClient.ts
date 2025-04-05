@@ -2,6 +2,7 @@ import { fetchAuthSession } from '@aws-amplify/core';
 import { API_URL } from '../aws-exports';
 import {
     ApiKeyResponse,
+    NameSearchResponse,
     PortalCredentialsRequest,
     PortalCredentialsResponse,
     SearchResponse,
@@ -20,6 +21,10 @@ export class ZipCaseClient {
     private baseUrl: string;
 
     constructor(baseUrl: string = API_URL) {
+        if (!baseUrl) {
+            throw new Error('API_URL is required');
+        }
+
         this.baseUrl = baseUrl.endsWith('/')
             ? baseUrl.slice(0, -1) // Remove trailing slash
             : baseUrl;
@@ -74,6 +79,29 @@ export class ZipCaseClient {
             return await this.request<SearchResponse>('/search', {
                 method: 'POST',
                 data: { search: searchInput },
+            });
+        },
+
+        nameSearch: async (
+            name: string,
+            dateOfBirth?: string,
+            soundsLike = false
+        ): Promise<ZipCaseResponse<NameSearchResponse>> => {
+            return await this.request<NameSearchResponse>('/name-search', {
+                method: 'POST',
+                data: {
+                    name,
+                    dateOfBirth,
+                    soundsLike,
+                },
+            });
+        },
+
+        nameSearchStatus: async (
+            searchId: string
+        ): Promise<ZipCaseResponse<NameSearchResponse>> => {
+            return await this.request<NameSearchResponse>(`/name-search/${searchId}`, {
+                method: 'GET',
             });
         },
 
