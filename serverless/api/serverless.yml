@@ -9,7 +9,7 @@ provider:
     deploymentBucket:
         name: zipcase-serverless-deployments-${self:provider.stage}
     environment:
-        CASE_SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseSearchQueueUrl}
+        SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.SearchQueueUrl}
         CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
         PORTAL_URL: ${ssm:/zipcase/portal_url}
         PORTAL_CASE_URL: ${ssm:/zipcase/portal_case_url}
@@ -36,7 +36,7 @@ provider:
                   Action:
                       - sqs:SendMessage
                   Resource:
-                      - ${cf:infra-${self:provider.stage}.CaseSearchQueueArn}
+                      - ${cf:infra-${self:provider.stage}.SearchQueueArn}
                       - ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
     apiGateway:
         disableDefaultEndpoint: true
