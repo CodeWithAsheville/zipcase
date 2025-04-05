@@ -103,7 +103,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
         }
 
         // For numeric input, validate immediately
-        if (/^\d+$/.test(inputValue) || /^\d+[\/\-\.]\d+[\/\-\.]\d+$/.test(inputValue)) {
+        if (/^\d+$/.test(inputValue) || /^\d+[/\-.]\d+[/\-.]\d+$/.test(inputValue)) {
             validateDate(inputValue);
         } else {
             // For text input (like month names), delay validation to allow typing
@@ -125,14 +125,14 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
             } else {
                 localDispatch({ type: 'SET_FORMATTED_DATE', payload: '' });
                 // Check if input might be just month and day without year
-                const monthDayPattern = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)(\s+\d{1,2})?$|^\d{1,2}[\/\-\.]\d{1,2}$/i;
+                const monthDayPattern = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)(\s+\d{1,2})?$|^\d{1,2}[/\-.]\d{1,2}$/i;
                 if (monthDayPattern.test(inputValue.trim())) {
                     localDispatch({ type: 'SET_ERROR', payload: 'Year is required' });
                 } else {
                     localDispatch({ type: 'SET_ERROR', payload: 'Invalid date format' });
                 }
             }
-        } catch (error) {
+        } catch {
             localDispatch({ type: 'SET_FORMATTED_DATE', payload: '' });
             localDispatch({ type: 'SET_ERROR', payload: 'Invalid date format' });
         }

@@ -1,5 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useEffect } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ZipCaseClient } from '../services';
 
 const client = new ZipCaseClient();
@@ -110,8 +109,17 @@ export function useNameSearch() {
 }
 
 // Function to start polling for name search results
+// Adding type declaration for global query client
+declare global {
+    interface Window {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        __REACT_QUERY_GLOBAL_CLIENT__: any;
+    }
+}
+
 function startNameSearchPolling(searchId: string) {
-    const queryClient = useQueryClient();
+    // Use the query client directly from main component instance
+    const queryClient = window.__REACT_QUERY_GLOBAL_CLIENT__;
 
     const pollNameSearch = async () => {
         try {

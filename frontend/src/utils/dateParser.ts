@@ -102,8 +102,7 @@ export function parseDate(dateStr: string): Date | null {
         }
     }
 
-    // Try with standard date formats
-    let date: Date | null = null;
+    // No need for a date variable here as we return early when a date is found
 
     // Split the string and try to determine the format
     const separators = ['/', '-', '.', ' '];
