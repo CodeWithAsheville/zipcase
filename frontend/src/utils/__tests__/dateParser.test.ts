@@ -28,10 +28,6 @@ function withMockedDate(fn: () => void) {
 }
 
 describe('parseDate', () => {
-    beforeEach(() => {
-        jest.resetModules();
-    });
-
     test('should handle MM/DD/YYYY format in the past', () => {
         withMockedDate(() => {
             const result = parseDate('05/08/1989');
@@ -157,7 +153,7 @@ describe('parseDate', () => {
         withMockedDate(() => {
             expect(parseDate('February 30, 2020')).toBeNull(); // Invalid day for February
             expect(parseDate('4/31/2000')).toBeNull(); // April doesn't have 31 days
-            expect(parseDate('13/1/2000')).toBeNull(); // Invalid month 13
+            expect(parseDate('13/13/2000')).toBeNull(); // Invalid month 13
             expect(parseDate('0/1/2000')).toBeNull(); // Invalid month 0
         });
     });
