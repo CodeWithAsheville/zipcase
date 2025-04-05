@@ -13,8 +13,20 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'aws-amplify/auth';
 import ZipCaseLogo from '../../assets/ZipCaseLogo.svg';
 
+// Define nested navigation items for search
+const searchSubItems = [
+    { name: 'Case Search', href: '/search/case', icon: MagnifyingGlassIcon, current: false },
+    { name: 'Name Search', href: '/search/name', icon: MagnifyingGlassIcon, current: false },
+];
+
 const navigationItems = [
-    { name: 'Search', href: '/search', icon: MagnifyingGlassIcon, current: true },
+    {
+        name: 'Search',
+        href: '/search',
+        icon: MagnifyingGlassIcon,
+        current: true,
+        subItems: searchSubItems,
+    },
     { name: 'Clients', href: '/clients', icon: UsersIcon, current: false },
     { name: 'Settings', href: '/settings', icon: Cog6ToothIcon, current: false },
     { name: 'Help', href: '/help', icon: QuestionMarkCircleIcon, current: false },
@@ -39,10 +51,22 @@ const Shell: React.FC = () => {
         }
     };
 
-    const navigation = navigationItems.map(item => ({
-        ...item,
-        current: item.href === location.pathname,
-    }));
+    const navigation = navigationItems.map(item => {
+        // Process subItems if they exist
+        const subItems = item.subItems
+            ? item.subItems.map(subItem => ({
+                ...subItem,
+                current: subItem.href === location.pathname,
+            }))
+            : undefined;
+
+        return {
+            ...item,
+            current: item.href === location.pathname ||
+                     (subItems?.some(subItem => subItem.current) ?? false),
+            subItems
+        };
+    });
 
     return (
         <>
@@ -92,26 +116,67 @@ const Shell: React.FC = () => {
                                             <ul role="list" className="-mx-2 space-y-1">
                                                 {navigation.map(item => (
                                                     <li key={item.name}>
-                                                        <Link
-                                                            to={item.href}
-                                                            className={classNames(
-                                                                item.current
-                                                                    ? 'bg-gray-50 text-primary'
-                                                                    : 'text-gray-700 hover:bg-gray-50 hover:text-primary',
-                                                                'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-dark'
-                                                            )}
-                                                        >
-                                                            <item.icon
-                                                                aria-hidden="true"
+                                                        {item.subItems ? (
+                                                            <>
+                                                                <div
+                                                                    className={classNames(
+                                                                        item.current
+                                                                            ? 'text-primary'
+                                                                            : 'text-gray-700',
+                                                                        'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold'
+                                                                    )}
+                                                                >
+                                                                    <item.icon
+                                                                        aria-hidden="true"
+                                                                        className={classNames(
+                                                                            item.current
+                                                                                ? 'text-primary'
+                                                                                : 'text-gray-400',
+                                                                            'size-6 shrink-0'
+                                                                        )}
+                                                                    />
+                                                                    {item.name}
+                                                                </div>
+                                                                <ul className="mt-1 ml-8 space-y-1">
+                                                                    {item.subItems.map(subItem => (
+                                                                        <li key={subItem.name}>
+                                                                            <Link
+                                                                                to={subItem.href}
+                                                                                className={classNames(
+                                                                                    subItem.current
+                                                                                        ? 'bg-gray-50 text-primary'
+                                                                                        : 'text-gray-700 hover:bg-gray-50 hover:text-primary',
+                                                                                    'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-dark'
+                                                                                )}
+                                                                            >
+                                                                                {subItem.name}
+                                                                            </Link>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </>
+                                                        ) : (
+                                                            <Link
+                                                                to={item.href}
                                                                 className={classNames(
                                                                     item.current
-                                                                        ? 'text-primary'
-                                                                        : 'text-gray-400 group-hover:text-primary',
-                                                                    'size-6 shrink-0'
+                                                                        ? 'bg-gray-50 text-primary'
+                                                                        : 'text-gray-700 hover:bg-gray-50 hover:text-primary',
+                                                                    'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-dark'
                                                                 )}
-                                                            />
-                                                            {item.name} {item.current}
-                                                        </Link>
+                                                            >
+                                                                <item.icon
+                                                                    aria-hidden="true"
+                                                                    className={classNames(
+                                                                        item.current
+                                                                            ? 'text-primary'
+                                                                            : 'text-gray-400 group-hover:text-primary',
+                                                                        'size-6 shrink-0'
+                                                                    )}
+                                                                />
+                                                                {item.name}
+                                                            </Link>
+                                                        )}
                                                     </li>
                                                 ))}
                                             </ul>
@@ -152,26 +217,67 @@ const Shell: React.FC = () => {
                                     <ul role="list" className="-mx-2 space-y-1">
                                         {navigation.map(item => (
                                             <li key={item.name}>
-                                                <Link
-                                                    to={item.href}
-                                                    className={classNames(
-                                                        item.current
-                                                            ? 'bg-gray-50 text-primary'
-                                                            : 'text-gray-700 hover:bg-gray-50 hover:text-primary',
-                                                        'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-dark'
-                                                    )}
-                                                >
-                                                    <item.icon
-                                                        aria-hidden="true"
+                                                {item.subItems ? (
+                                                    <>
+                                                        <div
+                                                            className={classNames(
+                                                                item.current
+                                                                    ? 'text-primary'
+                                                                    : 'text-gray-700',
+                                                                'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold'
+                                                            )}
+                                                        >
+                                                            <item.icon
+                                                                aria-hidden="true"
+                                                                className={classNames(
+                                                                    item.current
+                                                                        ? 'text-primary'
+                                                                        : 'text-gray-400',
+                                                                    'size-6 shrink-0'
+                                                                )}
+                                                            />
+                                                            {item.name}
+                                                        </div>
+                                                        <ul className="mt-1 ml-8 space-y-1">
+                                                            {item.subItems.map(subItem => (
+                                                                <li key={subItem.name}>
+                                                                    <Link
+                                                                        to={subItem.href}
+                                                                        className={classNames(
+                                                                            subItem.current
+                                                                                ? 'bg-gray-50 text-primary'
+                                                                                : 'text-gray-700 hover:bg-gray-50 hover:text-primary',
+                                                                            'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-dark'
+                                                                        )}
+                                                                    >
+                                                                        {subItem.name}
+                                                                    </Link>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </>
+                                                ) : (
+                                                    <Link
+                                                        to={item.href}
                                                         className={classNames(
                                                             item.current
-                                                                ? 'text-primary'
-                                                                : 'text-gray-400 group-hover:text-primary',
-                                                            'size-6 shrink-0'
+                                                                ? 'bg-gray-50 text-primary'
+                                                                : 'text-gray-700 hover:bg-gray-50 hover:text-primary',
+                                                            'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-dark'
                                                         )}
-                                                    />
-                                                    {item.name}
-                                                </Link>
+                                                    >
+                                                        <item.icon
+                                                            aria-hidden="true"
+                                                            className={classNames(
+                                                                item.current
+                                                                    ? 'text-primary'
+                                                                    : 'text-gray-400 group-hover:text-primary',
+                                                                'size-6 shrink-0'
+                                                            )}
+                                                        />
+                                                        {item.name}
+                                                    </Link>
+                                                )}
                                             </li>
                                         ))}
                                     </ul>
