@@ -175,6 +175,24 @@ functions:
                   method: post
                   authorizer: cognitoAuth
 
+    postNameSearch:
+        handler: handlers/name-search.handler
+        memorySize: 1024
+        events:
+            - httpApi:
+                  path: /name-search
+                  method: post
+                  authorizer: cognitoAuth
+
+    getNameSearchStatus:
+        handler: handlers/name-search.statusHandler
+        memorySize: 512
+        events:
+            - httpApi:
+                  path: /name-search/{searchId}
+                  method: get
+                  authorizer: cognitoAuth
+
     getCase:
         handler: handlers/case.get
         events:

@@ -61,8 +61,9 @@ provider:
 
 package:
     patterns:
-        - 'handlers/search.ts'
         - 'handlers/case.ts'
+        - 'handlers/name-search.ts'
+        - 'handlers/search.ts'
 
 stages:
     default:
@@ -113,5 +114,22 @@ functions:
         events:
             - http:
                   path: case/{caseNumber}
+                  method: get
+                  private: true
+
+    nameSearch:
+        handler: handlers/name-search.execute
+        memorySize: 1024
+        events:
+            - http:
+                  path: name-search
+                  method: post
+                  private: true
+
+    nameSearchStatus:
+        handler: handlers/name-search.status
+        events:
+            - http:
+                  path: name-search/{searchId}
                   method: get
                   private: true
