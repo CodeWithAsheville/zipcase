@@ -32,6 +32,31 @@ const QueueClient = {
         }
     },
 
+    async queueNameSearchForProcessing(searchId: string, userId: string, name: string, dateOfBirth?: string, soundsLike: boolean = false): Promise<void> {
+        const params = {
+            QueueUrl: process.env.SEARCH_QUEUE_URL!,
+            MessageBody: JSON.stringify({
+                searchType: 'name',
+                searchId,
+                name,
+                dateOfBirth,
+                soundsLike,
+                userId,
+                timestamp: Date.now(),
+            }),
+            MessageGroupId: userId, // Group by userId to process requests serially per user
+            MessageDeduplicationId: searchId, // Use existing searchId for deduplication
+        };
+
+        try {
+            const command = new SendMessageCommand(params);
+            await sqsClient.send(command);
+        } catch (error) {
+            console.error('Error queuing name search for processing:', error);
+            throw error;
+        }
+    },
+
     // Queue a case for data retrieval (after caseId is found)
     async queueCaseForDataRetrieval(
         caseNumber: string,
@@ -80,6 +105,7 @@ const QueueClient = {
                 return {
                     Id: `${index}`, // Unique ID within the batch request
                     MessageBody: JSON.stringify({
+                        searchType: 'case',
                         caseNumber,
                         userId,
                         timestamp,
