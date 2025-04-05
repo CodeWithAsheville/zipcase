@@ -9,7 +9,7 @@ provider:
     deploymentBucket:
         name: zipcase-serverless-deployments-${self:provider.stage}
     environment:
-        CASE_SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseSearchQueueUrl}
+        SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.SearchQueueUrl}
         CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
         KMS_KEY_ID: ${cf:infra-${self:provider.stage}.ZipCaseEncryptionKeyId, 'key-not-set'}
         ZIPCASE_DATA_TABLE: ${cf:infra-${self:provider.stage}.ZipCaseDataTableName, 'zipcase-data-${self:provider.stage}'}
@@ -42,7 +42,7 @@ provider:
                       - sqs:DeleteMessage
                       - sqs:GetQueueAttributes
                   Resource:
-                      - ${cf:infra-${self:provider.stage}.CaseSearchQueueArn}
+                      - ${cf:infra-${self:provider.stage}.SearchQueueArn}
                       - ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
 
                 - Effect: Allow
@@ -188,7 +188,7 @@ functions:
         timeout: 12
         events:
             - sqs:
-                  arn: ${cf:infra-${self:provider.stage}.CaseSearchQueueArn}
+                  arn: ${cf:infra-${self:provider.stage}.SearchQueueArn}
                   batchSize: 1
 
     processCaseData:

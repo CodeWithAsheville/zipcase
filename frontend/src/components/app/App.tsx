@@ -138,9 +138,11 @@ const App: React.FC = () => {
                     <AppContextProvider>
                         <BrowserRouter>
                             <Routes>
-                                <Route path="/" element={<Navigate to="/search" />} />
+                                <Route path="/" element={<Navigate to="/search/case" />} />
                                 <Route element={<Shell />}>
-                                    <Route path="/search" element={<Search />} />
+                                    <Route path="/search" element={<Navigate to="/search/case" />} />
+                                    <Route path="/search/case" element={<Search type="case" />} />
+                                    <Route path="/search/name" element={<Search type="name" />} />
                                     <Route path="/clients" element={<Clients />} />
                                     <Route path="/settings" element={<Settings />} />
                                     <Route path="/help" element={<Help />} />

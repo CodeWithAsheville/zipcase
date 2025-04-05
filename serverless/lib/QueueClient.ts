@@ -12,8 +12,9 @@ const QueueClient = {
     async queueCaseForSearch(caseNumber: string, userId: string): Promise<void> {
         const normalizedCaseNumber = caseNumber.toUpperCase();
         const params = {
-            QueueUrl: process.env.CASE_SEARCH_QUEUE_URL!,
+            QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
+                searchType: 'case',
                 caseNumber,
                 userId,
                 timestamp: Date.now(),
@@ -27,6 +28,31 @@ const QueueClient = {
             await sqsClient.send(command);
         } catch (error) {
             console.error('Error queuing case for search:', error);
+            throw error;
+        }
+    },
+
+    async queueNameSearchForProcessing(searchId: string, userId: string, name: string, dateOfBirth?: string, soundsLike: boolean = false): Promise<void> {
+        const params = {
+            QueueUrl: process.env.SEARCH_QUEUE_URL!,
+            MessageBody: JSON.stringify({
+                searchType: 'name',
+                searchId,
+                name,
+                dateOfBirth,
+                soundsLike,
+                userId,
+                timestamp: Date.now(),
+            }),
+            MessageGroupId: userId, // Group by userId to process requests serially per user
+            MessageDeduplicationId: searchId, // Use existing searchId for deduplication
+        };
+
+        try {
+            const command = new SendMessageCommand(params);
+            await sqsClient.send(command);
+        } catch (error) {
+            console.error('Error queuing name search for processing:', error);
             throw error;
         }
     },
@@ -65,7 +91,6 @@ const QueueClient = {
             return;
         }
 
-        const queueUrl = process.env.CASE_SEARCH_QUEUE_URL!;
         const timestamp = Date.now();
 
         // SQS batch operations are limited to 10 messages per request
@@ -80,6 +105,7 @@ const QueueClient = {
                 return {
                     Id: `${index}`, // Unique ID within the batch request
                     MessageBody: JSON.stringify({
+                        searchType: 'case',
                         caseNumber,
                         userId,
                         timestamp,
@@ -91,7 +117,7 @@ const QueueClient = {
 
             try {
                 const command = new SendMessageBatchCommand({
-                    QueueUrl: queueUrl,
+                    QueueUrl: process.env.SEARCH_QUEUE_URL!,
                     Entries: entries,
                 });
 
@@ -112,7 +138,7 @@ const QueueClient = {
     async deleteMessage(receiptHandle: string, queueType: 'search' | 'data'): Promise<void> {
         const queueUrl =
             queueType === 'search'
-                ? process.env.CASE_SEARCH_QUEUE_URL!
+                ? process.env.SEARCH_QUEUE_URL!
                 : process.env.CASE_DATA_QUEUE_URL!;
 
         try {

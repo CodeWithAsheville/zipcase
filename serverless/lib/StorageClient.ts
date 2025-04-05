@@ -7,6 +7,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
 import { CaseSummary, SearchResult, ZipCase } from '../../shared/types';
+import { NameSearchData } from '../../shared/types/Search';
 
 export interface DynamoCompositeKey {
     PK: string;
@@ -29,6 +30,13 @@ export const Key = {
         return {
             ID: { PK, SK: 'ID' },
             SUMMARY: { PK, SK: 'SUMMARY' },
+        };
+    },
+
+    NameSearch: (searchId: string) => {
+        const PK = `NAMESEARCH#${searchId}`;
+        return {
+            ID: { PK, SK: 'ID' },
         };
     },
 };
@@ -352,6 +360,38 @@ const StorageClient = {
 
     async saveCase(zipCase: ZipCase): Promise<void> {
         await save(Key.Case(zipCase.caseNumber).ID, zipCase);
+    },
+
+    async saveNameSearch(
+        searchId: string,
+        nameSearchData: NameSearchData,
+        expiresAt?: number
+    ): Promise<void> {
+        await save(Key.NameSearch(searchId).ID, {
+            ...nameSearchData,
+            ...(expiresAt ? { ttl: expiresAt } : {}),
+        });
+    },
+
+    async getNameSearch(searchId: string): Promise<NameSearchData | null> {
+        const result = await get(Key.NameSearch(searchId).ID);
+        return result ? removeKeysToCreate<NameSearchData>(result) : null;
+    },
+
+    async updateNameSearchCases(searchId: string, caseNumbers: string[]): Promise<void> {
+        const existingSearch = await this.getNameSearch(searchId);
+
+        if (!existingSearch) {
+            throw new Error(`Name search with ID ${searchId} not found`);
+        }
+
+        // Merge with existing case numbers, removing duplicates
+        const allCases = Array.from(new Set([...existingSearch.cases, ...caseNumbers]));
+
+        await this.saveNameSearch(searchId, {
+            ...existingSearch,
+            cases: allCases,
+        });
     },
 
     async getSearchResults(caseNumbers: string[]): Promise<Record<string, SearchResult>> {
