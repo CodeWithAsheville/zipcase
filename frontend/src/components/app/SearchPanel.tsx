@@ -75,8 +75,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch }) => {
     return (
         <>
             <div className="px-4 sm:px-6 lg:px-8">
-                <div className="max-w-4xl mx-auto bg-gray-100 shadow-sm sm:rounded-lg">
-                    <div className="px-4 sm:p-6">
+                <div className="max-w-4xl mx-auto bg-gray-100 shadow-sm rounded-lg">
+                    <div className="px-4 py-5 sm:p-6">
                         <h3 className="text-base font-semibold text-gray-900">Case Search</h3>
                         <div className="mt-2 text-sm text-gray-500">
                             <p>
