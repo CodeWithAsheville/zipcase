@@ -12,8 +12,9 @@ const QueueClient = {
     async queueCaseForSearch(caseNumber: string, userId: string): Promise<void> {
         const normalizedCaseNumber = caseNumber.toUpperCase();
         const params = {
-            QueueUrl: process.env.CASE_SEARCH_QUEUE_URL!,
+            QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
+                searchType: 'case',
                 caseNumber,
                 userId,
                 timestamp: Date.now(),
@@ -65,7 +66,6 @@ const QueueClient = {
             return;
         }
 
-        const queueUrl = process.env.CASE_SEARCH_QUEUE_URL!;
         const timestamp = Date.now();
 
         // SQS batch operations are limited to 10 messages per request
@@ -91,7 +91,7 @@ const QueueClient = {
 
             try {
                 const command = new SendMessageBatchCommand({
-                    QueueUrl: queueUrl,
+                    QueueUrl: process.env.SEARCH_QUEUE_URL!,
                     Entries: entries,
                 });
 
@@ -112,7 +112,7 @@ const QueueClient = {
     async deleteMessage(receiptHandle: string, queueType: 'search' | 'data'): Promise<void> {
         const queueUrl =
             queueType === 'search'
-                ? process.env.CASE_SEARCH_QUEUE_URL!
+                ? process.env.SEARCH_QUEUE_URL!
                 : process.env.CASE_DATA_QUEUE_URL!;
 
         try {
