@@ -39,11 +39,16 @@ export async function processSearchRequest(req: SearchRequest): Promise<SearchRe
                             `Case ${caseNumber} has 'found' status with caseId, queueing for data retrieval`
                         );
                         try {
-                            await QueueClient.queueCaseForDataRetrieval(
-                                caseNumber,
-                                results[caseNumber].zipCase.caseId,
-                                req.userId
-                            );
+                            const caseId = results[caseNumber].zipCase.caseId;
+                            if (caseId) {
+                                await QueueClient.queueCaseForDataRetrieval(
+                                    caseNumber,
+                                    caseId,
+                                    req.userId
+                                );
+                            } else {
+                                console.error(`Case ${caseNumber} has 'found' status but missing caseId`);
+                            }
                         } catch (error) {
                             console.error(
                                 `Error queueing case ${caseNumber} for data retrieval:`,
