@@ -1,10 +1,19 @@
 import React from 'react';
 import { SearchPanel, SearchResultsList } from '../components';
+import NameSearchPanel from '../components/app/NameSearchPanel';
 
-const Search: React.FC = () => {
+interface SearchProps {
+    type?: 'case' | 'name';
+}
+
+const Search: React.FC<SearchProps> = ({ type = 'case' }) => {
     return (
         <>
-            <SearchPanel />
+            {type === 'case' ? (
+                <SearchPanel />
+            ) : (
+                <NameSearchPanel />
+            )}
             <SearchResultsList />
         </>
     );
