@@ -8,7 +8,8 @@
     "strict": true,
     "skipLibCheck": true,
     "sourceMap": true,
-    "outDir": ".build"
+    "outDir": ".build",
+    "typeRoots": ["./node_modules/@types", "./types"]
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]
