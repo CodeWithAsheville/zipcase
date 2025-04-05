@@ -150,9 +150,14 @@ export function parseDate(dateStr: string): Date | null {
                 const second = parseInt(parts[1], 10);
                 const third = parseInt(parts[2], 10);
 
-                // Determine if the first part is day or month
-                if (first > 12) {
-                    // First part must be day
+                // Check for invalid month values first
+                if (first === 0 || first > 12) {
+                    // If interpreting first part as month, it's invalid
+                    if (second === 0 || second > 12) {
+                        // Both parts would be invalid as months
+                        return null;
+                    }
+                    // First part must be day, second part must be month
                     day = first;
                     month = second - 1;
                 } else if (second > 12) {
@@ -163,6 +168,11 @@ export function parseDate(dateStr: string): Date | null {
                     // Ambiguous case, default to month first (American format)
                     month = first - 1;
                     day = second;
+                }
+
+                // Double-check month range
+                if (month < 0 || month > 11) {
+                    return null;
                 }
 
                 year = third;
