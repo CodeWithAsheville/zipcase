@@ -39,7 +39,7 @@ jest.mock('@aws-sdk/client-sqs', () => {
 });
 
 // Set environment variables for testing
-process.env.CASE_SEARCH_QUEUE_URL = 'https://sqs.example.com/search-queue';
+process.env.SEARCH_QUEUE_URL = 'https://sqs.example.com/search-queue';
 process.env.CASE_DATA_QUEUE_URL = 'https://sqs.example.com/data-queue';
 
 describe('QueueClient', () => {

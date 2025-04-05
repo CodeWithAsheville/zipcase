@@ -41,10 +41,10 @@ resources:
                     AttributeName: expiresAt
                     Enabled: true
 
-        CaseSearchQueue:
+        SearchQueue:
             Type: AWS::SQS::Queue
             Properties:
-                QueueName: zipcase-case-search.fifo
+                QueueName: zipcase-search.fifo
                 FifoQueue: true
                 DeduplicationScope: messageGroup
                 FifoThroughputLimit: perMessageGroupId
@@ -96,15 +96,15 @@ resources:
                 Value: !GetAtt ZipCaseEncryptionKey.Arn
 
     Outputs:
-        CaseSearchQueueUrl:
-            Value: !Ref CaseSearchQueue
+        SearchQueueUrl:
+            Value: !Ref SearchQueue
             Export:
-                Name: ${self:service}-${self:provider.stage}-CaseSearchQueueUrl
+                Name: ${self:service}-${self:provider.stage}-SearchQueueUrl
 
-        CaseSearchQueueArn:
-            Value: !GetAtt CaseSearchQueue.Arn
+        SearchQueueArn:
+            Value: !GetAtt SearchQueue.Arn
             Export:
-                Name: ${self:service}-${self:provider.stage}-CaseSearchQueueArn
+                Name: ${self:service}-${self:provider.stage}-SearchQueueArn
 
         CaseDataQueueUrl:
             Value: !Ref CaseDataQueue
