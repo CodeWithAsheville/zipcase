@@ -89,14 +89,26 @@ jobs:
             - name: Terraform Plan
               working-directory: ./infra/terraform/dev
               run: |
-                  terraform plan -no-color > plan.txt || { exit_code=$?; cat plan.txt; echo "plan<<EOF" >> $GITHUB_OUTPUT; cat plan.txt >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT; exit $exit_code; }
-                  cat plan.txt
-                  echo "plan<<EOF" >> $GITHUB_OUTPUT
-                  cat plan.txt >> $GITHUB_OUTPUT
-                  echo "EOF" >> $GITHUB_OUTPUT
+                  terraform plan -no-color > plan_full.txt || { exit_code=$?; cat plan_full.txt; echo "plan<<EOF" >> $GITHUB_OUTPUT; cat plan_full.txt >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT; echo "has_changes=true" >> $GITHUB_OUTPUT; exit $exit_code; }
+                  cat plan_full.txt
+
+                  # Check if there are any changes planned
+                  if grep -q "No changes" plan_full.txt; then
+                    echo "has_changes=false" >> $GITHUB_OUTPUT
+                  else
+                    echo "has_changes=true" >> $GITHUB_OUTPUT
+
+                    # Extract only the meaningful plan output (skipping "Refreshing state..." lines)
+                    grep -v "Refreshing state" plan_full.txt > plan_changes.txt
+
+                    echo "plan<<EOF" >> $GITHUB_OUTPUT
+                    cat plan_changes.txt >> $GITHUB_OUTPUT
+                    echo "EOF" >> $GITHUB_OUTPUT
+                  fi
               id: plan-dev
 
             - name: Add Dev Plan Comment
+              if: steps.plan-dev.outputs.has_changes == 'true'
               uses: actions/github-script@v7
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -145,14 +157,26 @@ jobs:
             - name: Terraform Plan
               working-directory: ./infra/terraform/prod
               run: |
-                  terraform plan -no-color > plan.txt || { exit_code=$?; cat plan.txt; echo "plan<<EOF" >> $GITHUB_OUTPUT; cat plan.txt >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT; exit $exit_code; }
-                  cat plan.txt
-                  echo "plan<<EOF" >> $GITHUB_OUTPUT
-                  cat plan.txt >> $GITHUB_OUTPUT
-                  echo "EOF" >> $GITHUB_OUTPUT
+                  terraform plan -no-color > plan_full.txt || { exit_code=$?; cat plan_full.txt; echo "plan<<EOF" >> $GITHUB_OUTPUT; cat plan_full.txt >> $GITHUB_OUTPUT; echo "EOF" >> $GITHUB_OUTPUT; echo "has_changes=true" >> $GITHUB_OUTPUT; exit $exit_code; }
+                  cat plan_full.txt
+
+                  # Check if there are any changes planned
+                  if grep -q "No changes" plan_full.txt; then
+                    echo "has_changes=false" >> $GITHUB_OUTPUT
+                  else
+                    echo "has_changes=true" >> $GITHUB_OUTPUT
+
+                    # Extract only the meaningful plan output (skipping "Refreshing state..." lines)
+                    grep -v "Refreshing state" plan_full.txt > plan_changes.txt
+
+                    echo "plan<<EOF" >> $GITHUB_OUTPUT
+                    cat plan_changes.txt >> $GITHUB_OUTPUT
+                    echo "EOF" >> $GITHUB_OUTPUT
+                  fi
               id: plan-prod
 
             - name: Add Prod Plan Comment
+              if: steps.plan-prod.outputs.has_changes == 'true'
               uses: actions/github-script@v7
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
