@@ -77,6 +77,27 @@ export class ZipCaseClient {
             });
         },
 
+        nameSearch: async (
+            name: string,
+            dateOfBirth?: string,
+            soundsLike = false
+        ): Promise<ZipCaseResponse<NameSearchResponse>> => {
+            return await this.request<NameSearchResponse>('/name-search', {
+                method: 'POST',
+                data: {
+                    name,
+                    dateOfBirth,
+                    soundsLike
+                },
+            });
+        },
+
+        nameSearchStatus: async (searchId: string): Promise<ZipCaseResponse<NameSearchResponse>> => {
+            return await this.request<NameSearchResponse>(`/name-search/${searchId}`, {
+                method: 'GET',
+            });
+        },
+
         status: async (caseNumbers: string[]): Promise<ZipCaseResponse<SearchResponse>> => {
             return await this.request<SearchResponse>('/status', {
                 method: 'POST',
