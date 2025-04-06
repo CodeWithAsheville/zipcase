@@ -23,7 +23,8 @@ const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback)
             const { caseNumber, userId, userAgent } = messageBody;
 
             if (!caseNumber || !userId) {
-                await caseSearchLogger.error('Invalid message format, missing required fields',
+                await caseSearchLogger.error(
+                    'Invalid message format, missing required fields',
                     undefined,
                     { caseNumber, userId, messageId: record.messageId }
                 );
@@ -33,11 +34,9 @@ const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback)
             console.log(`Searching for case ${caseNumber} for user ${userId}`);
             await processCaseSearchRecord(caseNumber, userId, record.receiptHandle, userAgent);
         } catch (error) {
-            await caseSearchLogger.error(
-                'Failed to process case search record',
-                error as Error,
-                { messageId: record.messageId }
-            );
+            await caseSearchLogger.error('Failed to process case search record', error as Error, {
+                messageId: record.messageId,
+            });
         }
     }
 };
@@ -55,7 +54,8 @@ const processCaseData: SQSHandler = async (event: SQSEvent, context, callback) =
             const { caseNumber, caseId, userId } = messageBody;
 
             if (!caseNumber || !caseId || !userId) {
-                await caseDataLogger.error('Invalid message format, missing required fields',
+                await caseDataLogger.error(
+                    'Invalid message format, missing required fields',
                     undefined,
                     { caseNumber, caseId, userId, messageId: record.messageId }
                 );
@@ -65,11 +65,9 @@ const processCaseData: SQSHandler = async (event: SQSEvent, context, callback) =
             console.log(`Fetching data for case ${caseNumber} (ID: ${caseId}) for user ${userId}`);
             await processCaseDataRecord(caseNumber, caseId, userId, record.receiptHandle);
         } catch (error) {
-            await caseDataLogger.error(
-                'Failed to process case data record',
-                error as Error,
-                { messageId: record.messageId }
-            );
+            await caseDataLogger.error('Failed to process case data record', error as Error, {
+                messageId: record.messageId,
+            });
         }
     }
 };
@@ -146,7 +144,7 @@ async function processCaseSearchRecord(
                 {
                     userId,
                     caseNumber,
-                    message
+                    message,
                 }
             );
 
@@ -183,7 +181,7 @@ async function processCaseSearchRecord(
                     {
                         userId,
                         caseNumber,
-                        resource: 'case-search'
+                        resource: 'case-search',
                     }
                 );
 
@@ -404,7 +402,7 @@ async function fetchCaseIdFromPortal(
                 {
                     caseNumber,
                     statusCode: searchResponse.status,
-                    resource: 'portal-search'
+                    resource: 'portal-search',
                 }
             );
 
@@ -433,7 +431,7 @@ async function fetchCaseIdFromPortal(
                 {
                     caseNumber,
                     statusCode: resultsResponse.status,
-                    resource: 'portal-search-results'
+                    resource: 'portal-search-results',
                 }
             );
 
@@ -460,7 +458,7 @@ async function fetchCaseIdFromPortal(
                 new Error(errorMessage),
                 {
                     caseNumber,
-                    resource: 'smart-search'
+                    resource: 'smart-search',
                 }
             );
 
@@ -504,7 +502,7 @@ async function fetchCaseIdFromPortal(
                 new Error(errorMessage),
                 {
                     caseNumber,
-                    resource: 'case-search-results'
+                    resource: 'case-search-results',
                 }
             );
             return {
@@ -528,7 +526,7 @@ async function fetchCaseIdFromPortal(
             error as Error,
             {
                 caseNumber,
-                resource: 'case-id-fetch'
+                resource: 'case-id-fetch',
             }
         );
 
@@ -588,7 +586,7 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
                 {
                     caseId,
                     statusCode: summaryResponse.status,
-                    resource: 'case-summary'
+                    resource: 'case-summary',
                 }
             );
 
@@ -616,7 +614,7 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
             error as Error,
             {
                 caseId,
-                resource: 'case-summary'
+                resource: 'case-summary',
             }
         );
         return null;

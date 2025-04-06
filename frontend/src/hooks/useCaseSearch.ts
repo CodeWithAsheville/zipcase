@@ -203,7 +203,6 @@ export function useConsolidatedPolling() {
 
         // Check if there are any non-terminal cases left
         const nonTerminalCases = getNonTerminalCaseNumbers();
-
         if (nonTerminalCases.length === 0) {
             pollingRef.current.active = false;
             return;
