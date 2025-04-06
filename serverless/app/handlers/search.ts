@@ -21,7 +21,14 @@ export const handler: APIGatewayProxyHandler = async event => {
             };
         }
 
-        const result = await processSearchRequest({ input: body.search, userId });
+        // Get the user agent from the request headers
+        const userAgent = event.headers['User-Agent'] || event.headers['user-agent'];
+
+        const result = await processSearchRequest({
+            input: body.search,
+            userId,
+            userAgent
+        });
 
         return {
             statusCode: 202, // Accepted

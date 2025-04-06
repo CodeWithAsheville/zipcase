@@ -9,7 +9,7 @@ const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'us-east-2' 
 
 const QueueClient = {
     // Queue a case for the search process (finding caseId)
-    async queueCaseForSearch(caseNumber: string, userId: string): Promise<void> {
+    async queueCaseForSearch(caseNumber: string, userId: string, userAgent?: string): Promise<void> {
         const normalizedCaseNumber = caseNumber.toUpperCase();
         const params = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
@@ -17,6 +17,7 @@ const QueueClient = {
                 searchType: 'case',
                 caseNumber,
                 userId,
+                userAgent,
                 timestamp: Date.now(),
             }),
             MessageGroupId: userId, // Group by userId to process requests serially per user
@@ -32,7 +33,7 @@ const QueueClient = {
         }
     },
 
-    async queueNameSearchForProcessing(searchId: string, userId: string, name: string, dateOfBirth?: string, soundsLike: boolean = false): Promise<void> {
+    async queueNameSearchForProcessing(searchId: string, userId: string, name: string, dateOfBirth?: string, soundsLike: boolean = false, userAgent?: string): Promise<void> {
         const params = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
@@ -42,6 +43,7 @@ const QueueClient = {
                 dateOfBirth,
                 soundsLike,
                 userId,
+                userAgent,
                 timestamp: Date.now(),
             }),
             MessageGroupId: userId, // Group by userId to process requests serially per user
@@ -86,7 +88,7 @@ const QueueClient = {
         }
     },
 
-    async queueCasesForSearch(cases: string[], userId: string): Promise<void> {
+    async queueCasesForSearch(cases: string[], userId: string, userAgent?: string): Promise<void> {
         if (!cases || cases.length === 0) {
             return;
         }
@@ -108,6 +110,7 @@ const QueueClient = {
                         searchType: 'case',
                         caseNumber,
                         userId,
+                        userAgent,
                         timestamp,
                     }),
                     MessageGroupId: userId, // Group by userId to process requests serially per user

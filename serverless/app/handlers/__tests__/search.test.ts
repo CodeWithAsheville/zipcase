@@ -20,6 +20,9 @@ describe('Search Handler', () => {
     ): Partial<APIGatewayProxyEvent> => {
         return {
             body: JSON.stringify(body),
+            headers: {
+                'User-Agent': 'Jest Test Environment'
+            },
             requestContext: {
                 authorizer: {
                     jwt: {
@@ -91,6 +94,7 @@ describe('Search Handler', () => {
         expect(processSearchRequest).toHaveBeenCalledWith({
             input: searchQuery,
             userId: 'test-user-id',
+            userAgent: expect.any(String)
         });
         expect(response.statusCode).toBe(202);
         expect(JSON.parse(response.body)).toEqual(mockResults);

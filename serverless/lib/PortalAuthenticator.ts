@@ -13,20 +13,23 @@ import * as cheerio from 'cheerio';
 import { CookieJar } from 'tough-cookie';
 import { wrapper } from 'axios-cookiejar-support';
 import StorageClient from './StorageClient';
+import UserAgentClient from './UserAgentClient';
 
 const DEFAULT_TIMEOUT = 20000;
 
 // Configure axios-cookiejar-support with better defaults
 const axiosWithCookies = wrapper(axios);
 
-const USER_AGENT =
+const DEFAULT_USER_AGENT =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
 
-const defaultRequestHeaders = {
-    'User-Agent': USER_AGENT,
-    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-};
+export function getDefaultRequestHeaders(userAgent?: string): Record<string, string> {
+    return {
+        'User-Agent': userAgent || DEFAULT_USER_AGENT,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+    };
+}
 
 export interface PortalAuthResult {
     success: boolean;
@@ -37,6 +40,7 @@ export interface PortalAuthResult {
 export interface PortalAuthOptions {
     timeout?: number;
     debug?: boolean;
+    userAgent?: string;
 }
 
 function extractVerificationToken(html: string): string | null {
@@ -76,6 +80,8 @@ function extractWsFedToken(html: string): string | null {
 }
 
 const PortalAuthenticator = {
+    getDefaultRequestHeaders,
+
     async authenticateWithPortal(
         username: string,
         password: string,
@@ -102,7 +108,7 @@ const PortalAuthenticator = {
             validateStatus: status => status < 500, // Only reject on 5xx errors
             jar,
             withCredentials: true, // Enables sending cookies with cross-domain requests
-            headers: defaultRequestHeaders,
+            headers: getDefaultRequestHeaders(options.userAgent),
         });
 
         try {
@@ -157,7 +163,7 @@ const PortalAuthenticator = {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     Origin: new URL(loginUrl).origin,
                     Referer: loginUrl,
-                    'User-Agent': USER_AGENT,
+                    'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
                 },
             });
 
@@ -223,7 +229,7 @@ const PortalAuthenticator = {
                         'Content-Type': 'application/x-www-form-urlencoded',
                         Origin: portalBaseUrl,
                         Referer: loginSubmitResponse.request?.res?.responseUrl || loginUrl,
-                        'User-Agent': USER_AGENT,
+                        'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
                     },
                     maxRedirects: 10,
                 }
@@ -326,7 +332,7 @@ const PortalAuthenticator = {
                 validateStatus: status => status < 500,
                 jar: cookieJar,
                 withCredentials: true,
-                headers: defaultRequestHeaders,
+                headers: getDefaultRequestHeaders(options.userAgent),
             });
 
             // Build a manual cookie string to ensure all cookies are properly sent
@@ -343,7 +349,7 @@ const PortalAuthenticator = {
             const response = await client.get(portalBaseUrl + '/Portal', {
                 headers: {
                     Cookie: cookieHeader,
-                    'User-Agent': USER_AGENT,
+                    'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
                 },
             });
 
@@ -380,7 +386,7 @@ const PortalAuthenticator = {
         }
     },
 
-    async getOrCreateUserSession(userId: string): Promise<PortalAuthResult> {
+    async getOrCreateUserSession(userId: string, userAgent?: string): Promise<PortalAuthResult> {
         const sessionCookieJar = await StorageClient.getUserSession(userId);
 
         if (sessionCookieJar) {
@@ -404,9 +410,13 @@ const PortalAuthenticator = {
             };
         }
 
+        // Get user agent using the tiered strategy
+        const resolvedUserAgent = await UserAgentClient.getUserAgent(userId, userAgent);
+
         return await this.authenticateWithPortal(
             portalCredentials.username,
-            portalCredentials.password
+            portalCredentials.password,
+            { userAgent: resolvedUserAgent }
         );
     },
 };

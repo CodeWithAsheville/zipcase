@@ -76,7 +76,7 @@ describe('SearchProcessor', () => {
                 fetchStatus: { status: 'queued' },
             });
 
-            expect(QueueClient.queueCasesForSearch).toHaveBeenCalledWith([caseNumber], req.userId);
+            expect(QueueClient.queueCasesForSearch).toHaveBeenCalledWith([caseNumber], req.userId, req.userAgent);
 
             expect(result.results).toHaveProperty(caseNumber);
             expect(result.results[caseNumber].zipCase.fetchStatus.status).toBe('queued');
@@ -158,14 +158,15 @@ describe('SearchProcessor', () => {
             // Should try to authenticate with the portal
             expect(PortalAuthenticator.authenticateWithPortal).toHaveBeenCalledWith(
                 'test@example.com',
-                'password123'
+                'password123',
+                expect.objectContaining({})
             );
 
             // Should save the session
             expect(StorageClient.saveUserSession).toHaveBeenCalled();
 
             // Should queue cases after authentication
-            expect(QueueClient.queueCasesForSearch).toHaveBeenCalledWith([caseNumber], req.userId);
+            expect(QueueClient.queueCasesForSearch).toHaveBeenCalledWith([caseNumber], req.userId, req.userAgent);
 
             // Result should include the case with queued status
             expect(result.results).toHaveProperty(caseNumber);
@@ -263,7 +264,8 @@ describe('SearchProcessor', () => {
             // Should only queue unique case numbers
             expect(QueueClient.queueCasesForSearch).toHaveBeenCalledWith(
                 ['22CR123456-789', '23CV654321-456'],
-                req.userId
+                req.userId,
+                req.userAgent
             );
         });
     });
