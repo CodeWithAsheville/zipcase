@@ -5,17 +5,13 @@
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "lint-staged": "lint-staged"
+        "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
     },
     "keywords": [],
     "author": "Code with Asheville",
     "license": "MIT",
     "devDependencies": {
         "@testing-library/jest-dom": "^6.6.3",
-        "lint-staged": "^15.5.0",
         "prettier": "^3.5.3"
-    },
-    "lint-staged": {
-        "*.{js,jsx,ts,tsx,json,md}": "prettier --write"
     }
 }
