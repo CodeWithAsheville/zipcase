@@ -136,7 +136,7 @@ describe('case handler', () => {
             }
         });
 
-        it.skip('should authenticate with portal credentials if no active session', async () => {
+        it('should authenticate with portal credentials if no active session', async () => {
             // No existing search result
             const mockGetSearchResult = StorageClient.getSearchResult as jest.Mock;
             mockGetSearchResult.mockResolvedValue(null);
@@ -197,7 +197,7 @@ describe('case handler', () => {
             }
         });
 
-        it.skip('should return 401 if portal authentication fails', async () => {
+        it('should return 401 if portal authentication fails', async () => {
             // No existing search result
             const mockGetSearchResult = StorageClient.getSearchResult as jest.Mock;
             mockGetSearchResult.mockResolvedValue(null);
@@ -230,12 +230,15 @@ describe('case handler', () => {
                 expect(response.statusCode).toBe(401);
                 const responseBody = JSON.parse(response.body);
                 expect(responseBody.error).toBe('Authentication failed');
-                expect(responseBody.details.data.caseNumber).toBe('22CR123456-789');
-                expect(responseBody.details.data.fetchStatus.status).toBe('failed');
+                // Check the format of the error response based on actual implementation
+                expect(responseBody.message).toBeDefined();
+                expect(responseBody.data).toBeDefined();
+                expect(responseBody.data.caseNumber).toBe('22CR123456-789');
+                expect(responseBody.data.fetchStatus.status).toBe('failed');
             }
         });
 
-        it.skip('should return 403 if no portal credentials are available', async () => {
+        it('should return 403 if no portal credentials are available', async () => {
             // No existing search result
             const mockGetSearchResult = StorageClient.getSearchResult as jest.Mock;
             mockGetSearchResult.mockResolvedValue(null);
@@ -257,8 +260,11 @@ describe('case handler', () => {
                 expect(response.statusCode).toBe(403);
                 const responseBody = JSON.parse(response.body);
                 expect(responseBody.error).toBe('Portal credentials required');
-                expect(responseBody.details.data.caseNumber).toBe('22CR123456-789');
-                expect(responseBody.details.data.fetchStatus.status).toBe('failed');
+                // Check the format of the error response based on actual implementation
+                expect(responseBody.message).toBeDefined();
+                expect(responseBody.data).toBeDefined();
+                expect(responseBody.data.caseNumber).toBe('22CR123456-789');
+                expect(responseBody.data.fetchStatus.status).toBe('failed');
             }
         });
 
