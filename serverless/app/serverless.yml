@@ -59,6 +59,16 @@ provider:
                       - apigateway:PATCH
                       - apigateway:DELETE
                   Resource: '*'
+
+                - Effect: Allow
+                  Action:
+                      - cloudwatch:PutMetricData
+                  Resource: '*'
+
+                - Effect: Allow
+                  Action:
+                      - sns:Publish
+                  Resource: ${ssm:/zipcase/alert-topic-arn}
     httpApi:
         cors: true
         disableDefaultEndpoint: true
@@ -108,6 +118,83 @@ resources:
                 ApiId:
                     Ref: HttpApi
                 Stage: '$default'
+
+        # Per-function CloudWatch alarms
+        PostSearchErrorsAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-PostSearchErrors
+                AlarmDescription: High error rate in postSearch Lambda function
+                Namespace: 'AWS/Lambda'
+                MetricName: Errors
+                Dimensions:
+                    - Name: FunctionName
+                      Value: ${self:service}-${self:provider.stage}-postSearch
+                Statistic: Sum
+                Period: 60
+                EvaluationPeriods: 1
+                Threshold: 2
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - ${ssm:/zipcase/alert-topic-arn}
+                TreatMissingData: notBreaching
+
+        PostNameSearchErrorsAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-PostNameSearchErrors
+                AlarmDescription: High error rate in postNameSearch Lambda function
+                Namespace: 'AWS/Lambda'
+                MetricName: Errors
+                Dimensions:
+                    - Name: FunctionName
+                      Value: ${self:service}-${self:provider.stage}-postNameSearch
+                Statistic: Sum
+                Period: 60
+                EvaluationPeriods: 1
+                Threshold: 2
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - ${ssm:/zipcase/alert-topic-arn}
+                TreatMissingData: notBreaching
+
+        ProcessCaseSearchErrorsAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-ProcessCaseSearchErrors
+                AlarmDescription: High error rate in processCaseSearch Lambda function
+                Namespace: 'AWS/Lambda'
+                MetricName: Errors
+                Dimensions:
+                    - Name: FunctionName
+                      Value: ${self:service}-${self:provider.stage}-processCaseSearch
+                Statistic: Sum
+                Period: 60
+                EvaluationPeriods: 1
+                Threshold: 2
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - ${ssm:/zipcase/alert-topic-arn}
+                TreatMissingData: notBreaching
+
+        ProcessCaseDataErrorsAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-ProcessCaseDataErrors
+                AlarmDescription: High error rate in processCaseData Lambda function
+                Namespace: 'AWS/Lambda'
+                MetricName: Errors
+                Dimensions:
+                    - Name: FunctionName
+                      Value: ${self:service}-${self:provider.stage}-processCaseData
+                Statistic: Sum
+                Period: 60
+                EvaluationPeriods: 1
+                Threshold: 2
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - ${ssm:/zipcase/alert-topic-arn}
+                TreatMissingData: notBreaching
 
 functions:
     getApiKey:

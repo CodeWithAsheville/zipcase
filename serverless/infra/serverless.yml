@@ -22,6 +22,198 @@ package:
 
 resources:
     Resources:
+        # SNS Topic for alerts
+        AlertTopic:
+            Type: AWS::SNS::Topic
+            Properties:
+                TopicName: zipcase-alerts-${self:provider.stage}
+                DisplayName: ZipCase Alerts
+                Tags:
+                    - Key: Service
+                      Value: ZipCase
+                    - Key: Environment
+                      Value: ${self:provider.stage}
+
+        # SSM Parameter for the alert topic ARN
+        AlertTopicArnParameter:
+            Type: AWS::SSM::Parameter
+            Properties:
+                Name: /zipcase/alert-topic-arn
+                Type: String
+                Value: !Ref AlertTopic
+                Description: SNS Topic ARN for ZipCase alerts
+
+        # Email subscription to the alert topic
+        AlertEmailSubscription:
+            Type: AWS::SNS::Subscription
+            Properties:
+                Protocol: email
+                TopicArn: !Ref AlertTopic
+                Endpoint: ${ssm:/zipcase/alert-email}
+                FilterPolicy:
+                    severity:
+                        - "ERROR"
+                        - "CRITICAL"
+
+        # Critical error alarm for auth failures (high rate)
+        AuthenticationErrorAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-AuthenticationErrors
+                AlarmDescription: High rate of authentication errors detected
+                Namespace: "ZipCase/${self:provider.stage}"
+                MetricName: Errors
+                Dimensions:
+                    - Name: Severity
+                      Value: ERROR
+                    - Name: Category
+                      Value: AUTH
+                Statistic: Sum
+                Period: 300 # 5 minutes
+                EvaluationPeriods: 1
+                Threshold: 5
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - !Ref AlertTopic
+                TreatMissingData: notBreaching
+
+        # Critical error alarm for portal failures (sustained)
+        PortalCriticalErrorAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-PortalCriticalErrors
+                AlarmDescription: Critical portal connectivity issues detected
+                Namespace: "ZipCase/${self:provider.stage}"
+                MetricName: Errors
+                Dimensions:
+                    - Name: Severity
+                      Value: CRITICAL
+                    - Name: Category
+                      Value: PORTAL
+                Statistic: Sum
+                Period: 300 # 5 minutes
+                EvaluationPeriods: 2
+                Threshold: 2
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - !Ref AlertTopic
+                TreatMissingData: notBreaching
+
+        # System error alarm (sustained)
+        SystemErrorAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-SystemErrors
+                AlarmDescription: High rate of system errors detected
+                Namespace: "ZipCase/${self:provider.stage}"
+                MetricName: Errors
+                Dimensions:
+                    - Name: Severity
+                      Value: ERROR
+                    - Name: Category
+                      Value: SYS
+                Statistic: Sum
+                Period: 300 # 5 minutes
+                EvaluationPeriods: 2
+                Threshold: 5
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - !Ref AlertTopic
+                TreatMissingData: notBreaching
+
+        # Lambda Error Rate Alarm (any handler)
+        LambdaErrorsAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-LambdaErrors
+                AlarmDescription: High rate of Lambda invocation errors detected
+                Namespace: "AWS/Lambda"
+                MetricName: Errors
+                Statistic: Sum
+                Period: 300 # 5 minutes
+                EvaluationPeriods: 1
+                Threshold: 5
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - !Ref AlertTopic
+                TreatMissingData: notBreaching
+
+        # Lambda Throttles Alarm
+        LambdaThrottlesAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-LambdaThrottles
+                AlarmDescription: Lambda functions are being throttled
+                Namespace: "AWS/Lambda"
+                MetricName: Throttles
+                Statistic: Sum
+                Period: 300 # 5 minutes
+                EvaluationPeriods: 1
+                Threshold: 1
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - !Ref AlertTopic
+                TreatMissingData: notBreaching
+
+        # API Gateway 5xx Errors Alarm
+        ApiGateway5xxErrorsAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-ApiGateway5xxErrors
+                AlarmDescription: API Gateway is returning 5xx errors
+                Namespace: "AWS/ApiGateway"
+                MetricName: 5XXError
+                Statistic: Sum
+                Period: 300 # 5 minutes
+                EvaluationPeriods: 1
+                Threshold: 5
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - !Ref AlertTopic
+                TreatMissingData: notBreaching
+
+        # SQS Dead Letter Queue Alarm
+        CaseProcessingDlqAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-CaseProcessingDlq
+                AlarmDescription: Messages are appearing in the DLQ
+                Namespace: "AWS/SQS"
+                MetricName: ApproximateNumberOfMessagesVisible
+                Dimensions:
+                    - Name: QueueName
+                      Value: "zipcase-case-processing-dlq.fifo" # Make sure this matches your DLQ name
+                Statistic: Sum
+                Period: 300 # 5 minutes
+                EvaluationPeriods: 1
+                Threshold: 1
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - !Ref AlertTopic
+                TreatMissingData: notBreaching
+
+        # Database error alarm
+        DatabaseErrorAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-DatabaseErrors
+                AlarmDescription: Database errors detected
+                Namespace: "ZipCase/${self:provider.stage}"
+                MetricName: Errors
+                Dimensions:
+                    - Name: Severity
+                      Value: ERROR
+                    - Name: Category
+                      Value: DB
+                Statistic: Sum
+                Period: 300 # 5 minutes
+                EvaluationPeriods: 1
+                Threshold: 3
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - !Ref AlertTopic
+                TreatMissingData: notBreaching
+
         ZipCaseDataTable:
             Type: AWS::DynamoDB::Table
             Properties:
@@ -41,6 +233,17 @@ resources:
                     AttributeName: expiresAt
                     Enabled: true
 
+        # Dead Letter Queue for failed message processing
+        CaseProcessingDlq:
+            Type: AWS::SQS::Queue
+            Properties:
+                QueueName: zipcase-case-processing-dlq.fifo
+                FifoQueue: true
+                DeduplicationScope: messageGroup
+                FifoThroughputLimit: perMessageGroupId
+                VisibilityTimeout: 60
+                MessageRetentionPeriod: 1209600 # 14 days
+
         SearchQueue:
             Type: AWS::SQS::Queue
             Properties:
@@ -50,6 +253,9 @@ resources:
                 FifoThroughputLimit: perMessageGroupId
                 VisibilityTimeout: 60
                 MessageRetentionPeriod: 259200 # 3 days
+                RedrivePolicy:
+                    deadLetterTargetArn: !GetAtt CaseProcessingDlq.Arn
+                    maxReceiveCount: 3  # After 3 failed attempts, send to DLQ
 
         CaseDataQueue:
             Type: AWS::SQS::Queue
@@ -60,6 +266,9 @@ resources:
                 FifoThroughputLimit: perMessageGroupId
                 VisibilityTimeout: 120
                 MessageRetentionPeriod: 259200 # 3 days
+                RedrivePolicy:
+                    deadLetterTargetArn: !GetAtt CaseProcessingDlq.Arn
+                    maxReceiveCount: 3  # After 3 failed attempts, send to DLQ
 
         ZipCaseEncryptionKey:
             Type: AWS::KMS::Key
@@ -130,3 +339,13 @@ resources:
             Value: !GetAtt ZipCaseEncryptionKey.Arn
             Export:
                 Name: ${self:service}-${self:provider.stage}-ZipCaseEncryptionKeyArn
+
+        CaseProcessingDlqUrl:
+            Value: !Ref CaseProcessingDlq
+            Export:
+                Name: ${self:service}-${self:provider.stage}-CaseProcessingDlqUrl
+
+        CaseProcessingDlqArn:
+            Value: !GetAtt CaseProcessingDlq.Arn
+            Export:
+                Name: ${self:service}-${self:provider.stage}-CaseProcessingDlqArn
