@@ -22,6 +22,7 @@ export const Key = {
             PORTAL_CREDENTIALS: { PK, SK: 'PORTAL_CREDENTIALS' },
             SESSION: { PK, SK: 'SESSION' },
             WEBHOOK_SETTINGS: { PK, SK: 'WEBHOOK_SETTINGS' },
+            USER_AGENT: { PK, SK: 'USER-AGENT' },
         };
     },
 
@@ -38,6 +39,10 @@ export const Key = {
         return {
             ID: { PK, SK: 'ID' },
         };
+    },
+
+    UserAgents: {
+        COLLECTION: { PK: 'USERAGENTS', SK: 'COLLECTION' },
     },
 };
 
@@ -182,6 +187,36 @@ async function decryptValue(encryptedValue: string): Promise<string> {
 }
 
 const StorageClient = {
+    async saveUserAgent(userId: string, userAgent: string): Promise<void> {
+        // 90 days TTL (in seconds)
+        const expiresAt = Math.floor(Date.now() / 1000) + (90 * 24 * 60 * 60);
+
+        await save(Key.User(userId).USER_AGENT, {
+            userAgent,
+            ttl: expiresAt
+        });
+    },
+
+    async getUserAgent(userId: string): Promise<string | null> {
+        const result = await get(Key.User(userId).USER_AGENT);
+        return result?.userAgent || null;
+    },
+
+    async saveUserAgentCollection(userAgents: string[]): Promise<void> {
+        // 90 days TTL (in seconds)
+        const expiresAt = Math.floor(Date.now() / 1000) + (90 * 24 * 60 * 60);
+
+        await save(Key.UserAgents.COLLECTION, {
+            userAgents,
+            ttl: expiresAt
+        });
+    },
+
+    async getUserAgentCollection(): Promise<string[] | null> {
+        const result = await get(Key.UserAgents.COLLECTION);
+        return result?.userAgents || null;
+    },
+
     async savePortalCredentials(userId: string, username: string, password: string): Promise<void> {
         const encryptedUsername = await encryptValue(username);
         const encryptedPassword = await encryptValue(password);
