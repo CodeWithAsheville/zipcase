@@ -167,7 +167,7 @@ describe('PortalAuthenticator', () => {
             const result = await PortalAuthenticator.getOrCreateUserSession('test-user');
 
             expect(StorageClient.sensitiveGetPortalCredentials).toHaveBeenCalledWith('test-user');
-            expect(authenticateSpy).toHaveBeenCalledWith('testuser', 'password');
+            expect(authenticateSpy).toHaveBeenCalledWith('testuser', 'password', expect.any(Object));
             expect(result.success).toBe(true);
             expect(result.cookieJar).toBe(mockCookieJar);
 

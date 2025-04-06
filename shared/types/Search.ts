@@ -3,12 +3,14 @@ import { ZipCase, CaseSummary } from './ZipCase';
 export interface SearchRequest {
     input: string;
     userId: string;
+    userAgent?: string;
 }
 
 export interface NameSearchRequest {
     name: string;
     dateOfBirth?: string;
     soundsLike: boolean;
+    userAgent?: string;
 }
 
 export interface StatusRequest {

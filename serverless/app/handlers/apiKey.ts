@@ -7,6 +7,7 @@ import {
 } from '@aws-sdk/client-api-gateway';
 import StorageClient from '../../lib/StorageClient';
 import { successResponse, errorResponse } from '../../lib/apiResponse';
+import UserAgentClient from '../../lib/UserAgentClient';
 
 const apiGatewayClient = new APIGatewayClient({ region: process.env.AWS_REGION || 'us-east-2' });
 
@@ -131,6 +132,17 @@ export const create: APIGatewayProxyHandler = async event => {
         );
 
         await StorageClient.saveApiKey(userId, newKeyResult.id, newKeyResult.value);
+
+        // Store the user agent from the request
+        const userAgent = event.headers['User-Agent'] || event.headers['user-agent'];
+        if (userAgent) {
+            await StorageClient.saveUserAgent(userId, userAgent);
+            console.log(`Stored user agent for user ${userId}`);
+        } else {
+            // If no user agent in the request, initialize with one from the collection
+            await UserAgentClient.getUserAgent(userId);
+            console.log(`Initialized user agent for user ${userId} from collection`);
+        }
 
         // If a previous key existed, disable it
         if (existingApiKeyId) {

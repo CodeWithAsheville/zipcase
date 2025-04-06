@@ -2,6 +2,7 @@ import { SQSHandler, SQSEvent, SQSRecord } from 'aws-lambda';
 import PortalAuthenticator from './PortalAuthenticator';
 import QueueClient from './QueueClient';
 import StorageClient from './StorageClient';
+import UserAgentClient from './UserAgentClient';
 import { CaseSummary, FetchStatus } from '../../shared/types';
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
@@ -15,7 +16,7 @@ const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback)
     for (const record of event.Records) {
         try {
             const messageBody = JSON.parse(record.body);
-            const { caseNumber, userId } = messageBody;
+            const { caseNumber, userId, userAgent } = messageBody;
 
             if (!caseNumber || !userId) {
                 console.error('Invalid message format, missing caseNumber or userId');
@@ -23,7 +24,7 @@ const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback)
             }
 
             console.log(`Searching for case ${caseNumber} for user ${userId}`);
-            await processCaseSearchRecord(caseNumber, userId, record.receiptHandle);
+            await processCaseSearchRecord(caseNumber, userId, record.receiptHandle, userAgent);
         } catch (error) {
             console.error('Error processing case search record:', error);
         }
@@ -60,7 +61,8 @@ function queueCasesForSearch(cases: Array<string>, userId: string): Promise<void
 async function processCaseSearchRecord(
     caseNumber: string,
     userId: string,
-    receiptHandle: string
+    receiptHandle: string,
+    userAgent?: string
 ): Promise<FetchStatus> {
     try {
         const now = new Date();
@@ -106,8 +108,8 @@ async function processCaseSearchRecord(
             }
         }
 
-        // Authenticate with the portal
-        const authResult = await PortalAuthenticator.getOrCreateUserSession(userId);
+        // Authenticate with the portal, passing along the user agent if available
+        const authResult = await PortalAuthenticator.getOrCreateUserSession(userId, userAgent);
 
         if (!authResult?.success || !authResult.cookieJar) {
             const message = !authResult?.success
@@ -299,6 +301,8 @@ async function fetchCaseIdFromPortal(
             };
         }
 
+        const userAgent = await UserAgentClient.getUserAgent('system');
+
         const client = wrapper(axios).create({
             timeout: 20000,
             maxRedirects: 10,
@@ -306,10 +310,7 @@ async function fetchCaseIdFromPortal(
             jar: cookieJar,
             withCredentials: true,
             headers: {
-                'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-                Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
+                ...PortalAuthenticator.getDefaultRequestHeaders(userAgent),
                 Origin: portalUrl,
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
@@ -429,13 +430,14 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
             return null;
         }
 
+        const userAgent = await UserAgentClient.getUserAgent('system');
+
         const client = axios.create({
             timeout: 10000,
             maxRedirects: 5,
             validateStatus: status => status < 400,
             headers: {
-                'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+                'User-Agent': userAgent,
                 Accept: 'application/json, text/plain, */*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 Referer: portalCaseUrl,
