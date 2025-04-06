@@ -1,4 +1,0 @@
-#\!/usr/bin/env bash
-
-# Run lint-staged directly without husky.sh
-npx lint-staged
