@@ -160,13 +160,11 @@ export function useNameSearch() {
                 searchParams.dateOfBirth,
                 searchParams.soundsLike
             );
-            console.log('Raw name search response in mutationFn:', response);
 
             if (!response.success) {
                 throw new Error(response.error || 'Failed to search for names');
             }
 
-            console.log('Returning data from nameSearch mutationFn:', response.data);
             return response.data;
         },
         onSuccess: data => {
@@ -179,12 +177,10 @@ export function useNameSearch() {
             }
 
             if (!searchId) {
-                console.warn('No searchId in name search response');
                 return;
             }
 
             if (Object.keys(results).length === 0) {
-                console.log('No initial results in name search response, will poll for updates');
             }
 
             // Get existing state from query client
@@ -232,9 +228,6 @@ export function useNameSearch() {
 
             // Merge results
             const mergedResults = { ...existingState.results, ...processedResults };
-
-            console.log('Merged name search results:', mergedResults);
-            console.log('Updated name searches:', updatedNameSearches);
 
             // Store the updated state in the query cache
             queryClient.setQueryData(['searchResults'], {
