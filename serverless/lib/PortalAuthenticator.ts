@@ -14,6 +14,7 @@ import { CookieJar } from 'tough-cookie';
 import { wrapper } from 'axios-cookiejar-support';
 import StorageClient from './StorageClient';
 import UserAgentClient from './UserAgentClient';
+import AlertService, { Severity, AlertCategory } from './AlertService';
 
 const DEFAULT_TIMEOUT = 20000;
 
@@ -90,10 +91,19 @@ const PortalAuthenticator = {
         const portalBaseUrl = process.env.PORTAL_URL;
 
         if (!portalBaseUrl) {
-            console.error('Error: PORTAL_URL environment variable is not set');
+            const errorMsg = 'PORTAL_URL environment variable is not set';
+
+            await AlertService.logError(
+                Severity.CRITICAL,
+                AlertCategory.SYSTEM,
+                'Missing required environment variable: PORTAL_URL',
+                new Error(errorMsg),
+                { resource: 'portal-auth' }
+            );
+
             return {
                 success: false,
-                message: 'PORTAL_URL environment variable is not set',
+                message: errorMsg,
             };
         }
 
@@ -124,9 +134,19 @@ const PortalAuthenticator = {
             // Extract the verification token for CSRF protection
             const verificationToken = extractVerificationToken(loginPageResponse.data);
             if (!verificationToken) {
+                const errorMsg = 'Failed to extract verification token from login page';
+
+                await AlertService.logError(
+                    Severity.ERROR,
+                    AlertCategory.PORTAL,
+                    errorMsg,
+                    undefined,
+                    { username, resource: 'login-page' }
+                );
+
                 return {
                     success: false,
-                    message: 'Failed to extract verification token from login page',
+                    message: errorMsg,
                 };
             }
 
@@ -189,9 +209,20 @@ const PortalAuthenticator = {
                     console.log('Response content snippet:', contentSnippet);
                 }
 
+                const errorMsg = 'Invalid Email or password';
+
+                // We use WARNING level for expected errors like incorrect credentials
+                await AlertService.logError(
+                    Severity.WARNING,
+                    AlertCategory.AUTHENTICATION,
+                    'Portal authentication failed: Invalid credentials',
+                    undefined,
+                    { username }
+                );
+
                 return {
                     success: false,
-                    message: 'Invalid Email or password',
+                    message: errorMsg,
                 };
             }
 
@@ -273,10 +304,18 @@ const PortalAuthenticator = {
             }
 
             if (!hasSessionCookie || (!hasWelcomeUser && hasSignIn)) {
-                console.log(
-                    `Authentication failed! Has "Welcome": ${hasWelcomeUser}; has "Sign In": ${hasSignIn}; dumping full cookie jar:`
+                await AlertService.logError(
+                    Severity.ERROR,
+                    AlertCategory.AUTHENTICATION,
+                    'Failed to establish valid session after authentication',
+                    undefined,
+                    {
+                        username,
+                        hasWelcomeUser,
+                        hasSignIn,
+                        cookieCount: cookies.length
+                    }
                 );
-                console.log(JSON.stringify(jar.toJSON(), null, 2));
                 return {
                     success: false,
                     message: 'Failed to establish valid session after authentication',
@@ -289,9 +328,20 @@ const PortalAuthenticator = {
                 cookieJar: jar,
             };
         } catch (error) {
+            const errorMsg = `Authentication error: ${(error as Error).message}`;
+
+            // Log this as a CRITICAL error since it's a system-level failure
+            await AlertService.logError(
+                Severity.CRITICAL,
+                AlertCategory.PORTAL,
+                'Portal authentication system failure',
+                error as Error,
+                { username }
+            );
+
             return {
                 success: false,
-                message: `Authentication error: ${(error as Error).message}`,
+                message: errorMsg,
             };
         }
     },
@@ -300,7 +350,15 @@ const PortalAuthenticator = {
         const portalBaseUrl = process.env.PORTAL_URL;
 
         if (!portalBaseUrl) {
-            console.error('Error: PORTAL_URL environment variable is not set');
+            const errorMsg = 'PORTAL_URL environment variable is not set';
+
+            await AlertService.logError(
+                Severity.CRITICAL,
+                AlertCategory.SYSTEM,
+                'Missing required environment variable: PORTAL_URL',
+                new Error(errorMsg)
+            );
+
             return false;
         }
 
@@ -382,6 +440,14 @@ const PortalAuthenticator = {
             if (debug) {
                 console.error('Error verifying session:', error);
             }
+
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Failed to verify portal session',
+                error as Error
+            );
+
             return false;
         }
     },

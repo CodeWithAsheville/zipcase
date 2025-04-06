@@ -3,6 +3,7 @@ import PortalAuthenticator from './PortalAuthenticator';
 import QueueClient from './QueueClient';
 import StorageClient from './StorageClient';
 import UserAgentClient from './UserAgentClient';
+import AlertService, { Severity, AlertCategory } from './AlertService';
 import { CaseSummary, FetchStatus } from '../../shared/types';
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
@@ -13,20 +14,30 @@ import * as cheerio from 'cheerio';
 const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback) => {
     console.log(`Received ${event.Records.length} case search messages`);
 
+    // Create specialized logger for case search
+    const caseSearchLogger = AlertService.forCategory(AlertCategory.SYSTEM);
+
     for (const record of event.Records) {
         try {
             const messageBody = JSON.parse(record.body);
             const { caseNumber, userId, userAgent } = messageBody;
 
             if (!caseNumber || !userId) {
-                console.error('Invalid message format, missing caseNumber or userId');
+                await caseSearchLogger.error('Invalid message format, missing required fields',
+                    undefined,
+                    { caseNumber, userId, messageId: record.messageId }
+                );
                 continue;
             }
 
             console.log(`Searching for case ${caseNumber} for user ${userId}`);
             await processCaseSearchRecord(caseNumber, userId, record.receiptHandle, userAgent);
         } catch (error) {
-            console.error('Error processing case search record:', error);
+            await caseSearchLogger.error(
+                'Failed to process case search record',
+                error as Error,
+                { messageId: record.messageId }
+            );
         }
     }
 };
@@ -35,20 +46,30 @@ const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback)
 const processCaseData: SQSHandler = async (event: SQSEvent, context, callback) => {
     console.log(`Received ${event.Records.length} case data messages`);
 
+    // Create specialized logger for case data
+    const caseDataLogger = AlertService.forCategory(AlertCategory.SYSTEM);
+
     for (const record of event.Records) {
         try {
             const messageBody = JSON.parse(record.body);
             const { caseNumber, caseId, userId } = messageBody;
 
             if (!caseNumber || !caseId || !userId) {
-                console.error('Invalid message format, missing caseNumber, caseId, or userId');
+                await caseDataLogger.error('Invalid message format, missing required fields',
+                    undefined,
+                    { caseNumber, caseId, userId, messageId: record.messageId }
+                );
                 continue;
             }
 
             console.log(`Fetching data for case ${caseNumber} (ID: ${caseId}) for user ${userId}`);
             await processCaseDataRecord(caseNumber, caseId, userId, record.receiptHandle);
         } catch (error) {
-            console.error('Error processing case data record:', error);
+            await caseDataLogger.error(
+                'Failed to process case data record',
+                error as Error,
+                { messageId: record.messageId }
+            );
         }
     }
 };
@@ -116,7 +137,18 @@ async function processCaseSearchRecord(
                 ? authResult?.message || 'Unknown authentication error'
                 : `No session CookieJar found for user ${userId}`;
 
-            console.error(`No session existed or could be created for user ${userId}: ${message}`);
+            await AlertService.logError(
+                // Use ERROR level if it's a credentials issue, CRITICAL for system issues
+                message.includes('Invalid Email or password') ? Severity.ERROR : Severity.CRITICAL,
+                AlertCategory.AUTHENTICATION,
+                'Portal authentication failed during case search',
+                undefined,
+                {
+                    userId,
+                    caseNumber,
+                    message
+                }
+            );
 
             const failedStatus: FetchStatus = { status: 'failed', message };
 
@@ -143,8 +175,16 @@ async function processCaseSearchRecord(
             // Check if this is a system error or a "not found" case
             if (searchResult.error && searchResult.error.isSystemError) {
                 // System error - mark as failed
-                console.error(
-                    `Search failed for case ${caseNumber}: ${searchResult.error.message}`
+                await AlertService.logError(
+                    Severity.ERROR,
+                    AlertCategory.PORTAL,
+                    'Case search failed with system error',
+                    new Error(searchResult.error.message),
+                    {
+                        userId,
+                        caseNumber,
+                        resource: 'case-search'
+                    }
                 );
 
                 const failedStatus: FetchStatus = {
@@ -198,7 +238,15 @@ async function processCaseSearchRecord(
         return foundStatus;
     } catch (error) {
         const message = `Unhandled error while searching case ${caseNumber}: ${(error as Error).message}`;
-        console.error(message);
+
+        await AlertService.logError(
+            Severity.ERROR,
+            AlertCategory.SYSTEM,
+            'Unhandled error during case search',
+            error as Error,
+            { caseNumber, userId }
+        );
+
         return { status: 'failed', message };
     }
 }
@@ -268,7 +316,15 @@ async function processCaseDataRecord(
         return completeStatus;
     } catch (error) {
         const message = `Unhandled error while retrieving data for case ${caseNumber}: ${(error as Error).message}`;
-        console.error(message);
+
+        await AlertService.logError(
+            Severity.ERROR,
+            AlertCategory.SYSTEM,
+            'Unhandled error during case data retrieval',
+            error as Error,
+            { caseNumber, caseId, userId }
+        );
+
         return { status: 'failed', message };
     }
 }
@@ -291,7 +347,16 @@ async function fetchCaseIdFromPortal(
         const portalUrl = process.env.PORTAL_URL;
 
         if (!portalUrl) {
-            console.error('Error: PORTAL_URL environment variable is not set');
+            const errorMsg = 'PORTAL_URL environment variable is not set';
+
+            await AlertService.logError(
+                Severity.CRITICAL,
+                AlertCategory.SYSTEM,
+                'Missing required environment variable: PORTAL_URL',
+                new Error(errorMsg),
+                { resource: 'case-search' }
+            );
+
             return {
                 caseId: null,
                 error: {
@@ -330,7 +395,19 @@ async function fetchCaseIdFromPortal(
 
         if (searchResponse.status !== 200) {
             const errorMessage = `Search request failed with status ${searchResponse.status}`;
-            console.error(errorMessage);
+
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Case search request failed',
+                new Error(errorMessage),
+                {
+                    caseNumber,
+                    statusCode: searchResponse.status,
+                    resource: 'portal-search'
+                }
+            );
+
             return {
                 caseId: null,
                 error: {
@@ -347,7 +424,19 @@ async function fetchCaseIdFromPortal(
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;
-            console.error(errorMessage);
+
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Case search results request failed',
+                new Error(errorMessage),
+                {
+                    caseNumber,
+                    statusCode: resultsResponse.status,
+                    resource: 'portal-search-results'
+                }
+            );
+
             return {
                 caseId: null,
                 error: {
@@ -363,7 +452,18 @@ async function fetchCaseIdFromPortal(
         ) {
             const errorMessage =
                 'Smart Search is having trouble processing your search. Please try again later.';
-            console.error(errorMessage);
+
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Smart Search processing error',
+                new Error(errorMessage),
+                {
+                    caseNumber,
+                    resource: 'smart-search'
+                }
+            );
+
             return {
                 caseId: null,
                 error: {
@@ -396,7 +496,17 @@ async function fetchCaseIdFromPortal(
 
         if (!caseId) {
             const errorMessage = `No case ID found in search results for ${caseNumber}`;
-            console.log(errorMessage);
+
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'No case ID found in search results',
+                new Error(errorMessage),
+                {
+                    caseNumber,
+                    resource: 'case-search-results'
+                }
+            );
             return {
                 caseId: null,
                 error: {
@@ -410,7 +520,18 @@ async function fetchCaseIdFromPortal(
         return { caseId };
     } catch (error) {
         const errorMessage = `Error fetching case ID from portal: ${(error as Error).message}`;
-        console.error(errorMessage);
+
+        await AlertService.logError(
+            Severity.ERROR,
+            AlertCategory.PORTAL,
+            'Failed to fetch case ID from portal',
+            error as Error,
+            {
+                caseNumber,
+                resource: 'case-id-fetch'
+            }
+        );
+
         return {
             caseId: null,
             error: {
@@ -426,7 +547,16 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
         const portalCaseUrl = process.env.PORTAL_CASE_URL;
 
         if (!portalCaseUrl) {
-            console.error('Error: PORTAL_CASE_URL environment variable is not set');
+            const errorMsg = 'PORTAL_CASE_URL environment variable is not set';
+
+            await AlertService.logError(
+                Severity.CRITICAL,
+                AlertCategory.SYSTEM,
+                'Missing required environment variable: PORTAL_CASE_URL',
+                new Error(errorMsg),
+                { caseId }
+            );
+
             return null;
         }
 
@@ -448,7 +578,20 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
             `${portalCaseUrl}Service/CaseSummariesSlim?key=${caseId}`
         );
         if (summaryResponse.status !== 200) {
-            console.error(`Case summary request failed with status ${summaryResponse.status}`);
+            const errorMessage = `Case summary request failed with status ${summaryResponse.status}`;
+
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Failed to fetch case summary',
+                new Error(errorMessage),
+                {
+                    caseId,
+                    statusCode: summaryResponse.status,
+                    resource: 'case-summary'
+                }
+            );
+
             return null;
         }
 
@@ -466,7 +609,16 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
 
         return summary;
     } catch (error) {
-        console.error('Error fetching case summary:', error);
+        await AlertService.logError(
+            Severity.ERROR,
+            AlertCategory.PORTAL,
+            'Error fetching case summary',
+            error as Error,
+            {
+                caseId,
+                resource: 'case-summary'
+            }
+        );
         return null;
     }
 }
