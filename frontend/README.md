@@ -16,6 +16,48 @@ cp .env.example .env.local
 npm run dev
 ```
 
+### Linting
+
+Check code quality and style with ESLint:
+
+```bash
+npm run lint
+```
+
+### Type Checking
+
+Verify TypeScript types:
+
+```bash
+npm run typecheck
+```
+
+### Testing
+
+Run tests for the frontend components:
+
+```bash
+# Run all tests
+npm run test
+
+# Run tests in watch mode (automatically reruns when files change)
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run a specific test file
+npm run test -- path/to/test-file.test.tsx
+```
+
+### Development Workflow
+
+For thorough checking before committing, run:
+
+```bash
+npm run lint && npm run typecheck && npm run test
+```
+
 ### Environment Variables
 
 The application uses environment variables for configuration:
