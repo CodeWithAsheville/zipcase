@@ -101,17 +101,18 @@ export async function processSearchRequest(req: SearchRequest): Promise<SearchRe
             console.log(
                 `Queueing ${casesToQueue.length} cases for processing with existing session`
             );
-            await QueueClient.queueCasesForSearch(casesToQueue, req.userId);
+            await QueueClient.queueCasesForSearch(casesToQueue, req.userId, req.userAgent);
         } else {
             // No user session - need to check for portal credentials
             const portalCredentials = await StorageClient.sensitiveGetPortalCredentials(req.userId);
 
             if (portalCredentials) {
                 try {
-                    // Authenticate with portal
+                    // Authenticate with portal using user agent if provided
                     const authResult = await PortalAuthenticator.authenticateWithPortal(
                         portalCredentials.username,
-                        portalCredentials.password
+                        portalCredentials.password,
+                        { userAgent: req.userAgent }
                     );
 
                     if (!authResult.success || !authResult.cookieJar) {
@@ -147,7 +148,7 @@ export async function processSearchRequest(req: SearchRequest): Promise<SearchRe
                         );
 
                         // Now queue the cases for processing
-                        await QueueClient.queueCasesForSearch(casesToQueue, req.userId);
+                        await QueueClient.queueCasesForSearch(casesToQueue, req.userId, req.userAgent);
                     }
                 } catch (error) {
                     console.error(

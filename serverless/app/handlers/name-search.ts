@@ -21,10 +21,14 @@ export const handler: APIGatewayProxyHandler = async event => {
             };
         }
 
+        // Get the user agent from the request headers
+        const userAgent = event.headers['User-Agent'] || event.headers['user-agent'];
+
         const result = await processNameSearchRequest({
             name: body.name,
             dateOfBirth: body.dateOfBirth,
             soundsLike: !!body.soundsLike,
+            userAgent
         }, userId);
 
         return {

@@ -46,7 +46,8 @@ export async function processNameSearchRequest(req: NameSearchRequest, userId: s
                 userId,
                 req.name,
                 req.dateOfBirth,
-                req.soundsLike
+                req.soundsLike,
+                req.userAgent
             );
         } else {
             // No user session - need to check for portal credentials
@@ -54,10 +55,11 @@ export async function processNameSearchRequest(req: NameSearchRequest, userId: s
 
             if (portalCredentials) {
                 try {
-                    // Authenticate with portal
+                    // Authenticate with portal using user agent if provided
                     const authResult = await PortalAuthenticator.authenticateWithPortal(
                         portalCredentials.username,
-                        portalCredentials.password
+                        portalCredentials.password,
+                        { userAgent: req.userAgent }
                     );
 
                     if (!authResult.success || !authResult.cookieJar) {
@@ -99,7 +101,8 @@ export async function processNameSearchRequest(req: NameSearchRequest, userId: s
                             userId,
                             req.name,
                             req.dateOfBirth,
-                            req.soundsLike
+                            req.soundsLike,
+                            req.userAgent
                         );
                     }
                 } catch (error) {
