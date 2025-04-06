@@ -38,6 +38,16 @@ provider:
                   Resource:
                       - ${cf:infra-${self:provider.stage}.SearchQueueArn}
                       - ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
+
+                - Effect: Allow
+                  Action:
+                      - cloudwatch:PutMetricData
+                  Resource: '*'
+
+                - Effect: Allow
+                  Action:
+                      - sns:Publish
+                  Resource: ${ssm:/zipcase/alert-topic-arn}
     apiGateway:
         disableDefaultEndpoint: true
         apiKeys:

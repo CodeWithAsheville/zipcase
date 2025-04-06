@@ -4,6 +4,7 @@ import {
     SendMessageBatchCommand,
     DeleteMessageCommand,
 } from '@aws-sdk/client-sqs';
+import AlertService, { Severity, AlertCategory } from './AlertService';
 
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'us-east-2' });
 
@@ -28,7 +29,13 @@ const QueueClient = {
             const command = new SendMessageCommand(params);
             await sqsClient.send(command);
         } catch (error) {
-            console.error('Error queuing case for search:', error);
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.QUEUE,
+                'Failed to queue case for search',
+                error as Error,
+                { caseNumber, userId }
+            );
             throw error;
         }
     },
@@ -54,7 +61,13 @@ const QueueClient = {
             const command = new SendMessageCommand(params);
             await sqsClient.send(command);
         } catch (error) {
-            console.error('Error queuing name search for processing:', error);
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.QUEUE,
+                'Failed to queue name search for processing',
+                error as Error,
+                { searchId, userId, name }
+            );
             throw error;
         }
     },
@@ -83,7 +96,13 @@ const QueueClient = {
             const command = new SendMessageCommand(params);
             await sqsClient.send(command);
         } catch (error) {
-            console.error('Error queuing case for data retrieval:', error);
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.QUEUE,
+                'Failed to queue case for data retrieval',
+                error as Error,
+                { caseNumber, caseId, userId }
+            );
             throw error;
         }
     },
@@ -128,11 +147,31 @@ const QueueClient = {
 
                 // Check for failed messages
                 if (response.Failed && response.Failed.length > 0) {
-                    console.error('Some messages failed to queue:', response.Failed);
+                    await AlertService.logError(
+                        Severity.ERROR,
+                        AlertCategory.QUEUE,
+                        `Failed to queue ${response.Failed.length} cases`,
+                        new Error(JSON.stringify(response.Failed)),
+                        {
+                            userId,
+                            batchSize: batch.length,
+                            failedCount: response.Failed.length
+                        }
+                    );
                     throw new Error(`Failed to queue ${response.Failed.length} cases`);
                 }
             } catch (error) {
-                console.error('Error batch queuing cases for search:', error);
+                await AlertService.logError(
+                    Severity.ERROR,
+                    AlertCategory.QUEUE,
+                    'Error in batch queuing cases for search',
+                    error as Error,
+                    {
+                        userId,
+                        casesCount: cases.length,
+                        batchIndex: Math.floor(i / BATCH_SIZE)
+                    }
+                );
                 throw error;
             }
         }
@@ -152,7 +191,16 @@ const QueueClient = {
 
             await sqsClient.send(command);
         } catch (error) {
-            console.error(`Error deleting message from ${queueType} queue:`, error);
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.QUEUE,
+                `Failed to delete message from ${queueType} queue`,
+                error as Error,
+                {
+                    queueType,
+                    receiptHandle: receiptHandle.substring(0, 20) + '...' // Truncate for readability
+                }
+            );
             throw error;
         }
     },
