@@ -223,7 +223,7 @@ export function useNameSearch() {
                 [searchId]: {
                     searchId,
                     lastPolled: now,
-                }
+                },
             };
 
             // Merge results
@@ -257,4 +257,3 @@ interface ResultsState {
     searchBatches: string[][]; // Array of case number batches, newest first
     nameSearches: Record<string, NameSearchMetadata>;
 }
-
