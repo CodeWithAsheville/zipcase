@@ -154,12 +154,6 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
             return;
         }
 
-        console.log('Initiating name search for:', {
-            name: localState.name,
-            dateOfBirth: localState.dateOfBirth ? localState.formattedDate : undefined,
-            soundsLike: localState.soundsLike,
-        });
-
         // Get the ISO format date if available
         const parsedDate = localState.dateOfBirth.trim()
             ? parseDate(localState.dateOfBirth)?.toISOString().split('T')[0]
@@ -174,7 +168,6 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
             },
             {
                 onSuccess: data => {
-                    console.log('Name search completed successfully:', data);
                     // Clear any previous error
                     localDispatch({ type: 'SET_ERROR', payload: null });
                     // Only clear the input fields on success
