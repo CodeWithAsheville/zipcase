@@ -48,12 +48,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch }) => {
             return;
         }
 
-        console.log('Initiating search for:', caseNumber);
-
         // Use our React Query mutation to handle the search
         caseSearch.mutate(caseNumber, {
-            onSuccess: data => {
-                console.log('Search completed successfully in SearchPanel:', data);
+            onSuccess: () => {
                 // Clear any previous error
                 localDispatch({ type: 'SET_ERROR', payload: null });
                 // Only clear the input field on success

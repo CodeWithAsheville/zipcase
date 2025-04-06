@@ -204,7 +204,6 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
             dispatch({ type: 'SET_VALIDATION_STATE', payload: { status: 'validating' } });
         },
         onSuccess: () => {
-            console.log('Credentials saved successfully');
             dispatch({
                 type: 'SET_VALIDATION_STATE',
                 payload: { status: 'succeeded' },
