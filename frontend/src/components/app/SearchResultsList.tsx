@@ -61,8 +61,6 @@ export default function SearchResultsList() {
         };
     }, [searchResults, polling]);
 
-    console.log('SearchResultsList rendering with data:', data);
-
     if (isError) {
         console.error('Error in useSearchResults:', error);
     }
