@@ -11,23 +11,18 @@ export function useCaseSearch() {
     return useMutation({
         mutationFn: async (searchInput: string) => {
             const response = await client.cases.search(searchInput);
-            console.log('Raw search response in mutationFn:', response);
 
             if (!response.success) {
                 throw new Error(response.error || 'Failed to search for cases');
             }
 
-            console.log('Returning data from mutationFn:', response.data);
             return response.data;
         },
         onSuccess: data => {
-            console.log('Search mutation success with data:', data);
-
             // Extract results from the response
             const results = data?.results || {};
 
             if (Object.keys(results).length === 0) {
-                console.warn('No results in search response');
                 return;
             }
 
@@ -64,9 +59,6 @@ export function useCaseSearch() {
 
             // Merge results
             const mergedResults = { ...existingState.results, ...processedResults };
-
-            console.log('Merged search results:', mergedResults);
-            console.log('Updated search batches:', updatedBatches);
 
             // Store the updated state in the query cache
             queryClient.setQueryData(['searchResults'], {
@@ -119,7 +111,6 @@ export function useConsolidatedPolling() {
             return [];
         }
 
-        // Define terminal states
         const terminalStates = ['complete', 'notFound', 'failed'];
 
         return Object.values(state.results)
@@ -142,7 +133,6 @@ export function useConsolidatedPolling() {
 
         // Stop if there are no non-terminal cases
         if (caseNumbers.length === 0) {
-            console.log('No cases to poll, stopping');
             pollingRef.current.active = false;
             return;
         }
@@ -150,25 +140,16 @@ export function useConsolidatedPolling() {
         // Increment poll count
         pollingRef.current.pollCount++;
 
-        console.log(
-            `Polling ${caseNumbers.length} non-terminal cases (poll #${pollingRef.current.pollCount})`,
-            caseNumbers
-        );
-
         try {
             // Use the dedicated status endpoint to poll multiple cases at once
             const response = await client.cases.status(caseNumbers);
 
             if (!response.success) {
-                console.error('Failed to poll cases:', response.error);
                 scheduleNextPoll();
                 return;
             }
 
             const results = response.data?.results || {};
-
-            // Log raw response data from status endpoint
-            console.log('Status endpoint response results:', results);
 
             // Check if we have any state changes
             let hasStateChanges = false;
@@ -189,25 +170,9 @@ export function useConsolidatedPolling() {
 
             // If we have changes, reset the polling timer
             if (hasStateChanges) {
-                console.log('State changes detected, resetting polling timer');
                 pollingRef.current.lastChangeTime = Date.now();
                 pollingRef.current.pollCount = 0;
             }
-
-            // Get the state again to ensure we have the latest data
-
-            // Log the change in status for each case
-            Object.entries(results).forEach(([caseNumber, result]) => {
-                const existingResult = currentState.results[caseNumber];
-                const oldStatus = existingResult?.zipCase.fetchStatus.status;
-                const newStatus = result.zipCase.fetchStatus.status;
-
-                if (oldStatus !== newStatus) {
-                    console.log(
-                        `Status change detected for case ${caseNumber}: ${oldStatus} -> ${newStatus}`
-                    );
-                }
-            });
 
             // Create the new merged state
             const newState = {
@@ -220,8 +185,7 @@ export function useConsolidatedPolling() {
 
             // Schedule the next poll
             scheduleNextPoll();
-        } catch (error) {
-            console.error('Error during consolidated polling:', error);
+        } catch {
             scheduleNextPoll();
         }
     };
@@ -233,9 +197,6 @@ export function useConsolidatedPolling() {
 
         // If we've been polling for more than 30 seconds without changes, stop
         if (elapsedSinceChange > 30) {
-            console.log(
-                `Polling timeout reached after ${elapsedSinceChange.toFixed(1)} seconds without state changes`
-            );
             pollingRef.current.active = false;
             return;
         }
@@ -243,20 +204,7 @@ export function useConsolidatedPolling() {
         // Check if there are any non-terminal cases left
         const nonTerminalCases = getNonTerminalCaseNumbers();
 
-        // Log each case with its status for debugging - use direct query client access
-        const state = queryClient.getQueryData<ResultsState>(['searchResults']);
-        if (state && state.results) {
-            const terminalStates = ['complete', 'notFound', 'failed'];
-            const statuses = Object.entries(state.results).map(([caseNumber, result]) => ({
-                caseNumber,
-                status: result.zipCase.fetchStatus.status,
-                isTerminal: terminalStates.includes(result.zipCase.fetchStatus.status),
-            }));
-            console.log('Current case statuses (from queryClient):', statuses);
-        }
-
         if (nonTerminalCases.length === 0) {
-            console.log('No more non-terminal cases, stopping polling');
             pollingRef.current.active = false;
             return;
         }
@@ -270,7 +218,6 @@ export function useConsolidatedPolling() {
     // Start polling if it's not already active
     const startPolling = () => {
         if (!pollingRef.current.active) {
-            console.log('Starting polling (first poll in 3 seconds)');
             pollingRef.current.active = true;
             pollingRef.current.lastChangeTime = Date.now();
             pollingRef.current.pollCount = 0;
@@ -288,7 +235,6 @@ export function useConsolidatedPolling() {
     // Stop polling if it's active
     const stopPolling = () => {
         if (pollingRef.current.active) {
-            console.log('Stopping polling');
             if (pollingRef.current.timeoutId) {
                 clearTimeout(pollingRef.current.timeoutId);
                 pollingRef.current.timeoutId = null;
