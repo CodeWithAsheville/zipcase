@@ -44,6 +44,7 @@ jobs:
                     "/zipcase/portal_case_url"
                     "/zipcase/cognito/user_pool_id"
                     "/zipcase/cognito/app_client_id"
+                    "/zipcase/alert-email"
                   )
 
                   MISSING_PARAMS=0
@@ -160,26 +161,26 @@ jobs:
               run: |
                   # Start with a clean .env.production file
                   echo "# ZipCase Environment Variables" > .env.production
-                  
+
                   # Get Portal URL
                   PORTAL_URL=$(aws ssm get-parameter --name "/zipcase/portal_url" --with-decryption --query "Parameter.Value" --output text)
                   echo "VITE_PORTAL_URL=$PORTAL_URL" >> .env.production
-                  
+
                   # Set API URL from environment variables
                   echo "VITE_API_URL=${{ vars.API_BASE_URL }}" >> .env.production
-                  
+
                   # Get Cognito User Pool ID
                   USER_POOL_ID=$(aws ssm get-parameter --name "/zipcase/cognito/user_pool_id" --with-decryption --query "Parameter.Value" --output text)
                   echo "VITE_COGNITO_USER_POOL_ID=$USER_POOL_ID" >> .env.production
-                  
+
                   # Get Cognito App Client ID
                   APP_CLIENT_ID=$(aws ssm get-parameter --name "/zipcase/cognito/app_client_id" --with-decryption --query "Parameter.Value" --output text)
                   echo "VITE_COGNITO_CLIENT_ID=$APP_CLIENT_ID" >> .env.production
-                  
+
                   # Get Portal Case URL (with fallback)
                   PORTAL_CASE_URL=$(aws ssm get-parameter --name "/zipcase/portal_case_url" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "/app/RegisterOfActions")
                   echo "VITE_PORTAL_CASE_URL=$PORTAL_CASE_URL" >> .env.production
-                  
+
                   # Display the environment variables (with redacted values for security)
                   echo "Environment variables set (values redacted):"
                   grep -o "^VITE_[A-Z_]*=" .env.production
