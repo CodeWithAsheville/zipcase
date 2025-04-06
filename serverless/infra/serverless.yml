@@ -52,8 +52,8 @@ resources:
                 Endpoint: ${ssm:/zipcase/alert-email}
                 FilterPolicy:
                     severity:
-                        - "ERROR"
-                        - "CRITICAL"
+                        - 'ERROR'
+                        - 'CRITICAL'
 
         # Critical error alarm for auth failures (high rate)
         AuthenticationErrorAlarm:
@@ -61,7 +61,7 @@ resources:
             Properties:
                 AlarmName: ZipCase-${self:provider.stage}-AuthenticationErrors
                 AlarmDescription: High rate of authentication errors detected
-                Namespace: "ZipCase/${self:provider.stage}"
+                Namespace: 'ZipCase/${self:provider.stage}'
                 MetricName: Errors
                 Dimensions:
                     - Name: Severity
@@ -83,7 +83,7 @@ resources:
             Properties:
                 AlarmName: ZipCase-${self:provider.stage}-PortalCriticalErrors
                 AlarmDescription: Critical portal connectivity issues detected
-                Namespace: "ZipCase/${self:provider.stage}"
+                Namespace: 'ZipCase/${self:provider.stage}'
                 MetricName: Errors
                 Dimensions:
                     - Name: Severity
@@ -105,7 +105,7 @@ resources:
             Properties:
                 AlarmName: ZipCase-${self:provider.stage}-SystemErrors
                 AlarmDescription: High rate of system errors detected
-                Namespace: "ZipCase/${self:provider.stage}"
+                Namespace: 'ZipCase/${self:provider.stage}'
                 MetricName: Errors
                 Dimensions:
                     - Name: Severity
@@ -127,7 +127,7 @@ resources:
             Properties:
                 AlarmName: ZipCase-${self:provider.stage}-LambdaErrors
                 AlarmDescription: High rate of Lambda invocation errors detected
-                Namespace: "AWS/Lambda"
+                Namespace: 'AWS/Lambda'
                 MetricName: Errors
                 Statistic: Sum
                 Period: 300 # 5 minutes
@@ -144,7 +144,7 @@ resources:
             Properties:
                 AlarmName: ZipCase-${self:provider.stage}-LambdaThrottles
                 AlarmDescription: Lambda functions are being throttled
-                Namespace: "AWS/Lambda"
+                Namespace: 'AWS/Lambda'
                 MetricName: Throttles
                 Statistic: Sum
                 Period: 300 # 5 minutes
@@ -161,7 +161,7 @@ resources:
             Properties:
                 AlarmName: ZipCase-${self:provider.stage}-ApiGateway5xxErrors
                 AlarmDescription: API Gateway is returning 5xx errors
-                Namespace: "AWS/ApiGateway"
+                Namespace: 'AWS/ApiGateway'
                 MetricName: 5XXError
                 Statistic: Sum
                 Period: 300 # 5 minutes
@@ -178,11 +178,11 @@ resources:
             Properties:
                 AlarmName: ZipCase-${self:provider.stage}-CaseProcessingDlq
                 AlarmDescription: Messages are appearing in the DLQ
-                Namespace: "AWS/SQS"
+                Namespace: 'AWS/SQS'
                 MetricName: ApproximateNumberOfMessagesVisible
                 Dimensions:
                     - Name: QueueName
-                      Value: "zipcase-case-processing-dlq.fifo" # Make sure this matches your DLQ name
+                      Value: 'zipcase-case-processing-dlq.fifo' # Make sure this matches your DLQ name
                 Statistic: Sum
                 Period: 300 # 5 minutes
                 EvaluationPeriods: 1
@@ -198,7 +198,7 @@ resources:
             Properties:
                 AlarmName: ZipCase-${self:provider.stage}-DatabaseErrors
                 AlarmDescription: Database errors detected
-                Namespace: "ZipCase/${self:provider.stage}"
+                Namespace: 'ZipCase/${self:provider.stage}'
                 MetricName: Errors
                 Dimensions:
                     - Name: Severity
@@ -255,7 +255,7 @@ resources:
                 MessageRetentionPeriod: 259200 # 3 days
                 RedrivePolicy:
                     deadLetterTargetArn: !GetAtt CaseProcessingDlq.Arn
-                    maxReceiveCount: 3  # After 3 failed attempts, send to DLQ
+                    maxReceiveCount: 3 # After 3 failed attempts, send to DLQ
 
         CaseDataQueue:
             Type: AWS::SQS::Queue
@@ -268,7 +268,7 @@ resources:
                 MessageRetentionPeriod: 259200 # 3 days
                 RedrivePolicy:
                     deadLetterTargetArn: !GetAtt CaseProcessingDlq.Arn
-                    maxReceiveCount: 3  # After 3 failed attempts, send to DLQ
+                    maxReceiveCount: 3 # After 3 failed attempts, send to DLQ
 
         ZipCaseEncryptionKey:
             Type: AWS::KMS::Key
