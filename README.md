@@ -43,6 +43,7 @@ ZipCase follows a serverless architecture built on AWS:
 - **Storage**: DynamoDB and S3 for case data and user preferences
 - **Authentication**: Cognito for user authentication
 - **Queuing**: SQS for asynchronous case processing
+- **Monitoring**: CloudWatch metrics, alarms and SNS notifications
 - **Infrastructure**: Defined with Terraform and Serverless Framework
 
 ### Process Flow
@@ -59,6 +60,7 @@ ZipCase follows a serverless architecture built on AWS:
 - [Frontend Documentation](./frontend/README.md) - React application setup and deployment
 - [Serverless Documentation](./serverless/README.md) - Backend services and API
 - [Infrastructure](./infra/terraform) - Terraform resources and configuration
+- [Alerting System](./serverless/docs/ALERTING.md) - Error monitoring and notifications
 
 ## Getting Started
 
