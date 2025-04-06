@@ -83,14 +83,55 @@ npm test
 npm run test:integration
 ```
 
-## Testing
+## Development Tools
 
-- Unit tests: `npm test`
-- Integration tests: `npm run test:integration`
+### Linting
+
+Run ESLint to check for code style and potential issues:
+
+```bash
+npm run lint
+```
+
+### Type Checking
+
+Verify TypeScript types with the TypeScript compiler:
+
+```bash
+npx tsc --noEmit
+```
+
+### Testing
+
+Run tests for the backend services:
+
+```bash
+# Run all unit tests
+npm test
+
+# Run a specific test file
+npm test -- path/to/test-file.test.ts
+
+# Run tests with coverage report
+npm test -- --coverage
+
+# Run integration tests (these are typically skipped in CI)
+npm run test:integration
+```
 
 Test files are located in:
 - `/lib/__tests__/` - Unit tests for shared libraries
+- `/app/handlers/__tests__/` - Unit tests for app handlers
+- `/api/handlers/__tests__/` - Unit tests for api handlers
 - `/__integration_tests__/` - Integration tests
+
+### Development Workflow
+
+For thorough checking before committing, run the following sequence:
+
+```bash
+npm run lint && npx tsc --noEmit && npm test
+```
 
 ## API Documentation
 

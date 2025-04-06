@@ -8,6 +8,7 @@
         "build": "tsc -b && vite build",
         "build:css": "tailwindcss -i ./src/index.css -o ./dist/output.css --watch",
         "lint": "eslint .",
+        "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,md}\"",
         "preview": "vite preview",
         "test": "vitest run --config ./config/vitest.config.ts",
         "test:watch": "vitest --config ./config/vitest.config.ts",
