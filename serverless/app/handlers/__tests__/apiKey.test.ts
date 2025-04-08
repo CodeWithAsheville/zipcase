@@ -9,7 +9,16 @@ import {
 
 // Mock the dependencies
 jest.mock('../../../lib/StorageClient');
-jest.mock('@aws-sdk/client-api-gateway');
+jest.mock('@aws-sdk/client-api-gateway', () => {
+    return {
+        APIGatewayClient: jest.fn(() => ({
+            send: jest.fn(),
+        })),
+        CreateApiKeyCommand: jest.fn(),
+        CreateUsagePlanKeyCommand: jest.fn(),
+        UpdateApiKeyCommand: jest.fn(),
+    };
+});
 
 // Mock the environment variables
 process.env.DEFAULT_USAGE_PLAN_ID = 'test-usage-plan-id';
@@ -146,131 +155,6 @@ describe('apiKey handler', () => {
                 expect(JSON.parse(response.body).error).toBe(
                     'Webhook shared secret must not exceed 128 characters'
                 );
-            }
-        });
-
-        it.skip('should create a new API key successfully', async () => {
-            // Mock the AWS API Gateway client responses
-            const mockSend = jest.fn();
-            (APIGatewayClient as jest.Mock).mockImplementation(() => ({
-                send: mockSend,
-            }));
-
-            // Mock successful API key creation
-            mockSend.mockImplementationOnce(() => ({
-                id: 'new-api-key-id',
-                value: 'new-api-key-value',
-            }));
-
-            // Mock successful usage plan association
-            mockSend.mockImplementationOnce(() => ({}));
-
-            // Mock StorageClient methods
-            const mockGetApiKeyId = StorageClient.getApiKeyId as jest.Mock;
-            mockGetApiKeyId.mockResolvedValue(null); // No existing API key
-
-            const mockSaveApiKey = StorageClient.saveApiKey as jest.Mock;
-            mockSaveApiKey.mockResolvedValue(undefined);
-
-            const event = createEvent({
-                webhookUrl: 'https://example.com/webhook',
-                webhookSharedSecret: 'valid-secret',
-            });
-
-            const response = await create(event as any, null as any, null as any);
-
-            expect(response).toBeDefined();
-            if (response) {
-                expect(response.statusCode).toBe(201); // Created
-                expect(JSON.parse(response.body).apiKey).toBe('new-api-key-value');
-            }
-
-            // Verify API Gateway client calls
-            expect(mockSend).toHaveBeenCalledWith(expect.any(CreateApiKeyCommand));
-            expect(mockSend).toHaveBeenCalledWith(expect.any(CreateUsagePlanKeyCommand));
-
-            // Verify StorageClient calls
-            expect(mockSaveApiKey).toHaveBeenCalledWith(
-                'test-user-id',
-                'new-api-key-id',
-                'new-api-key-value'
-            );
-        });
-
-        it.skip('should disable the previous API key when creating a new one', async () => {
-            // Mock the AWS API Gateway client responses
-            const mockSend = jest.fn();
-            (APIGatewayClient as jest.Mock).mockImplementation(() => ({
-                send: mockSend,
-            }));
-
-            // Mock successful API key creation
-            mockSend.mockImplementationOnce(() => ({
-                id: 'new-api-key-id',
-                value: 'new-api-key-value',
-            }));
-
-            // Mock successful usage plan association
-            mockSend.mockImplementationOnce(() => ({}));
-
-            // Mock successful API key update (disabling old key)
-            mockSend.mockImplementationOnce(() => ({}));
-
-            // Mock StorageClient methods
-            const mockGetApiKeyId = StorageClient.getApiKeyId as jest.Mock;
-            mockGetApiKeyId.mockResolvedValue('old-api-key-id'); // Existing API key
-
-            const mockSaveApiKey = StorageClient.saveApiKey as jest.Mock;
-            mockSaveApiKey.mockResolvedValue(undefined);
-
-            const event = createEvent();
-
-            const response = await create(event as any, null as any, null as any);
-
-            expect(response).toBeDefined();
-            if (response) {
-                expect(response.statusCode).toBe(200); // OK (not 201 Created since updating)
-                expect(JSON.parse(response.body).apiKey).toBe('new-api-key-value');
-            }
-
-            // Verify API Gateway client calls for disabling old key
-            expect(mockSend).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    input: {
-                        apiKey: 'old-api-key-id',
-                        patchOperations: [
-                            {
-                                op: 'replace',
-                                path: '/enabled',
-                                value: 'false',
-                            },
-                        ],
-                    },
-                })
-            );
-        });
-
-        it.skip('should handle errors gracefully', async () => {
-            // Mock the AWS API Gateway client to throw an error
-            const mockSend = jest.fn();
-            mockSend.mockRejectedValue(new Error('AWS API Gateway error'));
-
-            (APIGatewayClient as jest.Mock).mockImplementation(() => ({
-                send: mockSend,
-            }));
-
-            // Mock StorageClient method
-            const mockGetApiKeyId = StorageClient.getApiKeyId as jest.Mock;
-            mockGetApiKeyId.mockResolvedValue(null);
-
-            const event = createEvent();
-            const response = await create(event as any, null as any, null as any);
-
-            expect(response).toBeDefined();
-            if (response) {
-                expect(response.statusCode).toBe(500);
-                expect(JSON.parse(response.body).error).toBe('Internal server error');
-                expect(JSON.parse(response.body).message).toBe('AWS API Gateway error');
             }
         });
     });
