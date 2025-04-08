@@ -271,26 +271,3 @@ export function useConsolidatedPolling() {
         stopPolling,
     };
 }
-
-// For backward compatibility - individual case polling will now just check the cache
-export function useCaseStatusPolling(caseNumber: string) {
-    const queryClient = useQueryClient();
-
-    // This will set up a minimal query that just returns the data from the cache
-    const query = useQuery<SearchResult | null, Error>({
-        queryKey: ['searchResult', caseNumber],
-        queryFn: () => {
-            const state = queryClient.getQueryData<ResultsState>(['searchResults']);
-            if (!state || !state.results) {
-                return null;
-            }
-            return state.results[caseNumber] || null;
-        },
-        // Don't actually fetch anything on our own - let the consolidated polling handle it
-        staleTime: Infinity,
-        refetchOnWindowFocus: false,
-        refetchOnMount: false,
-    });
-
-    return query;
-}
