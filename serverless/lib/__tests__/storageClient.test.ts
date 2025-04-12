@@ -1,10 +1,9 @@
 /**
  * Tests for the helper functions in StorageClient
  */
-import StorageClient, {
+import {
     Key,
     BatchHelper,
-    removeKeysToCreate,
     DynamoCompositeKey,
 } from '../StorageClient';
 
@@ -141,48 +140,6 @@ describe('StorageClient helpers', () => {
 
                 // Restore the original batch size
                 BatchHelper.BATCH_GET_MAX_ITEMS = originalBatchSize;
-            });
-        });
-    });
-
-    describe('removeKeysToCreate', () => {
-        it('should remove PK and SK from objects', () => {
-            const testItem = {
-                PK: 'CASE#22CR123456-789',
-                SK: 'ID',
-                caseNumber: '22CR123456-789',
-                status: 'complete',
-                data: { test: 'value' },
-            };
-
-            const result = removeKeysToCreate<any>(testItem);
-
-            expect(result).toEqual({
-                caseNumber: '22CR123456-789',
-                status: 'complete',
-                data: { test: 'value' },
-            });
-
-            // Make sure it didn't modify the original
-            expect(testItem.PK).toBeDefined();
-            expect(testItem.SK).toBeDefined();
-        });
-
-        it('should return null for undefined input', () => {
-            expect(removeKeysToCreate(undefined)).toBeNull();
-        });
-
-        it('should handle items without PK or SK', () => {
-            const testItem = {
-                caseNumber: '22CR123456-789',
-                status: 'complete',
-            };
-
-            const result = removeKeysToCreate<any>(testItem);
-
-            expect(result).toEqual({
-                caseNumber: '22CR123456-789',
-                status: 'complete',
             });
         });
     });

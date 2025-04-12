@@ -1,11 +1,5 @@
 import { get, create } from '../apiKey';
 import StorageClient from '../../../lib/StorageClient';
-import {
-    APIGatewayClient,
-    CreateApiKeyCommand,
-    CreateUsagePlanKeyCommand,
-    UpdateApiKeyCommand,
-} from '@aws-sdk/client-api-gateway';
 
 // Mock the dependencies
 jest.mock('../../../lib/StorageClient');
