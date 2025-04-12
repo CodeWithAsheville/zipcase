@@ -33,7 +33,7 @@ const NameParser = {
         try {
             const parsedName = humanparser.parseName(normalizedName);
 
-            let lastName = parsedName.lastName || '';
+            const lastName = parsedName.lastName || '';
 
             let firstMiddlePart = parsedName.firstName || '';
             if (parsedName.middleName && parsedName.middleName.trim()) {
@@ -54,7 +54,7 @@ const NameParser = {
 
             // Fallback to the original name if parsing fails
             return normalizedName;
-        } catch (error) {
+        } catch {
             // If humanparser fails, fall back to a simpler algorithm
             const parts = normalizedName.split(' ');
 

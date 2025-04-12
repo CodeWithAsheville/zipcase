@@ -8,9 +8,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
  * @param additionalHeaders Optional additional headers to include
  * @returns API Gateway proxy response object
  */
-export function createResponse(
+export function createResponse<T>(
     statusCode: number,
-    body: any,
+    body: T,
     additionalHeaders: Record<string, string> = {}
 ): APIGatewayProxyResult {
     return {
@@ -40,7 +40,7 @@ export function successResponse<T>(
 export function errorResponse(
     message: string,
     statusCode: number = 500,
-    additionalData: Record<string, any> = {},
+    additionalData: Record<string, unknown> = {},
     additionalHeaders: Record<string, string> = {}
 ): APIGatewayProxyResult {
     return createResponse(

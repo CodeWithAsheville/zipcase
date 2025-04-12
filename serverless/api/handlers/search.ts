@@ -1,7 +1,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 
 // Search handler
-export const execute: APIGatewayProxyHandler = async (event) => {
+export const execute: APIGatewayProxyHandler = async event => {
     try {
         // API endpoints should NOT forward user-agent strings
         // Server-side requests should use the predefined list in PortalAuthenticator
@@ -9,7 +9,7 @@ export const execute: APIGatewayProxyHandler = async (event) => {
         return {
             statusCode: 200,
             body: JSON.stringify({
-                message: 'search execute handler placeholder'
+                message: `search execute handler placeholder: ${event}`,
             }),
         };
     } catch (error) {

@@ -246,9 +246,12 @@ export function useConsolidatedPolling() {
 
     // Clean up on unmount
     useEffect(() => {
+        // Store a reference to the current polling ref
+        const currentPollingRef = pollingRef.current;
+
         return () => {
-            if (pollingRef.current.timeoutId) {
-                clearTimeout(pollingRef.current.timeoutId);
+            if (currentPollingRef.timeoutId) {
+                clearTimeout(currentPollingRef.timeoutId);
             }
         };
     }, []);

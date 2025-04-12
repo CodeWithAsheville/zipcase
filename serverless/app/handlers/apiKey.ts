@@ -16,7 +16,7 @@ function isValidUrl(url: string): boolean {
     try {
         new URL(url);
         return true;
-    } catch (error) {
+    } catch {
         return false;
     }
 }
@@ -101,7 +101,7 @@ export const create: APIGatewayProxyHandler = async event => {
                     }
                     webhookSharedSecret = secretValidation.trimmed || '';
                 }
-            } catch (error) {
+            } catch {
                 return errorResponse('Invalid request body format', 400);
             }
         }
@@ -132,6 +132,12 @@ export const create: APIGatewayProxyHandler = async event => {
         );
 
         await StorageClient.saveApiKey(userId, newKeyResult.id, newKeyResult.value);
+
+        // Save webhook settings if provided
+        if (webhookUrl || webhookSharedSecret) {
+            await StorageClient.saveWebhook(userId, webhookUrl, webhookSharedSecret);
+            console.log(`Stored webhook settings for user ${userId}`);
+        }
 
         // Store the user agent from the request
         const userAgent = event.headers['User-Agent'] || event.headers['user-agent'];
