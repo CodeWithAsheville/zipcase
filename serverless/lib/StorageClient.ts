@@ -6,7 +6,15 @@ import {
     PutCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
-import { CaseSummary, SearchResult, ZipCase } from '../../shared/types';
+import {
+    ApiKeyData,
+    CaseSummary,
+    PortalCredentials,
+    PortalCredentialsResponse,
+    SearchResult,
+    WebhookSettings,
+    ZipCase,
+} from '../../shared/types';
 import { NameSearchData } from '../../shared/types/Search';
 
 export interface DynamoCompositeKey {
@@ -74,7 +82,9 @@ export const BatchHelper = {
      * @param keys Array of composite keys to get
      * @returns Map of composite keys to their corresponding items
      */
-    async getMany(keys: DynamoCompositeKey[]): Promise<Map<DynamoCompositeKey, any>> {
+    async getMany<T extends Record<string, unknown>>(
+        keys: DynamoCompositeKey[]
+    ): Promise<Map<DynamoCompositeKey, T>> {
         if (keys.length === 0) {
             return new Map();
         }
@@ -96,7 +106,7 @@ export const BatchHelper = {
         const results = await Promise.all(batchPromises);
 
         // Build a map of composite keys to items
-        const resultMap = new Map<DynamoCompositeKey, any>();
+        const resultMap = new Map<DynamoCompositeKey, T>();
 
         results.forEach(result => {
             if (result.Responses && result.Responses[TABLE_NAME]) {
@@ -104,7 +114,7 @@ export const BatchHelper = {
                     // Find the original key for this item
                     const key = keys.find(k => k.PK === item.PK && k.SK === item.SK);
                     if (key) {
-                        resultMap.set(key, item);
+                        resultMap.set(key, item as T);
                     }
                 });
             }
@@ -119,7 +129,7 @@ export const BatchHelper = {
  * @param key The composite key to get
  * @returns The item or undefined if not found
  */
-async function get(key: DynamoCompositeKey): Promise<Record<string, any> | null> {
+async function get<T>(key: DynamoCompositeKey): Promise<T | null> {
     const result = await dynamoDb.send(
         new GetCommand({
             TableName: TABLE_NAME,
@@ -127,7 +137,7 @@ async function get(key: DynamoCompositeKey): Promise<Record<string, any> | null>
         })
     );
 
-    return result.Item || null;
+    return (result.Item as T) || null;
 }
 
 /**
@@ -136,7 +146,7 @@ async function get(key: DynamoCompositeKey): Promise<Record<string, any> | null>
  * @param item The item data to save (without PK and SK)
  * @returns Promise that resolves when the item is saved
  */
-async function save(key: DynamoCompositeKey, item: Record<string, any>): Promise<void> {
+async function save<T>(key: DynamoCompositeKey, item: T): Promise<void> {
     await dynamoDb.send(
         new PutCommand({
             TableName: TABLE_NAME,
@@ -155,17 +165,10 @@ async function save(key: DynamoCompositeKey, item: Record<string, any>): Promise
  * @returns A Promise that resolves to a Map of composite keys to their corresponding items
  * @throws {Error} If the operation fails
  */
-function getMany(keys: DynamoCompositeKey[]): Promise<Map<DynamoCompositeKey, any>> {
-    return BatchHelper.getMany(keys);
-}
-
-export function removeKeysToCreate<T>(item: Record<string, any> | undefined): T | null {
-    if (!item) {
-        return null;
-    }
-
-    const { PK, SK, ...cleanedItem } = item;
-    return cleanedItem as T;
+function getMany<T extends Record<string, unknown> = Record<string, unknown>>(
+    keys: DynamoCompositeKey[]
+): Promise<Map<DynamoCompositeKey, T>> {
+    return BatchHelper.getMany<T>(keys);
 }
 
 async function encryptValue(value: string): Promise<string> {
@@ -189,31 +192,31 @@ async function decryptValue(encryptedValue: string): Promise<string> {
 const StorageClient = {
     async saveUserAgent(userId: string, userAgent: string): Promise<void> {
         // 90 days TTL (in seconds)
-        const expiresAt = Math.floor(Date.now() / 1000) + (90 * 24 * 60 * 60);
+        const expiresAt = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
 
         await save(Key.User(userId).USER_AGENT, {
             userAgent,
-            ttl: expiresAt
+            ttl: expiresAt,
         });
     },
 
     async getUserAgent(userId: string): Promise<string | null> {
-        const result = await get(Key.User(userId).USER_AGENT);
+        const result = await get<{ userAgent: string }>(Key.User(userId).USER_AGENT);
         return result?.userAgent || null;
     },
 
     async saveUserAgentCollection(userAgents: string[]): Promise<void> {
         // 90 days TTL (in seconds)
-        const expiresAt = Math.floor(Date.now() / 1000) + (90 * 24 * 60 * 60);
+        const expiresAt = Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60;
 
         await save(Key.UserAgents.COLLECTION, {
             userAgents,
-            ttl: expiresAt
+            ttl: expiresAt,
         });
     },
 
     async getUserAgentCollection(): Promise<string[] | null> {
-        const result = await get(Key.UserAgents.COLLECTION);
+        const result = await get<{ userAgents: string[] }>(Key.UserAgents.COLLECTION);
         return result?.userAgents || null;
     },
 
@@ -232,7 +235,9 @@ const StorageClient = {
         username: string;
         isBad: boolean;
     } | null> {
-        const credentials = await get(Key.User(userId).PORTAL_CREDENTIALS);
+        const credentials = await get<PortalCredentialsResponse>(
+            Key.User(userId).PORTAL_CREDENTIALS
+        );
 
         if (!credentials) {
             return null;
@@ -251,7 +256,7 @@ const StorageClient = {
         password: string;
         isBad: boolean;
     } | null> {
-        const credentials = await get(Key.User(userId).PORTAL_CREDENTIALS);
+        const credentials = await get<PortalCredentials>(Key.User(userId).PORTAL_CREDENTIALS);
 
         if (!credentials) {
             return null;
@@ -280,7 +285,9 @@ const StorageClient = {
     },
 
     async getUserSession(userId: string): Promise<string | null> {
-        const session = await get(Key.User(userId).SESSION);
+        const session = await get<{ sessionToken: string; expiresAt: string }>(
+            Key.User(userId).SESSION
+        );
 
         if (!session) {
             return null;
@@ -304,8 +311,8 @@ const StorageClient = {
     },
 
     async getApiKeyId(userId: string): Promise<string | null> {
-        const result = await get(Key.User(userId).API_KEY);
-        return result?.Item?.apiKeyId;
+        const result = await get<ApiKeyData>(Key.User(userId).API_KEY);
+        return result?.apiKeyId ?? null;
     },
 
     async getApiKey(userId: string): Promise<{
@@ -324,19 +331,19 @@ const StorageClient = {
             return null;
         }
 
-        let apiKey = null;
-        let webhook = null;
+        let apiKey: ApiKeyData | null = null;
+        let webhook: WebhookSettings | null = null;
 
         // Check each of the possible keys
         const apiKeyItem = resultMap.get(keys[0]);
         const webhookItem = resultMap.get(keys[1]);
 
         if (apiKeyItem) {
-            apiKey = apiKeyItem;
+            apiKey = apiKeyItem as unknown as ApiKeyData;
         }
 
         if (webhookItem) {
-            webhook = webhookItem;
+            webhook = webhookItem as unknown as WebhookSettings;
         }
 
         if (!apiKey) {
@@ -358,8 +365,8 @@ const StorageClient = {
     },
 
     async getCase(caseNumber: string): Promise<ZipCase | null> {
-        const result = await get(Key.Case(caseNumber).ID);
-        return result?.Item ? removeKeysToCreate<ZipCase>(result?.Item) : null;
+        const result = await get<ZipCase>(Key.Case(caseNumber).ID);
+        return result ?? null;
     },
 
     async batchGetCases(caseNumbers: string[]): Promise<Record<string, ZipCase>> {
@@ -379,7 +386,7 @@ const StorageClient = {
             const caseNumber = caseNumbers[index];
 
             if (item) {
-                const zipCase = removeKeysToCreate<ZipCase>(item);
+                const zipCase = item as unknown as ZipCase;
                 if (zipCase) {
                     casesMap[caseNumber] = zipCase;
                     return;
@@ -409,8 +416,8 @@ const StorageClient = {
     },
 
     async getNameSearch(searchId: string): Promise<NameSearchData | null> {
-        const result = await get(Key.NameSearch(searchId).ID);
-        return result ? removeKeysToCreate<NameSearchData>(result) : null;
+        const result = await get<NameSearchData>(Key.NameSearch(searchId).ID);
+        return result ?? null;
     },
 
     async updateNameSearchCases(searchId: string, caseNumbers: string[]): Promise<void> {
@@ -461,13 +468,13 @@ const StorageClient = {
                 return;
             }
 
-            const caseData = removeKeysToCreate<ZipCase>(caseItem);
+            const caseData = caseItem as unknown as ZipCase;
             if (!caseData) {
                 return;
             }
 
             const summaryItem = resultMap.get(summaryKey);
-            const summary = summaryItem ? removeKeysToCreate<CaseSummary>(summaryItem) : null;
+            const summary = summaryItem as unknown as CaseSummary;
 
             results[caseNumber] = {
                 zipCase: caseData,

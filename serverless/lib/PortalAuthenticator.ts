@@ -48,7 +48,7 @@ function extractVerificationToken(html: string): string | null {
     try {
         const $ = cheerio.load(html);
         return ($('input[name="__RequestVerificationToken"]').val() as string) || null;
-    } catch (error) {
+    } catch {
         return null;
     }
 }
@@ -64,7 +64,7 @@ function extractLoginUrl(response: AxiosResponse): string | null {
         const $ = cheerio.load(response.data);
         const formAction = $('form').attr('action');
         if (formAction) return formAction;
-    } catch (error) {
+    } catch {
         // Ignore parsing errors
     }
 
@@ -75,7 +75,7 @@ function extractWsFedToken(html: string): string | null {
     try {
         const $ = cheerio.load(html);
         return ($('input[name="wresult"]').val() as string) || null;
-    } catch (error) {
+    } catch {
         return null;
     }
 }

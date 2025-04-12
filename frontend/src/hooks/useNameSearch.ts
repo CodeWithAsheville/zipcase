@@ -180,8 +180,8 @@ export function useNameSearch() {
                 return;
             }
 
-            if (Object.keys(results).length === 0) {
-            }
+            // Nothing special to do if there are no results
+            // if (Object.keys(results).length === 0) { ... }
 
             // Get existing state from query client
             const existingState = queryClient.getQueryData<ResultsState>(['searchResults']) || {
