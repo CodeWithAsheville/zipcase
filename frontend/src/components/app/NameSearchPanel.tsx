@@ -167,7 +167,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                 soundsLike: localState.soundsLike,
             },
             {
-                onSuccess: data => {
+                onSuccess: () => {
                     // Clear any previous error
                     localDispatch({ type: 'SET_ERROR', payload: null });
                     // Only clear the input fields on success

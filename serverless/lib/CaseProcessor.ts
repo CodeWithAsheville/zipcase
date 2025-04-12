@@ -1,4 +1,4 @@
-import { SQSHandler, SQSEvent, SQSRecord } from 'aws-lambda';
+import { SQSHandler, SQSEvent } from 'aws-lambda';
 import PortalAuthenticator from './PortalAuthenticator';
 import QueueClient from './QueueClient';
 import StorageClient from './StorageClient';
@@ -11,7 +11,7 @@ import { wrapper } from 'axios-cookiejar-support';
 import * as cheerio from 'cheerio';
 
 // Process the case search queue - responsible for finding caseId (status: 'found')
-const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback) => {
+const processCaseSearch: SQSHandler = async (event: SQSEvent) => {
     console.log(`Received ${event.Records.length} case search messages`);
 
     // Create specialized logger for case search
@@ -42,7 +42,7 @@ const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback)
 };
 
 // Process the case data queue - responsible for fetching case data (status: 'complete')
-const processCaseData: SQSHandler = async (event: SQSEvent, context, callback) => {
+const processCaseData: SQSHandler = async (event: SQSEvent) => {
     console.log(`Received ${event.Records.length} case data messages`);
 
     // Create specialized logger for case data
