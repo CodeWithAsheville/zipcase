@@ -3,6 +3,10 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import useZipCaseApi from '../useZipCaseApi';
 import { ZipCaseClient } from '../../services';
 
+vi.mock('../../aws-exports', () => ({
+  API_URL: 'http://test-api.example.com'
+}));
+
 // Since the module itself uses a singleton instance, we need to manually mock
 // the entire module, not just the imported functions
 vi.mock('../../services', () => {

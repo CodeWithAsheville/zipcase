@@ -1,5 +1,6 @@
 export { default as App } from './App';
-export { AppContext, AppContextProvider } from './AppContext';
+export { AppContext } from './AppContext';
+export { AppContextProvider } from './AppContextProvider';
 export { default as SearchPanel } from './SearchPanel';
 export { default as SearchResult } from './SearchResult';
 export { default as SearchResultsList } from './SearchResultsList';
