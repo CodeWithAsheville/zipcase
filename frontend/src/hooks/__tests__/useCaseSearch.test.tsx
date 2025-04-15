@@ -7,6 +7,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useSearchResults, useConsolidatedPolling } from '../useCaseSearch';
 
+vi.mock('../../aws-exports', () => ({
+  API_URL: 'http://test-api.example.com'
+}));
+
 // Create a wrapper for the tests that need React Query context
 const createTestQueryClient = (initialData = null) => {
     const queryClient = new QueryClient({

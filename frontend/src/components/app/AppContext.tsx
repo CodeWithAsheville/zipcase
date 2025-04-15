@@ -1,34 +1,24 @@
-import React, { createContext, Dispatch, ReactNode, useReducer } from 'react';
+import { createContext, Dispatch } from 'react';
 
-interface AppContextType {
+export interface AppContextType {
     token: string;
     dispatch: Dispatch<AppContextAction>;
 }
 
-const defaultContext = {
+export const defaultContext = {
     token: '',
     dispatch: () => {},
 };
 
 export const AppContext = createContext<AppContextType>(defaultContext);
 
-type AppContextAction = { type: 'SET_TOKEN'; payload: string };
+export type AppContextAction = { type: 'SET_TOKEN'; payload: string };
 
-const appReducer = (state: AppContextType, action: AppContextAction): AppContextType => {
+export const appReducer = (state: AppContextType, action: AppContextAction): AppContextType => {
     switch (action.type) {
         case 'SET_TOKEN':
             return { ...state, token: action.payload };
         default:
             return state;
     }
-};
-
-export const AppContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const initialState = {
-        ...defaultContext,
-    };
-
-    const [state, dispatch] = useReducer(appReducer, initialState);
-
-    return <AppContext.Provider value={{ ...state, dispatch }}>{children}</AppContext.Provider>;
 };
