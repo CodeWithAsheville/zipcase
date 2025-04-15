@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useContext } from 'react';
 import { describe, expect, it } from 'vitest';
-import { AppContext, AppContextProvider } from '../AppContext';
+import { AppContext } from '../AppContext';
+import { AppContextProvider } from '../AppContextProvider';
 
 // Test component that consumes the context
 const TestConsumer = () => {
