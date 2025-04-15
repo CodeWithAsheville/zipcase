@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import awsExports from '../../aws-exports';
-import { AppContextProvider } from './AppContext';
+import { AppContextProvider } from './AppContextProvider';
 import Shell from './Shell';
 import ZipCaseLogo from '../../assets/ZipCaseLogo.svg';
 
