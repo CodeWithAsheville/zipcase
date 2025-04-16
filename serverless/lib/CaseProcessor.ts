@@ -257,37 +257,15 @@ async function processCaseDataRecord(
     receiptHandle: string
 ): Promise<FetchStatus> {
     try {
-        const now = new Date();
-        const nowTime = now.getTime();
-        const isoNow = now.toISOString();
-
+        // Check for existing data and skip if already complete
         const zipCase = await StorageClient.getCase(caseNumber);
-
-        // Skip if already complete or in 'found' status recently - always use cache
-        if (zipCase) {
-            if (zipCase.fetchStatus.status === 'complete') {
-                // Always use the cached data for complete cases
-                await QueueClient.deleteMessage(receiptHandle, 'data');
-                console.log(
-                    `Case ${caseNumber} already complete; using cached data and deleted queue item`
-                );
-                return zipCase.fetchStatus;
-            }
-
-            // For 'found' cases, add a protection against duplicate processing
-            // This might happen if the case is queued multiple times due to polling
-            if (zipCase.fetchStatus.status === 'found' && zipCase.lastUpdated) {
-                const lastUpdated = new Date(zipCase.lastUpdated);
-                const minutesDiff = (nowTime - lastUpdated.getTime()) / (1000 * 60);
-
-                if (minutesDiff < 1) {
-                    console.log(
-                        `Case ${caseNumber} already in 'found' status recently (${minutesDiff.toFixed(1)} mins ago); deleted duplicate queue item`
-                    );
-                    await QueueClient.deleteMessage(receiptHandle, 'data');
-                    return zipCase.fetchStatus;
-                }
-            }
+        if (zipCase && zipCase.fetchStatus.status === 'complete') {
+            // Always use the cached data for complete cases
+            await QueueClient.deleteMessage(receiptHandle, 'data');
+            console.log(
+                `Case ${caseNumber} already complete; using cached data and deleted queue item`
+            );
+            return zipCase.fetchStatus;
         }
 
         // Fetch case summary
@@ -299,7 +277,7 @@ async function processCaseDataRecord(
             caseNumber,
             caseId,
             fetchStatus: completeStatus,
-            lastUpdated: isoNow,
+            lastUpdated: new Date().toISOString(),
         });
 
         // Save the case summary if available
