@@ -57,6 +57,12 @@ jobs:
             - name: Lint frontend
               run: npm run lint
 
+            - name: Check TypeScript build
+              run: npx tsc -b
+
+            - name: Test production build
+              run: npm run build
+
     terraform-plan-dev:
         name: Terraform Plan (Dev)
         if: github.base_ref == 'main'
