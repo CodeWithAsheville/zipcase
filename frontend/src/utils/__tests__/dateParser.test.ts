@@ -2,28 +2,18 @@ import { parseDate, formatDate } from '../dateParser';
 
 // Mock current date to ensure consistent test results
 const mockDate = new Date(2025, 3, 15); // April 15, 2025
-const originalDate = global.Date;
 
-// Helper to create a date test environment
 function withMockedDate(fn: () => void) {
-    // @ts-ignore
-    global.Date = class extends Date {
-        constructor(...args: any[]) {
-            if (args.length === 0) {
-                return mockDate;
-            }
-            // @ts-ignore
-            return new originalDate(...args);
-        }
-        static now() {
-            return mockDate.getTime();
-        }
-    };
+    const originalNow = Date.now;
 
     try {
+        // Mock Date.now() to return our fixed date
+        // @ts-ignore - vitest can use this format for mocking
+        Date.now = () => mockDate.getTime();
+
         fn();
     } finally {
-        global.Date = originalDate;
+        Date.now = originalNow;
     }
 }
 
