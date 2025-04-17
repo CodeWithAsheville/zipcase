@@ -21,8 +21,10 @@ export function parseDate(dateStr: string): Date | null {
         return null;
     }
 
-    const currentYear = new Date().getFullYear();
-    const currentDate = new Date();
+    // Get current date/time - use Date.now() for better testability
+    const now = new Date(Date.now());
+    const currentYear = now.getFullYear();
+    const currentDate = now;
 
     // Try to parse a date in YYYYMMDD format (e.g., "20220130")
     if (/^\d{8}$/.test(normalizedStr)) {

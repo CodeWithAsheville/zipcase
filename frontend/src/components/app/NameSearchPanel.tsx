@@ -358,7 +358,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                     disabled={
                                         nameSearch.isPending ||
                                         !localState.name.trim() ||
-                                        (localState.dateOfBirth.trim() && !localState.formattedDate)
+                                        (localState.dateOfBirth.trim() !== "" && !localState.formattedDate)
                                     }
                                     className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1F7ABC]
                                     disabled:bg-gray-400 disabled:cursor-not-allowed
