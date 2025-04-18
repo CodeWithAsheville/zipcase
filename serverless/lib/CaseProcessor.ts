@@ -5,6 +5,7 @@ import StorageClient from './StorageClient';
 import UserAgentClient from './UserAgentClient';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 import { CaseSummary, FetchStatus } from '../../shared/types';
+import { processNameSearch } from './NameSearchProcessor';
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
@@ -602,6 +603,7 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
 const CaseProcessor = {
     processCaseSearch,
     processCaseData,
+    processNameSearch,
     queueCasesForSearch,
     fetchCaseIdFromPortal,
 };
