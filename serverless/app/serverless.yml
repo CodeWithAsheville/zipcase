@@ -196,6 +196,25 @@ resources:
                     - ${ssm:/zipcase/alert-topic-arn}
                 TreatMissingData: notBreaching
 
+        ProcessNameSearchErrorsAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-ProcessNameSearchErrors
+                AlarmDescription: High error rate in processNameSearch Lambda function
+                Namespace: 'AWS/Lambda'
+                MetricName: Errors
+                Dimensions:
+                    - Name: FunctionName
+                      Value: ${self:service}-${self:provider.stage}-processNameSearch
+                Statistic: Sum
+                Period: 60
+                EvaluationPeriods: 1
+                Threshold: 2
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - ${ssm:/zipcase/alert-topic-arn}
+                TreatMissingData: notBreaching
+
 functions:
     getApiKey:
         handler: handlers/apiKey.get
@@ -295,6 +314,8 @@ functions:
             - sqs:
                   arn: ${cf:infra-${self:provider.stage}.SearchQueueArn}
                   batchSize: 1
+                  filterPatterns:
+                      - {"messageAttributes": {"searchType": {"stringValue": ["case"]}}}
 
     processCaseData:
         handler: handlers/case.processCaseData
@@ -303,3 +324,14 @@ functions:
             - sqs:
                   arn: ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
                   batchSize: 10 # Higher concurrency for case data processing
+
+    processNameSearch:
+        handler: handlers/case.processNameSearch
+        timeout: 12
+        events:
+            - sqs:
+                  arn: ${cf:infra-${self:provider.stage}.SearchQueueArn}
+                  batchSize: 1
+                  functionResponseType: ReportBatchItemFailures
+                  filterPatterns:
+                      - {"messageAttributes": {"searchType": {"stringValue": ["name"]}}}
