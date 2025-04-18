@@ -256,7 +256,7 @@ export const processNameSearch: SQSHandler = async (event: SQSEvent) => {
 
             if (!searchId || !name || !userId) {
                 await nameSearchLogger.error(
-                    'Invalid message format, missing required fields',
+                    'Invalid name search message format, missing required fields',
                     undefined,
                     { searchId, name, userId, messageId: record.messageId }
                 );

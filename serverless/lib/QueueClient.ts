@@ -15,12 +15,17 @@ const QueueClient = {
         const params = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
-                searchType: 'case',
                 caseNumber,
                 userId,
                 userAgent,
                 timestamp: Date.now(),
             }),
+            MessageAttributes: {
+                searchType: {
+                    DataType: 'String',
+                    StringValue: 'case'
+                }
+            },
             MessageGroupId: userId, // Group by userId to process requests serially per user
             MessageDeduplicationId: normalizedCaseNumber,
         };
@@ -44,7 +49,6 @@ const QueueClient = {
         const params = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
-                searchType: 'name',
                 searchId,
                 name,
                 dateOfBirth,
@@ -53,6 +57,12 @@ const QueueClient = {
                 userAgent,
                 timestamp: Date.now(),
             }),
+            MessageAttributes: {
+                searchType: {
+                    DataType: 'String',
+                    StringValue: 'name'
+                }
+            },
             MessageGroupId: userId, // Group by userId to process requests serially per user
             MessageDeduplicationId: searchId, // Use existing searchId for deduplication
         };
@@ -126,12 +136,17 @@ const QueueClient = {
                 return {
                     Id: `${index}`, // Unique ID within the batch request
                     MessageBody: JSON.stringify({
-                        searchType: 'case',
                         caseNumber,
                         userId,
                         userAgent,
                         timestamp,
                     }),
+                    MessageAttributes: {
+                        searchType: {
+                            DataType: 'String',
+                            StringValue: 'case'
+                        }
+                    },
                     MessageGroupId: userId, // Group by userId to process requests serially per user
                     MessageDeduplicationId: normalizedCaseNumber,
                 };
