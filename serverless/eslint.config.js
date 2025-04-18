@@ -32,5 +32,12 @@ module.exports = tseslint.config(
             '@typescript-eslint/no-explicit-any': 'off',
             '@typescript-eslint/ban-ts-comment': 'off'
         }
+    },
+    // Exemption for eslint.config.js
+    {
+        files: ['eslint.config.js'],
+        rules: {
+            '@typescript-eslint/no-require-imports': 'off'
+        }
     }
 );
