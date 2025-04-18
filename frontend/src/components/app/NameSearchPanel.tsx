@@ -263,7 +263,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                         onChange={e =>
                                             localDispatch({
                                                 type: 'SET_SOUNDS_LIKE',
-                                                payload: e.target.checked,
+                                                payload: Boolean(e.target.checked),
                                             })
                                         }
                                         disabled={nameSearch.isPending}
