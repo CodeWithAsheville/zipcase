@@ -20,6 +20,13 @@ export const processCaseData: SQSHandler = async (event: SQSEvent, context, call
     return CaseProcessor.processCaseData(event, context, callback);
 };
 
+/**
+ * Processes SQS queue events for name searches
+ */
+export const processNameSearch: SQSHandler = async (event: SQSEvent, context, callback) => {
+    return CaseProcessor.processNameSearch(event, context, callback);
+};
+
 export const get: APIGatewayProxyHandler = async event => {
     try {
         // Extract user ID from Cognito authorizer
