@@ -285,18 +285,23 @@ const StorageClient = {
     },
 
     async getUserSession(userId: string): Promise<string | null> {
-        const session = await get<{ sessionToken: string; expiresAt: string }>(
-            Key.User(userId).SESSION
-        );
+        const session = await get<{
+            sessionToken: string;
+            expiresAt: number;
+            expiresAtIso: string;
+        }>(Key.User(userId).SESSION);
 
         if (!session) {
             return null;
         }
 
         // Check if session is expired (TTL might not have processed yet)
-        const expiresAt = new Date(session.expiresAt);
+        const expiresAt = new Date(session.expiresAt * 1000);
         const nowPlusOneHour = new Date(Date.now() + 60 * 60 * 1000);
         if (expiresAt < nowPlusOneHour) {
+            console.log(
+                `Saved portal session is considered expired for userId ${userId} as of ${session.expiresAtIso}`
+            );
             return null;
         }
 
