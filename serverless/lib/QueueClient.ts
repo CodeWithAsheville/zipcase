@@ -10,7 +10,11 @@ const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'us-east-2' 
 
 const QueueClient = {
     // Queue a case for the search process (finding caseId)
-    async queueCaseForSearch(caseNumber: string, userId: string, userAgent?: string): Promise<void> {
+    async queueCaseForSearch(
+        caseNumber: string,
+        userId: string,
+        userAgent?: string
+    ): Promise<void> {
         const normalizedCaseNumber = caseNumber.toUpperCase();
         const params = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
@@ -23,8 +27,8 @@ const QueueClient = {
             MessageAttributes: {
                 searchType: {
                     DataType: 'String',
-                    StringValue: 'case'
-                }
+                    StringValue: 'case',
+                },
             },
             MessageGroupId: userId, // Group by userId to process requests serially per user
             MessageDeduplicationId: normalizedCaseNumber,
@@ -45,7 +49,14 @@ const QueueClient = {
         }
     },
 
-    async queueNameSearchForProcessing(searchId: string, userId: string, name: string, dateOfBirth?: string, soundsLike: boolean = false, userAgent?: string): Promise<void> {
+    async queueNameSearchForProcessing(
+        searchId: string,
+        userId: string,
+        name: string,
+        dateOfBirth?: string,
+        soundsLike: boolean = false,
+        userAgent?: string
+    ): Promise<void> {
         const params = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
@@ -60,8 +71,8 @@ const QueueClient = {
             MessageAttributes: {
                 searchType: {
                     DataType: 'String',
-                    StringValue: 'name'
-                }
+                    StringValue: 'name',
+                },
             },
             MessageGroupId: userId, // Group by userId to process requests serially per user
             MessageDeduplicationId: searchId, // Use existing searchId for deduplication
@@ -144,8 +155,8 @@ const QueueClient = {
                     MessageAttributes: {
                         searchType: {
                             DataType: 'String',
-                            StringValue: 'case'
-                        }
+                            StringValue: 'case',
+                        },
                     },
                     MessageGroupId: userId, // Group by userId to process requests serially per user
                     MessageDeduplicationId: normalizedCaseNumber,
@@ -170,7 +181,7 @@ const QueueClient = {
                         {
                             userId,
                             batchSize: batch.length,
-                            failedCount: response.Failed.length
+                            failedCount: response.Failed.length,
                         }
                     );
                     throw new Error(`Failed to queue ${response.Failed.length} cases`);
@@ -184,7 +195,7 @@ const QueueClient = {
                     {
                         userId,
                         casesCount: cases.length,
-                        batchIndex: Math.floor(i / BATCH_SIZE)
+                        batchIndex: Math.floor(i / BATCH_SIZE),
                     }
                 );
                 throw error;
@@ -213,7 +224,7 @@ const QueueClient = {
                 error as Error,
                 {
                     queueType,
-                    receiptHandle: receiptHandle.substring(0, 20) + '...' // Truncate for readability
+                    receiptHandle: receiptHandle.substring(0, 20) + '...', // Truncate for readability
                 }
             );
             throw error;
