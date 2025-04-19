@@ -27,7 +27,7 @@ export const handler: APIGatewayProxyHandler = async event => {
         const result = await processSearchRequest({
             input: body.search,
             userId,
-            userAgent
+            userAgent,
         });
 
         return {

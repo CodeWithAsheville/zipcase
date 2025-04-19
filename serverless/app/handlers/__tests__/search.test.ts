@@ -21,7 +21,7 @@ describe('Search Handler', () => {
         return {
             body: JSON.stringify(body),
             headers: {
-                'User-Agent': 'Jest Test Environment'
+                'User-Agent': 'Jest Test Environment',
             },
             requestContext: {
                 authorizer: {
@@ -94,7 +94,7 @@ describe('Search Handler', () => {
         expect(processSearchRequest).toHaveBeenCalledWith({
             input: searchQuery,
             userId: 'test-user-id',
-            userAgent: expect.any(String)
+            userAgent: expect.any(String),
         });
         expect(response.statusCode).toBe(202);
         expect(JSON.parse(response.body)).toEqual(mockResults);
