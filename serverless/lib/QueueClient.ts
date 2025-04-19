@@ -3,6 +3,7 @@ import {
     SendMessageCommand,
     SendMessageBatchCommand,
     DeleteMessageCommand,
+    SendMessageCommandInput,
 } from '@aws-sdk/client-sqs';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 
@@ -57,7 +58,7 @@ const QueueClient = {
         soundsLike: boolean = false,
         userAgent?: string
     ): Promise<void> {
-        const params = {
+        const params: SendMessageCommandInput = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
                 searchId,
