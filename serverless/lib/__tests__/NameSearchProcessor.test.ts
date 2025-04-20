@@ -27,10 +27,13 @@ describe('NameSearchProcessor', () => {
 
         // Default mock implementations
         (NameParser.parseAndStandardizeName as jest.Mock).mockImplementation(name => name);
-        (StorageClient.getUserSession as jest.Mock).mockResolvedValue(null);
         (StorageClient.getNameSearch as jest.Mock).mockResolvedValue(null);
         (QueueClient.queueNameSearchForProcessing as jest.Mock).mockResolvedValue(undefined);
         (AlertService.logError as jest.Mock).mockResolvedValue(undefined);
+        (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
+            success: true,
+            cookieJar: { toJSON: () => ({ cookies: [] }) }
+        });
     });
 
     describe('processNameSearchRequest', () => {
@@ -47,10 +50,12 @@ describe('NameSearchProcessor', () => {
             const result = await processNameSearchRequest(mockRequest, mockUserId);
 
             expect(result).toEqual({
-                searchId: '',
-                results: {}
+                searchId: 'mock-uuid-1234',
+                results: {},
+                success: false,
+                error: expect.stringContaining('Name could not be parsed')
             });
-            expect(StorageClient.saveNameSearch).not.toHaveBeenCalled();
+            expect(StorageClient.saveNameSearch).toHaveBeenCalled();
             expect(QueueClient.queueNameSearchForProcessing).not.toHaveBeenCalled();
         });
 
@@ -72,7 +77,10 @@ describe('NameSearchProcessor', () => {
         });
 
         it('should queue name search if user session exists', async () => {
-            (StorageClient.getUserSession as jest.Mock).mockResolvedValue('existing-session');
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
+                success: true,
+                cookieJar: { toJSON: () => ({ cookies: [] }) }
+            });
 
             await processNameSearchRequest(mockRequest, mockUserId);
 
@@ -84,18 +92,11 @@ describe('NameSearchProcessor', () => {
                 false,
                 'test-agent'
             );
-            expect(StorageClient.sensitiveGetPortalCredentials).not.toHaveBeenCalled();
         });
 
-        it('should attempt authentication if no user session exists', async () => {
-            const mockPortalCredentials = {
-                username: 'test-user',
-                password: 'test-pass',
-                isBad: false
-            };
-            (StorageClient.getUserSession as jest.Mock).mockResolvedValue(null);
-            (StorageClient.sensitiveGetPortalCredentials as jest.Mock).mockResolvedValue(mockPortalCredentials);
-            (PortalAuthenticator.authenticateWithPortal as jest.Mock).mockResolvedValue({
+        it('should use getOrCreateUserSession for authentication', async () => {
+            // Mock getOrCreateUserSession to return success
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
                 success: true,
                 cookieJar: {
                     toJSON: () => ({ cookies: [] })
@@ -104,22 +105,17 @@ describe('NameSearchProcessor', () => {
 
             await processNameSearchRequest(mockRequest, mockUserId);
 
-            expect(StorageClient.sensitiveGetPortalCredentials).toHaveBeenCalledWith(mockUserId);
-            expect(PortalAuthenticator.authenticateWithPortal).toHaveBeenCalledWith(
-                'test-user',
-                'test-pass',
-                { userAgent: 'test-agent' }
+            // Verify getOrCreateUserSession was called with the right parameters
+            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith(
+                mockUserId,
+                'test-agent'
             );
-            expect(StorageClient.saveUserSession).toHaveBeenCalled();
+
+            // And that queue processing was called
             expect(QueueClient.queueNameSearchForProcessing).toHaveBeenCalled();
         });
 
         it('should handle authentication failure', async () => {
-            const mockPortalCredentials = {
-                username: 'test-user',
-                password: 'test-pass',
-                isBad: false
-            };
             const mockNameSearch = {
                 originalName: 'Smith, John',
                 normalizedName: 'Smith, John',
@@ -128,36 +124,36 @@ describe('NameSearchProcessor', () => {
                 cases: []
             };
 
-            (StorageClient.getUserSession as jest.Mock).mockResolvedValue(null);
-            (StorageClient.sensitiveGetPortalCredentials as jest.Mock).mockResolvedValue(mockPortalCredentials);
-            (PortalAuthenticator.authenticateWithPortal as jest.Mock).mockResolvedValue({
+            // Mock getOrCreateUserSession to fail
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
                 success: false,
                 message: 'Invalid credentials'
             });
-            (StorageClient.getNameSearch as jest.Mock).mockImplementation(() => Promise.resolve(mockNameSearch));
-            (StorageClient.getNameSearch as jest.Mock).mockImplementationOnce(() => Promise.resolve(mockNameSearch));
-            (StorageClient.getNameSearch as jest.Mock).mockImplementationOnce(() => Promise.resolve({
-                ...mockNameSearch,
-                status: 'failed',
-                message: 'Authentication failed: Invalid credentials'
-            }));
+
+            // Mock the name search retrieval for the error handling
+            (StorageClient.getNameSearch as jest.Mock).mockResolvedValue(mockNameSearch);
 
             const result = await processNameSearchRequest(mockRequest, mockUserId);
 
-            expect(AlertService.logError).toHaveBeenCalled();
+            // Verify the name search status was saved as failed
             expect(StorageClient.saveNameSearch).toHaveBeenCalledWith(
                 'mock-uuid-1234',
                 expect.objectContaining({
-                    status: 'failed',
-                    message: expect.stringContaining('Authentication failed')
-                })
+                    status: 'failed'
+                }),
+                expect.any(Number)
             );
+
+            // Verify the response contains the error
             expect(result).toEqual({
                 searchId: 'mock-uuid-1234',
                 results: {},
                 success: false,
-                error: expect.stringContaining('Authentication failed')
+                error: 'Invalid credentials'
             });
+
+            // Make sure the queue was not called
+            expect(QueueClient.queueNameSearchForProcessing).not.toHaveBeenCalled();
         });
     });
 
@@ -166,6 +162,12 @@ describe('NameSearchProcessor', () => {
 
         it('should return empty results if name search does not exist', async () => {
             (StorageClient.getNameSearch as jest.Mock).mockResolvedValue(null);
+
+            // Mock a successful auth result for this test explicitly
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
+                success: true,
+                cookieJar: { toJSON: () => ({ cookies: [] }) }
+            });
 
             const result = await getNameSearchResults(mockSearchId);
 
