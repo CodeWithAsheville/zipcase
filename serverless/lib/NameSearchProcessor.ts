@@ -78,7 +78,7 @@ export async function processNameSearchRequest(
         return {
             searchId,
             results: {},
-            success: true
+            success: true,
         };
     } catch (error) {
         const errorMsg = 'Error processing name search request';
@@ -105,7 +105,7 @@ export async function processNameSearchRequest(
             searchId: searchId,
             results: {},
             success: false,
-            error: 'Internal error processing name search'
+            error: 'Internal error processing name search',
         };
     }
 }
@@ -140,7 +140,7 @@ export async function getNameSearchResults(searchId: string): Promise<NameSearch
             searchId,
             results: {},
             success: false,
-            error: 'Error retrieving name search results'
+            error: 'Error retrieving name search results',
         };
     }
 }
@@ -167,7 +167,15 @@ export const processNameSearch: SQSHandler = async (event: SQSEvent) => {
             }
 
             console.log(`Processing name search ${searchId} for user ${userId}`);
-            await processNameSearchRecord(searchId, name, userId, record.receiptHandle, dateOfBirth, soundsLike, userAgent);
+            await processNameSearchRecord(
+                searchId,
+                name,
+                userId,
+                record.receiptHandle,
+                dateOfBirth,
+                soundsLike,
+                userAgent
+            );
         } catch (error) {
             await nameSearchLogger.error('Failed to process name search record', error as Error, {
                 messageId: record.messageId,
@@ -291,7 +299,6 @@ async function processNameSearchRecord(
 
         // Delete the name search queue item
         await QueueClient.deleteMessage(receiptHandle, 'search');
-
     } catch (error) {
         const errorMsg = `Unhandled error processing name search ${searchId}: ${(error as Error).message}`;
         console.error(errorMsg);

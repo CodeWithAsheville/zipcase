@@ -321,7 +321,7 @@ functions:
                   arn: ${cf:infra-${self:provider.stage}.SearchQueueArn}
                   batchSize: 1
                   filterPatterns:
-                      - {"messageAttributes": {"searchType": {"stringValue": ["case"]}}}
+                      - { 'messageAttributes': { 'searchType': { 'stringValue': ['case'] } } }
 
     processCaseData:
         handler: handlers/case.processCaseData
@@ -340,4 +340,4 @@ functions:
                   batchSize: 1
                   functionResponseType: ReportBatchItemFailures
                   filterPatterns:
-                      - {"messageAttributes": {"searchType": {"stringValue": ["name"]}}}
+                      - { 'messageAttributes': { 'searchType': { 'stringValue': ['name'] } } }
