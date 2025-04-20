@@ -27,21 +27,14 @@ describe('SearchProcessor', () => {
 
             // Default StorageClient mocks
             (StorageClient.getSearchResults as jest.Mock).mockResolvedValue({});
-            (StorageClient.getUserSession as jest.Mock).mockResolvedValue('mock-session');
             (StorageClient.saveCase as jest.Mock).mockResolvedValue(undefined);
-            (StorageClient.sensitiveGetPortalCredentials as jest.Mock).mockResolvedValue({
-                username: 'test@example.com',
-                password: 'password123',
-                isBad: false,
-            });
-            (StorageClient.saveUserSession as jest.Mock).mockResolvedValue(undefined);
 
             // Default QueueClient mock
             (QueueClient.queueCasesForSearch as jest.Mock).mockResolvedValue(undefined);
             (QueueClient.queueCaseForDataRetrieval as jest.Mock).mockResolvedValue(undefined);
 
             // Default PortalAuthenticator mock
-            (PortalAuthenticator.authenticateWithPortal as jest.Mock).mockResolvedValue({
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
                 success: true,
                 cookieJar: { toJSON: () => ({ cookies: [] }) },
             });
@@ -150,20 +143,19 @@ describe('SearchProcessor', () => {
                 userId: 'test-user',
             };
 
-            // Set up mocks for no session but valid credentials
-            (StorageClient.getUserSession as jest.Mock).mockResolvedValue(null);
+            // Mock PortalAuthenticator.getOrCreateUserSession to simulate successful auth
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
+                success: true,
+                cookieJar: { toJSON: () => ({ cookies: [] }) },
+            });
 
             const result = await SearchProcessor.processSearchRequest(req);
 
-            // Should try to authenticate with the portal
-            expect(PortalAuthenticator.authenticateWithPortal).toHaveBeenCalledWith(
-                'test@example.com',
-                'password123',
-                expect.objectContaining({})
+            // Should call getOrCreateUserSession with the right parameters
+            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith(
+                req.userId,
+                req.userAgent
             );
-
-            // Should save the session
-            expect(StorageClient.saveUserSession).toHaveBeenCalled();
 
             // Should queue cases after authentication
             expect(QueueClient.queueCasesForSearch).toHaveBeenCalledWith([caseNumber], req.userId, req.userAgent);
@@ -180,16 +172,19 @@ describe('SearchProcessor', () => {
                 userId: 'test-user',
             };
 
-            // Set up mocks for no session but valid credentials
-            (StorageClient.getUserSession as jest.Mock).mockResolvedValue(null);
-
-            // Mock failed authentication
-            (PortalAuthenticator.authenticateWithPortal as jest.Mock).mockResolvedValue({
+            // Mock failed authentication with getOrCreateUserSession
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
                 success: false,
                 message: 'Invalid credentials',
             });
 
             const result = await SearchProcessor.processSearchRequest(req);
+
+            // Should call getOrCreateUserSession
+            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith(
+                req.userId,
+                req.userAgent
+            );
 
             // Should not queue cases after authentication failure
             expect(QueueClient.queueCasesForSearch).not.toHaveBeenCalled();
@@ -210,9 +205,11 @@ describe('SearchProcessor', () => {
                 userId: 'test-user',
             };
 
-            // Set up mocks for no session and no credentials
-            (StorageClient.getUserSession as jest.Mock).mockResolvedValue(null);
-            (StorageClient.sensitiveGetPortalCredentials as jest.Mock).mockResolvedValue(null);
+            // Mock getOrCreateUserSession to return failure for missing credentials
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
+                success: false,
+                message: 'No portal credentials found for user',
+            });
 
             const result = await SearchProcessor.processSearchRequest(req);
 
@@ -223,8 +220,8 @@ describe('SearchProcessor', () => {
             expect(result.results).toHaveProperty(caseNumber);
             const fetchStatus = result.results[caseNumber].zipCase.fetchStatus;
             expect(fetchStatus.status).toBe('failed');
-            expect('message' in fetchStatus && fetchStatus.message).toBe(
-                'Portal credentials required'
+            expect('message' in fetchStatus && fetchStatus.message).toContain(
+                'Authentication failed'
             );
         });
 
@@ -253,6 +250,12 @@ describe('SearchProcessor', () => {
                 '22CR123456-789',
                 '23CV654321-456',
             ]);
+
+            // Make sure getOrCreateUserSession succeeds
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
+                success: true,
+                cookieJar: { toJSON: () => ({ cookies: [] }) },
+            });
 
             const req: SearchRequest = {
                 input: '22CR123456-789 22CR123456-789 23CV654321-456',
