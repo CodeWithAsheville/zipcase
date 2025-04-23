@@ -1,5 +1,5 @@
-import { APIGatewayProxyHandler } from 'aws-lambda';
-import { processSearchRequest } from '../../lib/SearchProcessor';
+import { APIGatewayProxyHandler, SQSHandler } from 'aws-lambda';
+import { processCaseSearchRequest, processSearch as processSearchQueue } from '../../lib/SearchProcessor';
 
 export const handler: APIGatewayProxyHandler = async event => {
     try {
@@ -24,7 +24,7 @@ export const handler: APIGatewayProxyHandler = async event => {
         // Get the user agent from the request headers
         const userAgent = event.headers['User-Agent'] || event.headers['user-agent'];
 
-        const result = await processSearchRequest({
+        const result = await processCaseSearchRequest({
             input: body.search,
             userId,
             userAgent,
@@ -49,3 +49,6 @@ export const handler: APIGatewayProxyHandler = async event => {
         };
     }
 };
+
+// SQS handler for processing search queue messages
+export const processSearch: SQSHandler = processSearchQueue;
