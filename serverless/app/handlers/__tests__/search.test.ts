@@ -2,7 +2,7 @@
  * Tests for the search handler
  */
 import { handler } from '../search';
-import { processSearchRequest } from '../../../lib/SearchProcessor';
+import { processCaseSearchRequest } from '../../../lib/SearchProcessor';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 // Mock dependencies
@@ -61,7 +61,7 @@ describe('Search Handler', () => {
         expect(JSON.parse(response.body).error).toBe('Missing search parameter');
     });
 
-    it('should call processSearchRequest and return results', async () => {
+    it('should call processCaseSearchRequest and return results', async () => {
         const searchQuery = '22CR123456-789 23CV654321-456';
         const event = createEvent({ search: searchQuery });
 
@@ -83,7 +83,7 @@ describe('Search Handler', () => {
         };
 
         // Mock the processor to return our results
-        (processSearchRequest as jest.Mock).mockResolvedValue(mockResults);
+        (processCaseSearchRequest as jest.Mock).mockResolvedValue(mockResults);
 
         const response = (await handler(
             event as any,
@@ -91,7 +91,7 @@ describe('Search Handler', () => {
             () => {}
         )) as APIGatewayProxyResult;
 
-        expect(processSearchRequest).toHaveBeenCalledWith({
+        expect(processCaseSearchRequest).toHaveBeenCalledWith({
             input: searchQuery,
             userId: 'test-user-id',
             userAgent: expect.any(String),
@@ -104,7 +104,7 @@ describe('Search Handler', () => {
         const event = createEvent({ search: '22CR123456-789' });
 
         // Mock the processor to throw an error
-        (processSearchRequest as jest.Mock).mockRejectedValue(new Error('Test error'));
+        (processCaseSearchRequest as jest.Mock).mockRejectedValue(new Error('Test error'));
 
         const response = (await handler(
             event as any,
