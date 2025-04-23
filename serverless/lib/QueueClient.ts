@@ -25,12 +25,6 @@ const QueueClient = {
                 userAgent,
                 timestamp: Date.now(),
             }),
-            MessageAttributes: {
-                searchType: {
-                    DataType: 'String',
-                    StringValue: 'case',
-                },
-            },
             MessageGroupId: userId, // Group by userId to process requests serially per user
             MessageDeduplicationId: normalizedCaseNumber,
         };
@@ -50,10 +44,10 @@ const QueueClient = {
         }
     },
 
-    async queueNameSearchForProcessing(
+    async queueNameSearch(
         searchId: string,
-        userId: string,
         name: string,
+        userId: string,
         dateOfBirth?: string,
         soundsLike: boolean = false,
         userAgent?: string
@@ -69,12 +63,6 @@ const QueueClient = {
                 userAgent,
                 timestamp: Date.now(),
             }),
-            MessageAttributes: {
-                searchType: {
-                    DataType: 'String',
-                    StringValue: 'name',
-                },
-            },
             MessageGroupId: userId, // Group by userId to process requests serially per user
             MessageDeduplicationId: searchId, // Use existing searchId for deduplication
         };
@@ -153,12 +141,6 @@ const QueueClient = {
                         userAgent,
                         timestamp,
                     }),
-                    MessageAttributes: {
-                        searchType: {
-                            DataType: 'String',
-                            StringValue: 'case',
-                        },
-                    },
                     MessageGroupId: userId, // Group by userId to process requests serially per user
                     MessageDeduplicationId: normalizedCaseNumber,
                 };

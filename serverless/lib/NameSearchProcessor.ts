@@ -66,10 +66,10 @@ export async function processNameSearchRequest(
 
         // Queue the name search for processing
         console.log(`Queueing name search ${searchId} for processing with existing session`);
-        await QueueClient.queueNameSearchForProcessing(
+        await QueueClient.queueNameSearch(
             searchId,
-            userId,
             req.name,
+            userId,
             req.dateOfBirth,
             req.soundsLike,
             req.userAgent
