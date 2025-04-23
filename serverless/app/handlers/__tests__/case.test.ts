@@ -1,4 +1,4 @@
-import { get, processCaseSearch, processCaseData } from '../case';
+import { get, processCaseData } from '../case';
 import StorageClient from '../../../lib/StorageClient';
 import PortalAuthenticator from '../../../lib/PortalAuthenticator';
 import QueueClient from '../../../lib/QueueClient';
@@ -289,21 +289,6 @@ describe('case handler', () => {
         });
     });
 
-    describe('processCaseSearch function', () => {
-        it('should delegate to CaseProcessor.processCaseSearch', async () => {
-            const mockProcessCaseSearch = CaseProcessor.processCaseSearch as jest.Mock;
-            mockProcessCaseSearch.mockResolvedValue('success');
-
-            const event = { Records: [] } as any;
-            const context = {} as any;
-            const callback = () => {};
-
-            const result = await processCaseSearch(event, context, callback);
-
-            expect(mockProcessCaseSearch).toHaveBeenCalledWith(event, context, callback);
-            expect(result).toBe('success');
-        });
-    });
 
     describe('processCaseData function', () => {
         it('should delegate to CaseProcessor.processCaseData', async () => {

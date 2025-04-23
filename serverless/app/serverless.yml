@@ -313,15 +313,14 @@ functions:
                   method: get
                   authorizer: cognitoAuth
 
-    processCaseSearch:
-        handler: handlers/case.processCaseSearch
+    processSearch:
+        handler: handlers/search.processSearch
         timeout: 12
         events:
             - sqs:
                   arn: ${cf:infra-${self:provider.stage}.SearchQueueArn}
                   batchSize: 1
-                  filterPatterns:
-                      - { 'messageAttributes': { 'searchType': { 'stringValue': ['case'] } } }
+                  functionResponseType: ReportBatchItemFailures
 
     processCaseData:
         handler: handlers/case.processCaseData
@@ -330,14 +329,3 @@ functions:
             - sqs:
                   arn: ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
                   batchSize: 10 # Higher concurrency for case data processing
-
-    processNameSearch:
-        handler: handlers/case.processNameSearch
-        timeout: 12
-        events:
-            - sqs:
-                  arn: ${cf:infra-${self:provider.stage}.SearchQueueArn}
-                  batchSize: 1
-                  functionResponseType: ReportBatchItemFailures
-                  filterPatterns:
-                      - { 'messageAttributes': { 'searchType': { 'stringValue': ['name'] } } }

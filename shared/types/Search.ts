@@ -1,6 +1,6 @@
 import { ZipCase, CaseSummary } from './ZipCase';
 
-export interface SearchRequest {
+export interface CaseSearchRequest {
     input: string;
     userId: string;
     userAgent?: string;
@@ -8,12 +8,13 @@ export interface SearchRequest {
 
 export interface NameSearchRequest {
     name: string;
+    userId: string;
     dateOfBirth?: string;
     soundsLike: boolean;
     userAgent?: string;
 }
 
-export interface StatusRequest {
+export interface CaseSearchStatusRequest {
     caseNumbers: string[];
 }
 
@@ -26,7 +27,7 @@ export interface SearchResult {
     caseSummary?: CaseSummary;
 }
 
-export interface SearchResponse {
+export interface CaseSearchResponse {
     results: Record<string, SearchResult>;
 }
 
@@ -42,7 +43,7 @@ export interface NameSearchData {
     normalizedName: string;
     dateOfBirth?: string;
     soundsLike: boolean;
-    cases: string[]; // Array of case numbers found
+    cases: string[];
     status?: 'queued' | 'processing' | 'complete' | 'failed';
     message?: string;
 }
