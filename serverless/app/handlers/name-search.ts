@@ -1,5 +1,5 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { processNameSearchRequest, getNameSearchResults } from '../../lib/NameSearchProcessor';
+import { processNameSearchRequest, getNameSearchResults } from '../../lib/SearchProcessor';
 
 export const handler: APIGatewayProxyHandler = async event => {
     try {
@@ -24,12 +24,15 @@ export const handler: APIGatewayProxyHandler = async event => {
         // Get the user agent from the request headers
         const userAgent = event.headers['User-Agent'] || event.headers['user-agent'];
 
-        const result = await processNameSearchRequest({
-            name: body.name,
-            dateOfBirth: body.dateOfBirth,
-            soundsLike: !!body.soundsLike,
-            userAgent
-        }, userId);
+        const result = await processNameSearchRequest(
+            {
+                name: body.name,
+                dateOfBirth: body.dateOfBirth,
+                soundsLike: !!body.soundsLike,
+                userAgent,
+            },
+            userId
+        );
 
         return {
             statusCode: 202, // Accepted
