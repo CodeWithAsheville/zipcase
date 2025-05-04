@@ -1,5 +1,6 @@
 import { APIGatewayProxyHandler, SQSHandler } from 'aws-lambda';
-import { processCaseSearchRequest, processSearch as processSearchQueue } from '../../lib/SearchProcessor';
+import { processSearch as processSearchQueue } from '../../lib/SearchProcessor';
+import { processCaseSearchRequest } from '../../lib/CaseSearchProcessor';
 
 export const handler: APIGatewayProxyHandler = async event => {
     try {
