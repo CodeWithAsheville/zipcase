@@ -364,6 +364,7 @@ export async function fetchCasesByName(
             searchFormData.append('caseCriteria.UseSoundex', 'true');
         }
 
+        console.log("Posting smart search");
         const searchResponse = await client.post(
             `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
             searchFormData
@@ -391,6 +392,7 @@ export async function fetchCasesByName(
         }
 
         // Step 2: Get the search results page
+        console.log("Getting smart search results");
         const resultsResponse = await client.get(
             `${portalUrl}/Portal/SmartSearch/SmartSearchResults`
         );
