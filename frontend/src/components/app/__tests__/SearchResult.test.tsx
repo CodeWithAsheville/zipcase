@@ -32,13 +32,26 @@ const createTestCase = (override = {}): SearchResultType => ({
     caseSummary: {
         caseName: 'State vs. Doe',
         court: 'Circuit Court',
-        offenseDescription: 'Misdemeanor',
-        dispositions: [
+        charges: [
             {
-                description: 'Guilty',
-                date: '2023-01-15',
+                offenseDate: '2022-01-01',
+                filedDate: '2022-01-02',
+                description: 'Theft',
+                statute: '123.456',
+                degree: {
+                    code: 'M',
+                    description: 'Misdemeanor',
+                },
+                fine: 125.5,
+                dispositions: [
+                    {
+                        date: '2023-01-15',
+                        code: 'Guilty',
+                        description: 'Guilty',
+                    },
+                ],
             },
-        ],
+        ]
     },
     ...override,
 });
