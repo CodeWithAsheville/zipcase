@@ -106,37 +106,8 @@ export const set: APIGatewayProxyHandler = async event => {
         // Store the credentials
         await StorageClient.savePortalCredentials(userId, body.username, body.password);
 
-        // Parse the session token (it's a JSON string of the cookie jar)
-        const cookieJarJson = JSON.parse(authResult.sessionToken!);
-
-        // Find the earliest cookie expiration time
-        let earliestExpiry: number | null = null;
-        let expirationMs = 24 * 60 * 60 * 1000; // Default: 24 hours
-
-        if (cookieJarJson.cookies && cookieJarJson.cookies.length > 0) {
-            // Loop through cookies and find the earliest expiration
-            for (const cookie of cookieJarJson.cookies) {
-                if (cookie.expires) {
-                    const expiryTime = new Date(cookie.expires).getTime();
-                    if (earliestExpiry === null || expiryTime < earliestExpiry) {
-                        earliestExpiry = expiryTime;
-                    }
-                }
-            }
-
-            // If we found an expiration time, calculate TTL (add small buffer for timing discrepancies)
-            if (earliestExpiry !== null) {
-                expirationMs = Math.max(0, earliestExpiry - Date.now() - 5 * 60 * 1000); // 5 min buffer
-                console.log(`Using cookie-based session expiration: ${expirationMs}ms`);
-            }
-        }
-
-        // Calculate expiry ISO date string
-        const expiryDate = new Date(Date.now() + expirationMs);
-        const expiresAtIso = expiryDate.toISOString();
-
         // Store the session
-        await StorageClient.saveUserSession(userId, authResult.sessionToken!, expiresAtIso);
+        await PortalAuthenticator.saveUserSession(userId, authResult.sessionToken!);
 
         return successResponse(
             {
