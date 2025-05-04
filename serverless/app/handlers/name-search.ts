@@ -1,5 +1,5 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { processNameSearchRequest, getNameSearchResults } from '../../lib/SearchProcessor';
+import { processNameSearchRequest, getNameSearchResults } from '../../lib/NameSearchProcessor';
 
 export const handler: APIGatewayProxyHandler = async event => {
     try {
