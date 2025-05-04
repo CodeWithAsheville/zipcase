@@ -2,11 +2,11 @@
  * Tests for the search handler
  */
 import { handler } from '../search';
-import { processCaseSearchRequest } from '../../../lib/SearchProcessor';
+import { processCaseSearchRequest } from '../../../lib/CaseSearchProcessor';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 // Mock dependencies
-jest.mock('../../../lib/SearchProcessor');
+jest.mock('../../../lib/CaseSearchProcessor');
 
 describe('Search Handler', () => {
     beforeEach(() => {

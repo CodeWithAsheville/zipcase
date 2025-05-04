@@ -2,11 +2,11 @@
  * Tests for the name-search handlers
  */
 import { handler, statusHandler } from '../name-search';
-import { processNameSearchRequest, getNameSearchResults } from '../../../lib/SearchProcessor';
+import { processNameSearchRequest, getNameSearchResults } from '../../../lib/NameSearchProcessor';
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 
 // Mock dependencies
-jest.mock('../../../lib/SearchProcessor');
+jest.mock('../../../lib/NameSearchProcessor');
 
 describe('Name Search Handler', () => {
     beforeEach(() => {
