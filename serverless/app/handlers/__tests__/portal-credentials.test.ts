@@ -192,9 +192,9 @@ describe('Portal Credentials Handlers', () => {
                 cookieJar: mockCookieJar,
             });
 
-            // Mock StorageClient methods
+            // Mock StorageClient and PortalAuthenticator methods
             (StorageClient.savePortalCredentials as jest.Mock).mockResolvedValue(undefined);
-            (StorageClient.saveUserSession as jest.Mock).mockResolvedValue(undefined);
+            (PortalAuthenticator.saveUserSession as jest.Mock).mockResolvedValue(undefined);
 
             const response = (await set(
                 event as any,
@@ -217,10 +217,9 @@ describe('Portal Credentials Handlers', () => {
             );
 
             // Verify session was stored
-            expect(StorageClient.saveUserSession).toHaveBeenCalledWith(
+            expect(PortalAuthenticator.saveUserSession).toHaveBeenCalledWith(
                 'test-user-id',
-                JSON.stringify(mockCookieJar.toJSON()),
-                expect.any(String)
+                JSON.stringify(mockCookieJar.toJSON())
             );
 
             // Verify response
