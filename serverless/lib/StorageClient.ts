@@ -17,6 +17,46 @@ import {
 } from '../../shared/types';
 import { NameSearchData } from '../../shared/types/Search';
 
+// DynamoDB-specific attributes that should be removed from API responses
+const DYNAMO_ATTRIBUTES = ['PK', 'SK', 'ttl', 'GSI1PK', 'GSI1SK'];
+
+/**
+ * Removes DynamoDB-specific attributes from an object or array of objects
+ * @param data The data to clean
+ * @returns Cleaned data without DynamoDB attributes
+ */
+function removeDynamoAttributes<T>(data: T): T {
+    if (!data) {
+        return data;
+    }
+
+    if (Array.isArray(data)) {
+        return data.map(removeDynamoAttributes) as unknown as T;
+    }
+
+    if (typeof data === 'object' && data !== null) {
+        const cleanedObject = { ...data as object } as any;
+
+        // Remove DynamoDB attributes
+        DYNAMO_ATTRIBUTES.forEach(attr => {
+            if (attr in cleanedObject) {
+                delete cleanedObject[attr];
+            }
+        });
+
+        // Recursively clean nested objects and arrays
+        Object.keys(cleanedObject).forEach(key => {
+            if (typeof cleanedObject[key] === 'object' && cleanedObject[key] !== null) {
+                cleanedObject[key] = removeDynamoAttributes(cleanedObject[key]);
+            }
+        });
+
+        return cleanedObject;
+    }
+
+    return data;
+}
+
 export interface DynamoCompositeKey {
     PK: string;
     SK: string;
@@ -114,7 +154,7 @@ export const BatchHelper = {
                     // Find the original key for this item
                     const key = keys.find(k => k.PK === item.PK && k.SK === item.SK);
                     if (key) {
-                        resultMap.set(key, item as T);
+                        resultMap.set(key, removeDynamoAttributes(item as T));
                     }
                 });
             }
@@ -137,7 +177,11 @@ async function get<T>(key: DynamoCompositeKey): Promise<T | null> {
         })
     );
 
-    return (result.Item as T) || null;
+    if (!result.Item) {
+        return null;
+    }
+
+    return removeDynamoAttributes(result.Item as T);
 }
 
 /**
@@ -146,14 +190,18 @@ async function get<T>(key: DynamoCompositeKey): Promise<T | null> {
  * @param item The item data to save (without PK and SK)
  * @returns Promise that resolves when the item is saved
  */
-async function save<T>(key: DynamoCompositeKey, item: T): Promise<void> {
+async function save<T>(
+    key: DynamoCompositeKey,
+    item: T,
+    _options?: { removeUndefinedValues?: boolean } // Kept for backward compatibility but ignored
+): Promise<void> {
     await dynamoDb.send(
         new PutCommand({
             TableName: TABLE_NAME,
             Item: {
                 ...key,
                 ...item,
-            },
+            }
         })
     );
 }
