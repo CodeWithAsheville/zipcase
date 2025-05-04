@@ -315,7 +315,7 @@ functions:
 
     processSearch:
         handler: handlers/search.processSearch
-        timeout: 12
+        timeout: 30
         events:
             - sqs:
                   arn: ${cf:infra-${self:provider.stage}.SearchQueueArn}
