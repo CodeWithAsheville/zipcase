@@ -456,6 +456,7 @@ const PortalAuthenticator = {
         const sessionCookieJar = await StorageClient.getUserSession(userId);
 
         if (sessionCookieJar) {
+            console.log('Session cookie jar found in storage.');
             return {
                 success: true,
                 cookieJar: CookieJar.fromJSON(sessionCookieJar),
@@ -479,6 +480,7 @@ const PortalAuthenticator = {
         // Get user agent using the tiered strategy
         const resolvedUserAgent = await UserAgentClient.getUserAgent(userId, userAgent);
 
+        console.log(`Authenticating user ${userId} with portal using user agent ${resolvedUserAgent}.`);
         return await this.authenticateWithPortal(
             portalCredentials.username,
             portalCredentials.password,
