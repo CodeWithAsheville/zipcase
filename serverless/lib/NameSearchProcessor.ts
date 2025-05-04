@@ -147,7 +147,7 @@ export async function getNameSearchResults(searchId: string): Promise<NameSearch
 
 // Name search result interface
 interface NameSearchResult {
-    caseNumbers: string[];
+    cases: { caseId: string; caseNumber: string }[];
     error?: string;
 }
 
@@ -246,7 +246,7 @@ export async function processNameSearchRecord(
             return;
         }
 
-        if (searchResult.caseNumbers.length === 0) {
+        if (searchResult.cases.length === 0) {
             // No cases found
             console.log(`No cases found for name ${name}`);
 
@@ -261,10 +261,11 @@ export async function processNameSearchRecord(
         }
 
         // Found cases - queue them for processing and update the name search
-        const caseNumbers = searchResult.caseNumbers;
-        console.log(`Found ${caseNumbers.length} cases for name ${name}`);
+        const casesToProcess = searchResult.cases;
+        console.log(`Found ${casesToProcess.length} cases for name ${name}`);
 
         // Update the name search with the case numbers and set status to complete
+        const caseNumbers = casesToProcess.map(caseItem => caseItem.caseNumber);
         await StorageClient.saveNameSearch(searchId, {
             ...nameSearch,
             status: 'complete',
@@ -272,7 +273,7 @@ export async function processNameSearchRecord(
         });
 
         // Queue all found cases for search
-        await QueueClient.queueCasesForSearch(caseNumbers, userId, userAgent);
+        await QueueClient.queueCasesForDataRetrieval(userId, casesToProcess);
 
         // Delete the name search queue item
         await QueueClient.deleteMessage(receiptHandle, 'search');
@@ -325,7 +326,7 @@ export async function fetchCasesByName(
             );
 
             return {
-                caseNumbers: [],
+                cases: [] as { caseId: string; caseNumber: string }[],
                 error: 'Portal URL environment variable is not set',
             };
         }
@@ -386,7 +387,7 @@ export async function fetchCasesByName(
             );
 
             return {
-                caseNumbers: [],
+                cases: [],
                 error: errorMessage,
             };
         }
@@ -413,7 +414,7 @@ export async function fetchCasesByName(
             );
 
             return {
-                caseNumbers: [],
+                cases: [],
                 error: errorMessage,
             };
         }
@@ -437,41 +438,71 @@ export async function fetchCasesByName(
             );
 
             return {
-                caseNumbers: [],
+                cases: [],
                 error: errorMessage,
             };
         }
 
-        // Step 3: Extract all case IDs and numbers from the response using cheerio
-        const $ = cheerio.load(resultsResponse.data);
-        const caseLinks = $('a.caseLink');
+        // Step 3: Extract case data from the response
+        const htmlContent = resultsResponse.data;
 
-        if (caseLinks.length === 0) {
-            console.log(`No cases found for name ${name}`);
-            return { caseNumbers: [] };
-        }
+        // Extract case numbers and IDs from kendoGrid JSON structure
+        const cases: { caseId: string; caseNumber: string }[] = []; // Array of case objects that will be returned
+        const caseNumberSet = new Set<string>(); // For deduplication
 
-        // Extract all case numbers (this is different from the case search implementation
-        // which only extracts the first case)
-        const caseNumbers: string[] = [];
+        try {
+            // Find the kendoGrid initialization with JSON data
+            const kendoGridMatch = htmlContent.match(/jQuery\("#Grid"\)\.kendoGrid\((.*?)\);/s);
 
-        caseLinks.each((_, element) => {
-            const caseNumberSpan = $(element).find('.block-link__primary');
-            if (caseNumberSpan.length > 0) {
-                const caseNumber = caseNumberSpan.text().trim();
-                if (caseNumber) {
-                    caseNumbers.push(caseNumber);
+            if (kendoGridMatch && kendoGridMatch[1]) {
+                // Extract and parse the JSON data
+                const gridDataText = kendoGridMatch[1];
+                // Convert text to valid JSON by wrapping in {}
+                const gridJson = JSON.parse(`{${gridDataText}}`);
+
+                if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
+                    // Loop through each party in the Data array
+                    for (const party of gridJson.data.Data) {
+                        // Process CaseResults for this party if they exist
+                        if (party.CaseResults && Array.isArray(party.CaseResults)) {
+                            for (const caseResult of party.CaseResults) {
+                                if (caseResult.EncryptedCaseId && caseResult.CaseNumber) {
+                                    // Only add if we haven't seen this case number before
+                                    if (!caseNumberSet.has(caseResult.CaseNumber)) {
+                                        cases.push({
+                                            caseId: caseResult.EncryptedCaseId,
+                                            caseNumber: caseResult.CaseNumber
+                                        });
+                                        caseNumberSet.add(caseResult.CaseNumber);
+                                        console.log(`Found case: ${caseResult.CaseNumber}, ID: ${caseResult.EncryptedCaseId}`);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        });
 
-        if (caseNumbers.length === 0) {
-            console.log(`No valid case numbers found for name ${name}`);
-            return { caseNumbers: [] };
+            console.log(`Found ${cases.length} unique case entries`);
+            if (cases.length > 0) {
+                console.log(`Case data: ${JSON.stringify(cases)}`);
+            }
+
+            // Return array of objects with both caseId and caseNumber
+            return {
+                cases,
+                error: undefined
+            };
+
+        } catch (jsonError) {
+            console.error('Error parsing kendoGrid JSON data:', jsonError);
+            // Return empty result but with no error - we'll treat this as a search with no results
+            return {
+                cases: [] as { caseId: string; caseNumber: string }[],
+                error: undefined
+            };
         }
 
-        console.log(`Found ${caseNumbers.length} cases for name ${name}`);
-        return { caseNumbers };
     } catch (error) {
         const errorMessage = `Error searching by name: ${(error as Error).message}`;
 
@@ -484,11 +515,9 @@ export async function fetchCasesByName(
                 name,
                 resource: 'name-search',
             }
-        );
-
-        return {
-            caseNumbers: [],
-            error: errorMessage,
-        };
+        );            return {
+                cases: [],
+                error: errorMessage,
+            };
     }
 }
