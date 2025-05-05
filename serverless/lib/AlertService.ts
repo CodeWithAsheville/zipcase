@@ -150,7 +150,16 @@ async function sendAlert(
         };
 
         // Create meaningful subject that summarizes the issue
-        const subject = `[ZipCase ${environmentInfo.stage}] ${severity} ${category}: ${message.substring(0, 80)}`;
+        // Ensure message only contains ASCII characters and the total subject is under 100 chars
+        const prefix = `[ZipCase ${environmentInfo.stage}] ${severity} ${category}: `;
+        const availableChars = 100 - prefix.length;
+        // Replace any non-ASCII characters and limit length
+        const sanitizedMessage = message
+            .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII characters
+            .substring(0, Math.max(0, availableChars));
+
+        // Ensure subject is not empty by adding a fallback if sanitizedMessage is empty
+        const subject = prefix + (sanitizedMessage || '[No message provided]');
 
         // Build more detailed message body with context
         const messageBody = {
