@@ -409,61 +409,82 @@ export async function fetchCasesByName(
                 }
             }
 
-            // After the 302 response, go to WorkspaceMode instead of following the redirect location
+            // After the 302 response, follow the redirect location from the header
             if (initialResponse.status === 302) {
-                console.log(`302 received. Instead of following redirect, going to WorkspaceMode`);
+                // Check if we have a location header
+                if (!initialResponse.headers.location) {
+                    console.error('302 received but no location header found');
+                    throw new Error('302 redirect without location header');
+                }
 
-                // Make a request to WorkspaceMode
-                const workspaceModeUrl = `${portalUrl}/Portal/Home/WorkspaceMode?p=0`;
-                console.log(`Requesting: ${workspaceModeUrl}`);
+                // Get the redirect URL from the location header
+                const redirectLocation = initialResponse.headers.location;
+                let redirectUrl = redirectLocation;
 
-                // Log all request details for WorkspaceMode request
-                console.log('WORKSPACE MODE REQUEST DETAILS:');
-                console.log(`URL: ${workspaceModeUrl}`);
+                // If the location is not an absolute URL, construct it using the base portal URL
+                if (!redirectLocation.startsWith('http')) {
+                    redirectUrl = new URL(redirectLocation, portalUrl).toString();
+                }
+
+                console.log(`302 received. Following redirect to location: ${redirectUrl}`);
+
+                // Log all request details for redirect request
+                console.log('REDIRECT NAVIGATION REQUEST DETAILS:');
+                console.log(`URL: ${redirectUrl}`);
                 console.log('Headers:');
                 console.log(JSON.stringify(client.defaults.headers, null, 2));
 
                 // Log cookies being sent with this request
                 const preCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
-                console.log(`Cookies being sent to WorkspaceMode (${preCookies.length}):`);
+                console.log(`Cookies being sent with redirect (${preCookies.length}):`);
                 preCookies.forEach(cookie => {
                     console.log(`- ${cookie.key}=${cookie.value}`);
                 });
 
-                const workspaceModeResponse = await client.get(workspaceModeUrl);
-                console.log(`WorkspaceMode response status: ${workspaceModeResponse.status}`);
+                const redirectResponse = await client.get(redirectUrl);
+                console.log(`Redirect response status: ${redirectResponse.status}`);
+                console.log(`Redirect response URL: ${redirectUrl}`);
+
+                // Log full response body preview (first 500 chars)
+                if (redirectResponse.data) {
+                    const responseText = typeof redirectResponse.data === 'string'
+                        ? redirectResponse.data
+                        : JSON.stringify(redirectResponse.data);
+                    console.log('Redirect response preview:');
+                    console.log(responseText.substring(0, 500) + '...');
+                }
 
                 // Log any cookies or headers from this response
-                if (workspaceModeResponse.headers) {
-                    console.log('WorkspaceMode response headers:');
-                    console.log(JSON.stringify(workspaceModeResponse.headers, null, 2));
+                if (redirectResponse.headers) {
+                    console.log('Redirect response headers:');
+                    console.log(JSON.stringify(redirectResponse.headers, null, 2));
 
-                    if (workspaceModeResponse.headers['set-cookie']) {
-                        console.log('Found Set-Cookie headers in WorkspaceMode response:');
-                        console.log(JSON.stringify(workspaceModeResponse.headers['set-cookie'], null, 2));
+                    if (redirectResponse.headers['set-cookie']) {
+                        console.log('Found Set-Cookie headers in redirect response:');
+                        console.log(JSON.stringify(redirectResponse.headers['set-cookie'], null, 2));
                     }
                 }
 
-                // Log cookies in jar after WorkspaceMode request
-                const workspaceModeCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
-                console.log(`Cookie jar after WorkspaceMode request contains ${workspaceModeCookies.length} cookies:`);
-                workspaceModeCookies.forEach(cookie => {
+                // Log cookies in jar after redirect request
+                const redirectCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+                console.log(`Cookie jar after redirect request contains ${redirectCookies.length} cookies:`);
+                redirectCookies.forEach(cookie => {
                     console.log(`- ${cookie.key}=${cookie.value} (domain=${cookie.domain}, path=${cookie.path})`);
                 });
 
-                // Continue with normal flow using the WorkspaceMode response
-                if (workspaceModeResponse.status !== 200) {
-                    const errorMessage = `WorkspaceMode request failed with status ${workspaceModeResponse.status}`;
+                // Continue with normal flow using the redirect response
+                if (redirectResponse.status !== 200) {
+                    const errorMessage = `Redirect request failed with status ${redirectResponse.status}`;
 
                     await AlertService.logError(
                         Severity.ERROR,
                         AlertCategory.PORTAL,
-                        'Name search WorkspaceMode request failed',
+                        'Name search redirect navigation failed',
                         new Error(errorMessage),
                         {
                             name,
-                            statusCode: workspaceModeResponse.status,
-                            resource: 'portal-workspace-mode',
+                            statusCode: redirectResponse.status,
+                            resource: 'portal-redirect-navigation',
                         }
                     );
 
@@ -642,10 +663,53 @@ export async function fetchCasesByName(
                 let gridJson;
 
                 try {
-                    // Convert text to valid JSON by wrapping in {}
-                    console.log('Attempting to parse JSON...');
-                    gridJson = JSON.parse(`{${gridDataText}}`);
-                    console.log('JSON parsed successfully');
+                    // Extract just the data section we need using a specific pattern
+                    console.log('Extracting just the data section using pattern...');
+
+                    // Look for the pattern "data":{"Data": ... "Total":<number>}}
+                    // This captures the property name 'data' AND its value
+                    const dataMatch = gridDataText.match(/"data":\{"Data":.*?"Total":\d+\}\}/s);
+
+                    if (dataMatch && dataMatch[0]) {
+                        // Include the property name "data" in our extracted JSON
+                        const dataSection = `{${dataMatch[0]}`;
+                        console.log(`Found data section (${dataSection.length} chars), parsing as JSON...`);
+                        console.log('Data section preview:');
+                        console.log(dataSection.substring(0, 100) + '...');
+
+                        // Parse the complete JSON object with the data property
+                        try {
+                            gridJson = JSON.parse(dataSection);
+                            console.log('Data section parsed successfully as complete object');
+                        } catch (innerError) {
+                            console.log('Failed to parse with complete wrapper, trying to clean the data section...');
+
+                            // Try fixing any JSON format issues before parsing
+                            let fixedDataSection = dataSection
+                                .replace(/,\s*([}\]])/g, '$1'); // Remove trailing commas
+
+                            gridJson = JSON.parse(fixedDataSection);
+                            console.log('Data section parsed successfully after cleaning');
+                        }
+                    } else {
+                        console.log('Could not find data section with specified pattern, falling back to full parsing');
+
+                        // Handle window.odyPortal references and other function references as fallback
+                        let cleanedGridDataText = gridDataText
+                            // Replace function references and JavaScript expressions with string placeholders
+                            .replace(/window\.odyPortal\.[^,}]+/g, '"__FUNCTION_PLACEHOLDER__"')
+                            .replace(/function\s*\([^)]*\)\s*{[^}]*}/g, '"__FUNCTION_PLACEHOLDER__"')
+                            // Handle any other JavaScript expressions that aren't valid JSON
+                            .replace(/:\s*([^",{\[\s][^,}\]]*)/g, ':"$1"');
+
+                        console.log('Cleaned first 100 chars:');
+                        console.log(cleanedGridDataText.substring(0, 100) + '...');
+
+                        // Convert text to valid JSON and parse it
+                        console.log('Attempting to parse full JSON as fallback...');
+                        gridJson = JSON.parse(`{${cleanedGridDataText}}`);
+                        console.log('Full JSON parsed successfully as fallback');
+                    }
 
                     if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
                         console.log(`Found ${gridJson.data.Data.length} data entries in grid`);
@@ -738,8 +802,47 @@ export async function fetchCasesByName(
             }
 
             // Try a different regex pattern that might be more forgiving
-            console.log('Attempting alternative parsing method...');
+            console.log('Attempting alternative parsing methods...');
             try {
+                // Method 1: Try to extract just the data section
+                console.log('Method 1: Extracting only the data property...');
+                const dataMatch = htmlContent.match(/data\s*:\s*(\{[^}]*"Data"\s*:\s*\[.*?\]\s*\})/s);
+                if (dataMatch && dataMatch[1]) {
+                    console.log('Found data section, attempting to parse...');
+                    const dataJson = JSON.parse(dataMatch[1].replace(/([{,])\s*([^"'\s][^:]*?):\s*/g, '$1"$2":'));
+
+                    if (dataJson && dataJson.Data && Array.isArray(dataJson.Data)) {
+                        console.log(`Found ${dataJson.Data.length} data entries using data extraction method`);
+
+                        // Process the data section directly
+                        const dataCases = [];
+                        for (const party of dataJson.Data) {
+                            if (party.CaseResults && Array.isArray(party.CaseResults)) {
+                                for (const caseResult of party.CaseResults) {
+                                    if (caseResult.EncryptedCaseId && caseResult.CaseNumber &&
+                                        !caseNumberSet.has(caseResult.CaseNumber)) {
+                                        dataCases.push({
+                                            caseId: caseResult.EncryptedCaseId,
+                                            caseNumber: caseResult.CaseNumber
+                                        });
+                                        caseNumberSet.add(caseResult.CaseNumber);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (dataCases.length > 0) {
+                            console.log(`Data extraction found ${dataCases.length} cases`);
+                            return {
+                                cases: dataCases,
+                                error: undefined
+                            };
+                        }
+                    }
+                }
+
+                // Method 2: Try a broader match for grid data
+                console.log('Method 2: Using broader grid data match...');
                 const altGridMatch = htmlContent.match(/data\s*:\s*(\{.*?\})\s*,/s);
                 if (altGridMatch && altGridMatch[1]) {
                     console.log('Alternative match found, attempting to parse...');
