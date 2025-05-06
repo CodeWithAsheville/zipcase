@@ -406,27 +406,48 @@ export async function fetchCasesByName(
                 }
             }
 
-            // Check location header to follow redirect manually if needed
-            if (initialResponse.status === 302 && initialResponse.headers.location) {
-                console.log(`Following redirect to: ${initialResponse.headers.location}`);
+            // After the 302 response, go to WorkspaceMode instead of following the redirect location
+            if (initialResponse.status === 302) {
+                console.log(`302 received. Instead of following redirect, going to WorkspaceMode`);
 
-                // Now follow the redirect with the normal client (which uses the same cookie jar)
-                const redirectUrl = new URL(initialResponse.headers.location, portalUrl).toString();
-                const searchResponse = await client.get(redirectUrl);
+                // Make a request to WorkspaceMode
+                const workspaceModeUrl = `${portalUrl}/Portal/Home/WorkspaceMode?p=0`;
+                console.log(`Requesting: ${workspaceModeUrl}`);
 
-                // Continue with normal flow using the redirected response
-                if (searchResponse.status !== 200) {
-                    const errorMessage = `Search request (after redirect) failed with status ${searchResponse.status}`;
+                const workspaceModeResponse = await client.get(workspaceModeUrl);
+                console.log(`WorkspaceMode response status: ${workspaceModeResponse.status}`);
+
+                // Log any cookies or headers from this response
+                if (workspaceModeResponse.headers) {
+                    console.log('WorkspaceMode response headers:');
+                    console.log(JSON.stringify(workspaceModeResponse.headers, null, 2));
+
+                    if (workspaceModeResponse.headers['set-cookie']) {
+                        console.log('Found Set-Cookie headers in WorkspaceMode response:');
+                        console.log(JSON.stringify(workspaceModeResponse.headers['set-cookie'], null, 2));
+                    }
+                }
+
+                // Log cookies in jar after WorkspaceMode request
+                const workspaceModeCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+                console.log(`Cookie jar after WorkspaceMode request contains ${workspaceModeCookies.length} cookies:`);
+                workspaceModeCookies.forEach(cookie => {
+                    console.log(`- ${cookie.key}=${cookie.value} (domain=${cookie.domain}, path=${cookie.path})`);
+                });
+
+                // Continue with normal flow using the WorkspaceMode response
+                if (workspaceModeResponse.status !== 200) {
+                    const errorMessage = `WorkspaceMode request failed with status ${workspaceModeResponse.status}`;
 
                     await AlertService.logError(
                         Severity.ERROR,
                         AlertCategory.PORTAL,
-                        'Name search request failed after redirect',
+                        'Name search WorkspaceMode request failed',
                         new Error(errorMessage),
                         {
                             name,
-                            statusCode: searchResponse.status,
-                            resource: 'portal-search',
+                            statusCode: workspaceModeResponse.status,
+                            resource: 'portal-workspace-mode',
                         }
                     );
 
@@ -488,10 +509,30 @@ export async function fetchCasesByName(
         // Step 2: Get the search results page
         console.log("Getting smart search results");
 
+        // Look specifically for SmartSearchCriteria cookie as it's essential
+        const smartSearchCriteriaCookie = cookies.find(c => c.key === 'SmartSearchCriteria');
+        if (smartSearchCriteriaCookie) {
+            console.log(`Found SmartSearchCriteria in jar: ${smartSearchCriteriaCookie.key}=${smartSearchCriteriaCookie.value}`);
+        } else {
+            console.warn('WARNING: SmartSearchCriteria cookie not found in cookie jar!');
+        }
+
+        // Set up headers for the results request
+        const resultsRequestHeaders: Record<string, string> = {
+            'Referer': `${portalUrl}/Portal/Home/WorkspaceMode?p=0`,  // Important to set proper referer
+        };
+
         // Continue with the rest of the flow using the same client (with updated cookie jar)
         const resultsResponse = await client.get(
             `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
+            { headers: resultsRequestHeaders }
         );
+
+        console.log(`SmartSearchResults response status: ${resultsResponse.status}`);
+        if (resultsResponse.headers) {
+            console.log('SmartSearchResults headers:');
+            console.log(JSON.stringify(resultsResponse.headers, null, 2));
+        }
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;
