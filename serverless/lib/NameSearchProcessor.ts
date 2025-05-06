@@ -367,6 +367,14 @@ export async function fetchCasesByName(
 
         console.log("Posting smart search");
 
+        // Log request details before sending
+        console.log('SMART SEARCH REQUEST DETAILS:');
+        console.log(`URL: ${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`);
+        console.log('Headers:');
+        console.log(JSON.stringify(client.defaults.headers, null, 2));
+        console.log('Form Data:');
+        console.log(Object.fromEntries(searchFormData.entries()));
+
         // Step 1a: Make initial POST request and handle the 302
         try {
             const initialResponse = await client.post(
@@ -408,6 +416,19 @@ export async function fetchCasesByName(
                 // Make a request to WorkspaceMode
                 const workspaceModeUrl = `${portalUrl}/Portal/Home/WorkspaceMode?p=0`;
                 console.log(`Requesting: ${workspaceModeUrl}`);
+
+                // Log all request details for WorkspaceMode request
+                console.log('WORKSPACE MODE REQUEST DETAILS:');
+                console.log(`URL: ${workspaceModeUrl}`);
+                console.log('Headers:');
+                console.log(JSON.stringify(client.defaults.headers, null, 2));
+
+                // Log cookies being sent with this request
+                const preCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+                console.log(`Cookies being sent to WorkspaceMode (${preCookies.length}):`);
+                preCookies.forEach(cookie => {
+                    console.log(`- ${cookie.key}=${cookie.value}`);
+                });
 
                 const workspaceModeResponse = await client.get(workspaceModeUrl);
                 console.log(`WorkspaceMode response status: ${workspaceModeResponse.status}`);
@@ -517,6 +538,22 @@ export async function fetchCasesByName(
             'Referer': `${portalUrl}/Portal/Home/WorkspaceMode?p=0`,  // Important to set proper referer
         };
 
+        // Log full request details for SmartSearchResults request
+        console.log('SMART SEARCH RESULTS REQUEST DETAILS:');
+        console.log(`URL: ${portalUrl}/Portal/SmartSearch/SmartSearchResults`);
+        console.log('Headers to be sent:');
+        console.log(JSON.stringify({
+            ...client.defaults.headers,
+            ...resultsRequestHeaders
+        }, null, 2));
+
+        // Log all cookies that will be sent with this request
+        const resultsCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+        console.log(`Cookies being sent to SmartSearchResults (${resultsCookies.length}):`);
+        resultsCookies.forEach(cookie => {
+            console.log(`- ${cookie.key}=${cookie.value}`);
+        });
+
         // Continue with the rest of the flow using the same client (with updated cookie jar)
         const resultsResponse = await client.get(
             `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
@@ -582,15 +619,66 @@ export async function fetchCasesByName(
         const caseNumberSet = new Set<string>(); // For deduplication
 
         try {
+            // Log the content type of the response
+            console.log(`SmartSearchResults response content length: ${htmlContent.length} bytes`);
+
+            // Check if the response is HTML and contains expected elements
+            const isHtml = htmlContent.includes('<!DOCTYPE html>') || htmlContent.includes('<html');
+            const hasGrid = htmlContent.includes('id="Grid"');
+            console.log(`Response appears to be HTML: ${isHtml}, Contains Grid element: ${hasGrid}`);
+
             // Find the kendoGrid initialization with JSON data
             const kendoGridMatch = htmlContent.match(/jQuery\("#Grid"\)\.kendoGrid\((.*?)\);/s);
+            console.log(`KendoGrid initialization ${kendoGridMatch ? 'found' : 'NOT found'} in response`);
 
             if (kendoGridMatch && kendoGridMatch[1]) {
-                // Extract and parse the JSON data
-                const gridDataText = kendoGridMatch[1];
-                // Convert text to valid JSON by wrapping in {}
-                const gridJson = JSON.parse(`{${gridDataText}}`);
+                // Extract the raw JSON text for debugging
+                const gridDataText = kendoGridMatch[1].trim();
 
+                // Add more detailed logging to understand the JSON structure
+                console.log('Found kendo grid initialization. First 100 chars:');
+                console.log(gridDataText.substring(0, 100) + '...');
+
+                let gridJson;
+
+                try {
+                    // Convert text to valid JSON by wrapping in {}
+                    console.log('Attempting to parse JSON...');
+                    gridJson = JSON.parse(`{${gridDataText}}`);
+                    console.log('JSON parsed successfully');
+
+                    if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
+                        console.log(`Found ${gridJson.data.Data.length} data entries in grid`);
+                    }
+                } catch (parseError) {
+                    console.error('JSON parsing error:', parseError);
+                    console.log('First 100 chars of gridDataText:');
+                    console.log(gridDataText.substring(0, 100));
+                    console.log('Last 100 chars of gridDataText:');
+                    console.log(gridDataText.substring(gridDataText.length - 100));
+
+                    // Try to fix common JSON parsing issues
+                    console.log('Attempting to fix JSON format before parsing...');
+                    let fixedGridDataText = gridDataText.trim();
+
+                    // Remove any trailing commas that could cause parsing issues
+                    fixedGridDataText = fixedGridDataText.replace(/,\s*([}\]])/g, '$1');
+
+                    // Try parsing with the fixed text
+                    try {
+                        gridJson = JSON.parse(`{${fixedGridDataText}}`);
+                        console.log('JSON parsed successfully after fixing format');
+
+                        if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
+                            console.log(`Found ${gridJson.data.Data.length} data entries in grid after fixing format`);
+                        }
+                    } catch (fixError) {
+                        console.error('Still failed to parse JSON after fixes:', fixError);
+                        throw fixError; // Re-throw to be caught by the outer catch block
+                    }
+                }
+
+                // If we have valid grid data, process it
                 if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
                     // Loop through each party in the Data array
                     for (const party of gridJson.data.Data) {
@@ -627,6 +715,69 @@ export async function fetchCasesByName(
 
         } catch (jsonError) {
             console.error('Error parsing kendoGrid JSON data:', jsonError);
+
+            // Log the HTML content for debugging when kendoGrid JSON is not found
+            console.log('HTML Response Content Preview:');
+            // Log just the first 500 characters to avoid excessive logging
+            console.log(htmlContent.substring(0, 500) + (htmlContent.length > 500 ? '...' : ''));
+
+            // Look for specific error messages in the HTML content
+            const errorMessages = [
+                'Smart Search is having trouble',
+                'An error has occurred',
+                'server error',
+                'not found',
+                'access denied',
+                'unauthorized'
+            ];
+
+            for (const errorText of errorMessages) {
+                if (htmlContent.toLowerCase().includes(errorText.toLowerCase())) {
+                    console.log(`Found error text in response: "${errorText}"`);
+                }
+            }
+
+            // Try a different regex pattern that might be more forgiving
+            console.log('Attempting alternative parsing method...');
+            try {
+                const altGridMatch = htmlContent.match(/data\s*:\s*(\{.*?\})\s*,/s);
+                if (altGridMatch && altGridMatch[1]) {
+                    console.log('Alternative match found, attempting to parse...');
+                    const altGridJson = JSON.parse(altGridMatch[1]);
+
+                    if (altGridJson && altGridJson.Data && Array.isArray(altGridJson.Data)) {
+                        console.log(`Found ${altGridJson.Data.length} data entries using alternative parsing`);
+
+                        // Process the data similar to the main path
+                        const altCases = [];
+                        for (const party of altGridJson.Data) {
+                            if (party.CaseResults && Array.isArray(party.CaseResults)) {
+                                for (const caseResult of party.CaseResults) {
+                                    if (caseResult.EncryptedCaseId && caseResult.CaseNumber &&
+                                        !caseNumberSet.has(caseResult.CaseNumber)) {
+                                        altCases.push({
+                                            caseId: caseResult.EncryptedCaseId,
+                                            caseNumber: caseResult.CaseNumber
+                                        });
+                                        caseNumberSet.add(caseResult.CaseNumber);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (altCases.length > 0) {
+                            console.log(`Alternative parsing found ${altCases.length} cases`);
+                            return {
+                                cases: altCases,
+                                error: undefined
+                            };
+                        }
+                    }
+                }
+            } catch (altError) {
+                console.error('Alternative parsing also failed:', altError);
+            }
+
             // Return empty result but with no error - we'll treat this as a search with no results
             return {
                 cases: [] as { caseId: string; caseNumber: string }[],
@@ -646,9 +797,11 @@ export async function fetchCasesByName(
                 name,
                 resource: 'name-search',
             }
-        );            return {
-                cases: [],
-                error: errorMessage,
-            };
+        );
+
+        return {
+            cases: [],
+            error: errorMessage,
+        };
     }
 }
