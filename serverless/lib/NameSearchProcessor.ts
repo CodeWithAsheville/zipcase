@@ -392,10 +392,38 @@ export async function fetchCasesByName(
             };
         }
 
+        // Extract SmartSearchCriteria cookie from response headers
+        const setCookieHeader = searchResponse.headers['set-cookie'];
+        let smartSearchCriteriaCookie = '';
+
+        if (setCookieHeader) {
+            if (Array.isArray(setCookieHeader)) {
+                // Find the SmartSearchCriteria cookie if it's in an array of cookies
+                const smartSearchCookie = setCookieHeader.find(cookie =>
+                    cookie.startsWith('SmartSearchCriteria='));
+                if (smartSearchCookie) {
+                    smartSearchCriteriaCookie = smartSearchCookie.split(';')[0];
+                    console.log(`Found SmartSearchCriteria cookie: ${smartSearchCriteriaCookie}`);
+                }
+            }
+        }
+
         // Step 2: Get the search results page
         console.log("Getting smart search results");
+
+        let requestOptions = {};
+        if (smartSearchCriteriaCookie) {
+            requestOptions = {
+                headers: {
+                    'Cookie': smartSearchCriteriaCookie
+                }
+            };
+            console.log('Adding SmartSearchCriteria cookie to request');
+        }
+
         const resultsResponse = await client.get(
-            `${portalUrl}/Portal/SmartSearch/SmartSearchResults`
+            `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
+            requestOptions
         );
 
         if (resultsResponse.status !== 200) {
