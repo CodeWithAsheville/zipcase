@@ -335,7 +335,7 @@ export async function fetchCasesByName(
 
         const client = wrapper(axios).create({
             timeout: 20000,
-            maxRedirects: 10,
+            maxRedirects: 0,
             validateStatus: status => status < 500, // Only reject on 5xx errors
             jar: cookieJar,
             withCredentials: true,
@@ -367,41 +367,36 @@ export async function fetchCasesByName(
 
         console.log("Posting smart search");
 
-        // Create a separate Axios instance that doesn't auto-follow redirects
-        // so we can capture cookies from the initial 302 response
-        const noRedirectClient = wrapper(axios).create({
-            timeout: 20000,
-            maxRedirects: 0, // Don't follow redirects automatically
-            validateStatus: status => true, // Accept any status code
-            jar: cookieJar,
-            withCredentials: true,
-            headers: {
-                ...PortalAuthenticator.getDefaultRequestHeaders(userAgent),
-                Origin: portalUrl,
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-        });
-
         // Step 1a: Make initial POST request and handle the 302
         try {
-            const initialResponse = await noRedirectClient.post(
+            const initialResponse = await client.post(
                 `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
                 searchFormData
             );
 
             console.log(`Initial response status: ${initialResponse.status}`);
 
-            // Log and handle set-cookie headers from the 302 redirect response
-            if (initialResponse.headers && initialResponse.headers['set-cookie']) {
-                console.log('Found Set-Cookie headers in 302 response:');
-                console.log(JSON.stringify(initialResponse.headers['set-cookie'], null, 2));
+            // Log ALL headers from the initial 302 response
+            console.log('ALL HEADERS from 302 response:');
+            console.log(JSON.stringify(initialResponse.headers, null, 2));
 
-                // Ensure the SmartSearchCriteria cookie is in the jar
-                const setCookieHeaders = initialResponse.headers['set-cookie'];
-                if (Array.isArray(setCookieHeaders)) {
-                    const smartSearchCookie = setCookieHeaders.find(c => c.includes('SmartSearchCriteria='));
-                    if (smartSearchCookie) {
-                        console.log(`Found SmartSearchCriteria in redirect: ${smartSearchCookie}`);
+            // Parse and log specific important headers
+            if (initialResponse.headers) {
+                console.log('\nImportant headers breakdown:');
+                if (initialResponse.headers.location) {
+                    console.log(`Location: ${initialResponse.headers.location}`);
+                }
+                if (initialResponse.headers['set-cookie']) {
+                    console.log('Set-Cookie headers:');
+                    console.log(JSON.stringify(initialResponse.headers['set-cookie'], null, 2));
+
+                    // Ensure the SmartSearchCriteria cookie is in the jar
+                    const setCookieHeaders = initialResponse.headers['set-cookie'];
+                    if (Array.isArray(setCookieHeaders)) {
+                        const smartSearchCookie = setCookieHeaders.find(c => c.includes('SmartSearchCriteria='));
+                        if (smartSearchCookie) {
+                            console.log(`Found SmartSearchCriteria in redirect: ${smartSearchCookie}`);
+                        }
                     }
                 }
             }
