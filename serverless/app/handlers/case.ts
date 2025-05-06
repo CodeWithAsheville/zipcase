@@ -7,13 +7,6 @@ import { successResponse, errorResponse } from '../../lib/apiResponse';
 import { SearchResult, ZipCase } from '../../../shared/types';
 
 /**
- * Processes SQS queue events for case searching (finding caseId)
- */
-export const processCaseSearch: SQSHandler = async (event: SQSEvent, context, callback) => {
-    return CaseProcessor.processCaseSearch(event, context, callback);
-};
-
-/**
  * Processes SQS queue events for case data retrieval
  */
 export const processCaseData: SQSHandler = async (event: SQSEvent, context, callback) => {

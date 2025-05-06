@@ -4,7 +4,7 @@ import QueueClient from './QueueClient';
 import StorageClient from './StorageClient';
 import UserAgentClient from './UserAgentClient';
 import AlertService, { Severity, AlertCategory } from './AlertService';
-import { CaseSummary, FetchStatus } from '../../shared/types';
+import { CaseSummary, Charge, Disposition, FetchStatus } from '../../shared/types';
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
@@ -518,6 +518,25 @@ async function fetchCaseIdFromPortal(
     }
 }
 
+interface EndpointConfig {
+    path: string;
+}
+
+const caseEndpoints: Record<string, EndpointConfig> = {
+    summary: {
+        path: 'Service/CaseSummariesSlim?key={caseId}',
+    },
+    charges: {
+        path: "Service/Charges('{caseId}')",
+    },
+    dispositionEvents: {
+        path: "Service/DispositionEvents('{caseId}')",
+    },
+    financialSummary: {
+        path: "Service/FinancialSummary('{caseId}')",
+    },
+};
+
 async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
     try {
         const portalCaseUrl = process.env.PORTAL_CASE_URL;
@@ -550,40 +569,77 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
             },
         });
 
-        const summaryResponse = await client.get(
-            `${portalCaseUrl}Service/CaseSummariesSlim?key=${caseId}`
-        );
-        if (summaryResponse.status !== 200) {
-            const errorMessage = `Case summary request failed with status ${summaryResponse.status}`;
+        // First, collect all raw data from endpoints
+        const rawData: Record<string, any> = {};
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                'Failed to fetch case summary',
-                new Error(errorMessage),
-                {
-                    caseId,
-                    statusCode: summaryResponse.status,
-                    resource: 'case-summary',
+        // Create an array of promises for all endpoint requests
+        const endpointPromises = Object.entries(caseEndpoints).map(async ([key, endpoint]) => {
+            try {
+                const url = `${portalCaseUrl}${endpoint.path.replace('{caseId}', caseId)}`;
+                console.log(`Fetching ${key} data from ${url}`);
+
+                const response = await client.get(url);
+
+                if (response.status !== 200) {
+                    const errorMessage = `${key} request failed with status ${response.status}`;
+                    console.error(errorMessage);
+
+                    await AlertService.logError(
+                        Severity.ERROR,
+                        AlertCategory.PORTAL,
+                        `Failed to fetch ${key}`,
+                        new Error(errorMessage),
+                        {
+                            caseId,
+                            statusCode: response.status,
+                            resource: key,
+                        }
+                    );
+
+                    return { key, success: false, error: errorMessage };
                 }
-            );
 
+                // Just store the raw response data
+                return { key, success: true, data: response.data };
+            } catch (error) {
+                const errorMessage = `Error fetching ${key}: ${(error as Error).message}`;
+                console.error(errorMessage);
+
+                await AlertService.logError(
+                    Severity.ERROR,
+                    AlertCategory.PORTAL,
+                    `Error fetching ${key}`,
+                    error as Error,
+                    {
+                        caseId,
+                        resource: key,
+                    }
+                );
+
+                return { key, success: false, error: errorMessage };
+            }
+        });
+
+        // Wait for all promises to resolve
+        const results = await Promise.all(endpointPromises);
+
+        // Check if any endpoint failed
+        const requiredFailure = results.find(result => !result.success);
+
+        if (requiredFailure) {
+            console.error(`Required endpoint ${requiredFailure.key} failed: ${requiredFailure.error}`);
             return null;
         }
 
-        const { data } = summaryResponse;
-        const summary: CaseSummary = {
-            caseName: data.CaseSummaryHeader.Style,
-            court: data.CaseSummaryHeader.Heading,
-        };
+        // Collect all raw data
+        results.forEach(result => {
+            if (result.success && result.data) {
+                rawData[result.key] = result.data;
+            }
+        });
 
-        // const dispositionEventsResponse = await client.get(`${portalCaseUrl}/Service/DispositionEvents('${caseId}')`);
-        // if (summaryResponse.status !== 200) {
-        //     console.error(`Case summary request failed with status ${summaryResponse.status}`);
-        //     return null;
-        // }
-
-        return summary;
+        // Now that we have all raw data, build the CaseSummary object
+        return buildCaseSummary(rawData);
     } catch (error) {
         await AlertService.logError(
             Severity.ERROR,
@@ -595,6 +651,119 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
                 resource: 'case-summary',
             }
         );
+        return null;
+    }
+}
+
+function buildCaseSummary(rawData: Record<string, any>): CaseSummary | null {
+    try {
+        if (!rawData['summary'] || !rawData['charges'] || !rawData['dispositionEvents']) {
+            console.error('Missing required raw data for building case summary');
+            return null;
+        }
+
+        const caseSummary: CaseSummary = {
+            caseName: rawData['summary']['CaseSummaryHeader']['Style'] || '',
+            court: rawData['summary']['CaseSummaryHeader']['Heading'] || '',
+            charges: []
+        };
+
+        const chargeMap = new Map<string, Charge>();
+
+        // Process charges
+        const charges = rawData['charges']['Charges'] || [];
+        charges.forEach((chargeData: any) => {
+            if (!chargeData) return;
+
+            // The charge offense data is nested within the ChargeOffense property
+            const chargeOffense = chargeData['ChargeOffense'] || {};
+
+            const charge: Charge = {
+                offenseDate: chargeData['OffenseDate'] || '',
+                filedDate: chargeData['FiledDate'] || '',
+                description: chargeOffense['ChargeOffenseDescription'] || '',
+                statute: chargeOffense['Statute'] || '',
+                degree: {
+                    code: chargeOffense['Degree'] || '',
+                    description: chargeOffense['DegreeDescription'] || ''
+                },
+                fine: typeof chargeOffense['FineAmount'] === 'number' ? chargeOffense['FineAmount'] : 0,
+                dispositions: []
+            };
+
+            // Add to charges array
+            caseSummary.charges.push(charge);
+
+            // Add to map for easy lookup when processing dispositions
+            if (chargeData['ChargeId']) {
+                chargeMap.set(chargeData['ChargeId'], charge);
+            }
+        });
+
+        // Process dispositions and link them to charges
+        const events = rawData['dispositionEvents']['Events'] || [];
+        events.filter((eventData: any) => eventData && eventData['Type'] === 'CriminalDispositionEvent')
+            .forEach((eventData: any) => {
+                if (!eventData || !eventData['Event']) return;
+
+                // CriminalDispositions are inside the Event property
+                const dispositions = eventData['Event']['CriminalDispositions'] || [];
+
+                // Alert if more than one disposition
+                if (dispositions && dispositions.length > 1) {
+                    AlertService.logError(
+                        Severity.WARNING,
+                        AlertCategory.PORTAL,
+                        'Multiple dispositions found for a single event',
+                        new Error('Unexpected multiple dispositions'),
+                        {
+                            caseId: rawData['summary']['CaseSummaryHeader']['CaseId'] || 'unknown',
+                            eventId: eventData['EventId'] || 'unknown'
+                        }
+                    ).catch(err => console.error('Failed to log alert:', err));
+                }
+
+                dispositions.forEach((disp: any) => {
+                    if (!disp) return;
+
+                    // Extract the event date from either the Event.Date or SortEventDate
+                    const eventDate = eventData['Event']['Date'] || eventData['SortEventDate'] || '';
+
+                    // The criminal disposition type information contains the code and description
+                    const dispTypeId = disp['CriminalDispositionTypeId'] || {};
+
+                    // Create the disposition object
+                    const disposition: Disposition = {
+                        date: eventDate,
+                        code: dispTypeId['Word'] || '',
+                        description: dispTypeId['Description'] || ''
+                    };
+
+                    // The charge ID is in ChargeID (note the capitalization)
+                    const chargeId = disp['ChargeID'];
+
+                    // Find the matching charge and add the disposition
+                    if (chargeId) {
+                        const charge = chargeMap.get(chargeId);
+                        if (charge) {
+                            charge.dispositions.push(disposition);
+                        }
+                    }
+                });
+        });
+
+        return caseSummary;
+    } catch (error) {
+        console.error('Error building case summary:', error);
+        AlertService.logError(
+            Severity.ERROR,
+            AlertCategory.SYSTEM,
+            'Error building case summary from raw data',
+            error as Error,
+            {
+            caseId: rawData.summary?.CaseSummaryHeader?.CaseId || 'unknown'
+            }
+        ).catch(err => console.error('Failed to log alert:', err));
         return null;
     }
 }
