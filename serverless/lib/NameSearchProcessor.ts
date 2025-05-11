@@ -335,7 +335,7 @@ export async function fetchCasesByName(
 
         const client = wrapper(axios).create({
             timeout: 20000,
-            maxRedirects: 0,
+            maxRedirects: 10,
             validateStatus: status => status < 500, // Only reject on 5xx errors
             jar: cookieJar,
             withCredentials: true,
@@ -375,164 +375,14 @@ export async function fetchCasesByName(
         console.log('Form Data:');
         console.log(Object.fromEntries(searchFormData.entries()));
 
-        // Step 1a: Make initial POST request and handle the 302
-        try {
-            const initialResponse = await client.post(
-                `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
-                searchFormData
-            );
+        const searchResponse = await client.post(
+            `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
+            searchFormData
+        );
 
-            console.log(`Initial response status: ${initialResponse.status}`);
+        console.log(`Search response status: ${searchResponse.status}`);
 
-            // Log ALL headers from the initial 302 response
-            console.log('ALL HEADERS from 302 response:');
-            console.log(JSON.stringify(initialResponse.headers, null, 2));
-
-            // Parse and log specific important headers
-            if (initialResponse.headers) {
-                console.log('\nImportant headers breakdown:');
-                if (initialResponse.headers.location) {
-                    console.log(`Location: ${initialResponse.headers.location}`);
-                }
-                if (initialResponse.headers['set-cookie']) {
-                    console.log('Set-Cookie headers:');
-                    console.log(JSON.stringify(initialResponse.headers['set-cookie'], null, 2));
-
-                    // Ensure the SmartSearchCriteria cookie is in the jar
-                    const setCookieHeaders = initialResponse.headers['set-cookie'];
-                    if (Array.isArray(setCookieHeaders)) {
-                        const smartSearchCookie = setCookieHeaders.find(c => c.includes('SmartSearchCriteria='));
-                        if (smartSearchCookie) {
-                            console.log(`Found SmartSearchCriteria in redirect: ${smartSearchCookie}`);
-                        }
-                    }
-                }
-            }
-
-            // After the 302 response, follow the redirect location from the header
-            if (initialResponse.status === 302) {
-                // Check if we have a location header
-                if (!initialResponse.headers.location) {
-                    console.error('302 received but no location header found');
-                    throw new Error('302 redirect without location header');
-                }
-
-                // Get the redirect URL from the location header
-                const redirectLocation = initialResponse.headers.location;
-                let redirectUrl = redirectLocation;
-
-                // If the location is not an absolute URL, construct it using the base portal URL
-                if (!redirectLocation.startsWith('http')) {
-                    redirectUrl = new URL(redirectLocation, portalUrl).toString();
-                }
-
-                console.log(`302 received. Following redirect to location: ${redirectUrl}`);
-
-                // Log all request details for redirect request
-                console.log('REDIRECT NAVIGATION REQUEST DETAILS:');
-                console.log(`URL: ${redirectUrl}`);
-                console.log('Headers:');
-                console.log(JSON.stringify(client.defaults.headers, null, 2));
-
-                // Log cookies being sent with this request
-                const preCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
-                console.log(`Cookies being sent with redirect (${preCookies.length}):`);
-                preCookies.forEach(cookie => {
-                    console.log(`- ${cookie.key}=${cookie.value}`);
-                });
-
-                const redirectResponse = await client.get(redirectUrl);
-                console.log(`Redirect response status: ${redirectResponse.status}`);
-                console.log(`Redirect response URL: ${redirectUrl}`);
-
-                // Log full response body preview (first 500 chars)
-                if (redirectResponse.data) {
-                    const responseText = typeof redirectResponse.data === 'string'
-                        ? redirectResponse.data
-                        : JSON.stringify(redirectResponse.data);
-                    console.log('Redirect response preview:');
-                    console.log(responseText.substring(0, 500) + '...');
-                }
-
-                // Log any cookies or headers from this response
-                if (redirectResponse.headers) {
-                    console.log('Redirect response headers:');
-                    console.log(JSON.stringify(redirectResponse.headers, null, 2));
-
-                    if (redirectResponse.headers['set-cookie']) {
-                        console.log('Found Set-Cookie headers in redirect response:');
-                        console.log(JSON.stringify(redirectResponse.headers['set-cookie'], null, 2));
-                    }
-                }
-
-                // Log cookies in jar after redirect request
-                const redirectCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
-                console.log(`Cookie jar after redirect request contains ${redirectCookies.length} cookies:`);
-                redirectCookies.forEach(cookie => {
-                    console.log(`- ${cookie.key}=${cookie.value} (domain=${cookie.domain}, path=${cookie.path})`);
-                });
-
-                // Continue with normal flow using the redirect response
-                if (redirectResponse.status !== 200) {
-                    const errorMessage = `Redirect request failed with status ${redirectResponse.status}`;
-
-                    await AlertService.logError(
-                        Severity.ERROR,
-                        AlertCategory.PORTAL,
-                        'Name search redirect navigation failed',
-                        new Error(errorMessage),
-                        {
-                            name,
-                            statusCode: redirectResponse.status,
-                            resource: 'portal-redirect-navigation',
-                        }
-                    );
-
-                    return {
-                        cases: [],
-                        error: errorMessage,
-                    };
-                }
-            } else if (initialResponse.status !== 200) {
-                // Handle non-redirect error
-                const errorMessage = `Search request failed with status ${initialResponse.status}`;
-
-                await AlertService.logError(
-                    Severity.ERROR,
-                    AlertCategory.PORTAL,
-                    'Name search request failed',
-                    new Error(errorMessage),
-                    {
-                        name,
-                        statusCode: initialResponse.status,
-                        resource: 'portal-search',
-                    }
-                );
-
-                return {
-                    cases: [],
-                    error: errorMessage,
-                };
-            }
-        } catch (redirectError) {
-            console.error("Error during smart search with redirect handling:", redirectError);
-            const errorMessage = `Search request error: ${(redirectError as Error).message}`;
-
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                'Name search request failed with exception',
-                redirectError as Error,
-                { name, resource: 'portal-search' }
-            );
-
-            return {
-                cases: [],
-                error: errorMessage,
-            };
-        }
-
-        // Check if cookies were actually added to the jar after redirect handling
+        // Log cookies in jar after search request with redirects
         const cookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
         console.log(`Cookie jar after SmartSearch request contains ${cookies.length} cookies:`);
         cookies.forEach(cookie => {
@@ -546,27 +396,36 @@ export async function fetchCasesByName(
         // Step 2: Get the search results page
         console.log("Getting smart search results");
 
-        // Look specifically for SmartSearchCriteria cookie as it's essential
+        // Verify the presence of the essential SmartSearchCriteria cookie
         const smartSearchCriteriaCookie = cookies.find(c => c.key === 'SmartSearchCriteria');
         if (smartSearchCriteriaCookie) {
             console.log(`Found SmartSearchCriteria in jar: ${smartSearchCriteriaCookie.key}=${smartSearchCriteriaCookie.value}`);
         } else {
             console.warn('WARNING: SmartSearchCriteria cookie not found in cookie jar!');
+
+            // If the essential SmartSearchCriteria cookie is missing, we cannot proceed
+            const errorMessage = 'Missing SmartSearchCriteria cookie required for search results';
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Missing required cookie for name search',
+                new Error(errorMessage),
+                {
+                    name,
+                    resource: 'portal-search',
+                }
+            );
+
+            return {
+                cases: [],
+                error: errorMessage,
+            };
         }
 
         // Set up headers for the results request
         const resultsRequestHeaders: Record<string, string> = {
             'Referer': `${portalUrl}/Portal/Home/WorkspaceMode?p=0`,  // Important to set proper referer
         };
-
-        // Log full request details for SmartSearchResults request
-        console.log('SMART SEARCH RESULTS REQUEST DETAILS:');
-        console.log(`URL: ${portalUrl}/Portal/SmartSearch/SmartSearchResults`);
-        console.log('Headers to be sent:');
-        console.log(JSON.stringify({
-            ...client.defaults.headers,
-            ...resultsRequestHeaders
-        }, null, 2));
 
         // Log all cookies that will be sent with this request
         const resultsCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
@@ -575,17 +434,13 @@ export async function fetchCasesByName(
             console.log(`- ${cookie.key}=${cookie.value}`);
         });
 
-        // Continue with the rest of the flow using the same client (with updated cookie jar)
+        // Request the search results
         const resultsResponse = await client.get(
             `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
             { headers: resultsRequestHeaders }
         );
 
         console.log(`SmartSearchResults response status: ${resultsResponse.status}`);
-        if (resultsResponse.headers) {
-            console.log('SmartSearchResults headers:');
-            console.log(JSON.stringify(resultsResponse.headers, null, 2));
-        }
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;
@@ -670,7 +525,7 @@ export async function fetchCasesByName(
                     // This captures the property name 'data' AND its value
                     const dataMatch = gridDataText.match(/"data":\{"Data":.*?"Total":\d+\}\}/s);
 
-                    if (dataMatch && dataMatch[0]) {
+                    if (dataMatch) {
                         // Include the property name "data" in our extracted JSON
                         const dataSection = `{${dataMatch[0]}`;
                         console.log(`Found data section (${dataSection.length} chars), parsing as JSON...`);
@@ -881,10 +736,22 @@ export async function fetchCasesByName(
                 console.error('Alternative parsing also failed:', altError);
             }
 
-            // Return empty result but with no error - we'll treat this as a search with no results
+            // If JSON parsing has failed, we cannot proceed
+            const errorMessage = 'Failed to parse search results data after multiple attempts';
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'JSON parsing failure in name search',
+                new Error(errorMessage),
+                {
+                    name,
+                    resource: 'portal-search-results',
+                }
+            );
+
             return {
-                cases: [] as { caseId: string; caseNumber: string }[],
-                error: undefined
+                cases: [],
+                error: errorMessage
             };
         }
 
