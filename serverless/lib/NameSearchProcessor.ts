@@ -522,98 +522,67 @@ export async function fetchCasesByName(
                     console.log('Extracting just the data section using pattern...');
 
                     // Look for the pattern "data":{"Data": ... "Total":<number>}}
-                    // This captures the property name 'data' AND its value
                     const dataMatch = gridDataText.match(/"data":\{"Data":.*?"Total":\d+\}\}/s);
 
-                    if (dataMatch) {
-                        // Include the property name "data" in our extracted JSON
-                        const dataSection = `{${dataMatch[0]}`;
-                        console.log(`Found data section (${dataSection.length} chars), parsing as JSON...`);
-                        console.log('Data section preview:');
-                        console.log(dataSection.substring(0, 100) + '...');
-
-                        // Parse the complete JSON object with the data property
-                        try {
-                            gridJson = JSON.parse(dataSection);
-                            console.log('Data section parsed successfully as complete object');
-                        } catch (innerError) {
-                            console.log('Failed to parse with complete wrapper, trying to clean the data section...');
-
-                            // Try fixing any JSON format issues before parsing
-                            let fixedDataSection = dataSection
-                                .replace(/,\s*([}\]])/g, '$1'); // Remove trailing commas
-
-                            gridJson = JSON.parse(fixedDataSection);
-                            console.log('Data section parsed successfully after cleaning');
-                        }
-                    } else {
-                        console.log('Could not find data section with specified pattern, falling back to full parsing');
-
-                        // Handle window.odyPortal references and other function references as fallback
-                        let cleanedGridDataText = gridDataText
-                            // Replace function references and JavaScript expressions with string placeholders
-                            .replace(/window\.odyPortal\.[^,}]+/g, '"__FUNCTION_PLACEHOLDER__"')
-                            .replace(/function\s*\([^)]*\)\s*{[^}]*}/g, '"__FUNCTION_PLACEHOLDER__"')
-                            // Handle any other JavaScript expressions that aren't valid JSON
-                            .replace(/:\s*([^",{\[\s][^,}\]]*)/g, ':"$1"');
-
-                        console.log('Cleaned first 100 chars:');
-                        console.log(cleanedGridDataText.substring(0, 100) + '...');
-
-                        // Convert text to valid JSON and parse it
-                        console.log('Attempting to parse full JSON as fallback...');
-                        gridJson = JSON.parse(`{${cleanedGridDataText}}`);
-                        console.log('Full JSON parsed successfully as fallback');
+                    if (!dataMatch) {
+                        throw new Error('Could not find data section in grid JSON');
                     }
 
-                    if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
-                        console.log(`Found ${gridJson.data.Data.length} data entries in grid`);
-                    }
-                } catch (parseError) {
-                    console.error('JSON parsing error:', parseError);
-                    console.log('First 100 chars of gridDataText:');
-                    console.log(gridDataText.substring(0, 100));
-                    console.log('Last 100 chars of gridDataText:');
-                    console.log(gridDataText.substring(gridDataText.length - 100));
+                    const dataSection = `{${dataMatch[0]}`;
+                    console.log(`Found data section (${dataSection.length} chars), parsing as JSON...`);
+                    console.log('Data section preview:');
+                    console.log(dataSection.substring(0, 100) + '...');
 
-                    // Try to fix common JSON parsing issues
-                    console.log('Attempting to fix JSON format before parsing...');
-                    let fixedGridDataText = gridDataText.trim();
-
-                    // Remove any trailing commas that could cause parsing issues
-                    fixedGridDataText = fixedGridDataText.replace(/,\s*([}\]])/g, '$1');
-
-                    // Try parsing with the fixed text
                     try {
-                        gridJson = JSON.parse(`{${fixedGridDataText}}`);
-                        console.log('JSON parsed successfully after fixing format');
-
-                        if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
-                            console.log(`Found ${gridJson.data.Data.length} data entries in grid after fixing format`);
-                        }
-                    } catch (fixError) {
-                        console.error('Still failed to parse JSON after fixes:', fixError);
-                        throw fixError; // Re-throw to be caught by the outer catch block
+                        gridJson = JSON.parse(dataSection);
+                        console.log('Data section parsed successfully as complete object');
+                    } catch (parseError) {
+                        console.error('Failed to parse data section:', parseError);
+                        throw new Error('Failed to parse JSON data section');
                     }
+
+                    if (!gridJson?.data?.Data || !Array.isArray(gridJson.data.Data)) {
+                        throw new Error('Parsed JSON does not contain expected data structure');
+                    }
+
+                    console.log(`Found ${gridJson.data.Data.length} data entries in grid`);
+                } catch (error) {
+                    console.error('Error parsing grid data:', error);
+
+                    // Bail out with specific error
+                    const errorMessage = `Error parsing search results: ${error instanceof Error ? error.message : String(error)}`;
+                    await AlertService.logError(
+                        Severity.ERROR,
+                        AlertCategory.PORTAL,
+                        'Failed to parse search results data',
+                        error instanceof Error ? error : new Error(errorMessage),
+                        {
+                            name,
+                            resource: 'portal-search-results-json',
+                        }
+                    );
+
+                    return {
+                        cases: [],
+                        error: errorMessage
+                    };
                 }
 
                 // If we have valid grid data, process it
-                if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
-                    // Loop through each party in the Data array
-                    for (const party of gridJson.data.Data) {
-                        // Process CaseResults for this party if they exist
-                        if (party.CaseResults && Array.isArray(party.CaseResults)) {
-                            for (const caseResult of party.CaseResults) {
-                                if (caseResult.EncryptedCaseId && caseResult.CaseNumber) {
-                                    // Only add if we haven't seen this case number before
-                                    if (!caseNumberSet.has(caseResult.CaseNumber)) {
-                                        cases.push({
-                                            caseId: caseResult.EncryptedCaseId,
-                                            caseNumber: caseResult.CaseNumber
-                                        });
-                                        caseNumberSet.add(caseResult.CaseNumber);
-                                        console.log(`Found case: ${caseResult.CaseNumber}, ID: ${caseResult.EncryptedCaseId}`);
-                                    }
+                // Loop through each party in the Data array
+                for (const party of gridJson.data.Data) {
+                    // Process CaseResults for this party if they exist
+                    if (party.CaseResults && Array.isArray(party.CaseResults)) {
+                        for (const caseResult of party.CaseResults) {
+                            if (caseResult.EncryptedCaseId && caseResult.CaseNumber) {
+                                // Only add if we haven't seen this case number before
+                                if (!caseNumberSet.has(caseResult.CaseNumber)) {
+                                    cases.push({
+                                        caseId: caseResult.EncryptedCaseId,
+                                        caseNumber: caseResult.CaseNumber
+                                    });
+                                    caseNumberSet.add(caseResult.CaseNumber);
+                                    console.log(`Found case: ${caseResult.CaseNumber}, ID: ${caseResult.EncryptedCaseId}`);
                                 }
                             }
                         }
@@ -656,93 +625,13 @@ export async function fetchCasesByName(
                 }
             }
 
-            // Try a different regex pattern that might be more forgiving
-            console.log('Attempting alternative parsing methods...');
-            try {
-                // Method 1: Try to extract just the data section
-                console.log('Method 1: Extracting only the data property...');
-                const dataMatch = htmlContent.match(/data\s*:\s*(\{[^}]*"Data"\s*:\s*\[.*?\]\s*\})/s);
-                if (dataMatch && dataMatch[1]) {
-                    console.log('Found data section, attempting to parse...');
-                    const dataJson = JSON.parse(dataMatch[1].replace(/([{,])\s*([^"'\s][^:]*?):\s*/g, '$1"$2":'));
-
-                    if (dataJson && dataJson.Data && Array.isArray(dataJson.Data)) {
-                        console.log(`Found ${dataJson.Data.length} data entries using data extraction method`);
-
-                        // Process the data section directly
-                        const dataCases = [];
-                        for (const party of dataJson.Data) {
-                            if (party.CaseResults && Array.isArray(party.CaseResults)) {
-                                for (const caseResult of party.CaseResults) {
-                                    if (caseResult.EncryptedCaseId && caseResult.CaseNumber &&
-                                        !caseNumberSet.has(caseResult.CaseNumber)) {
-                                        dataCases.push({
-                                            caseId: caseResult.EncryptedCaseId,
-                                            caseNumber: caseResult.CaseNumber
-                                        });
-                                        caseNumberSet.add(caseResult.CaseNumber);
-                                    }
-                                }
-                            }
-                        }
-
-                        if (dataCases.length > 0) {
-                            console.log(`Data extraction found ${dataCases.length} cases`);
-                            return {
-                                cases: dataCases,
-                                error: undefined
-                            };
-                        }
-                    }
-                }
-
-                // Method 2: Try a broader match for grid data
-                console.log('Method 2: Using broader grid data match...');
-                const altGridMatch = htmlContent.match(/data\s*:\s*(\{.*?\})\s*,/s);
-                if (altGridMatch && altGridMatch[1]) {
-                    console.log('Alternative match found, attempting to parse...');
-                    const altGridJson = JSON.parse(altGridMatch[1]);
-
-                    if (altGridJson && altGridJson.Data && Array.isArray(altGridJson.Data)) {
-                        console.log(`Found ${altGridJson.Data.length} data entries using alternative parsing`);
-
-                        // Process the data similar to the main path
-                        const altCases = [];
-                        for (const party of altGridJson.Data) {
-                            if (party.CaseResults && Array.isArray(party.CaseResults)) {
-                                for (const caseResult of party.CaseResults) {
-                                    if (caseResult.EncryptedCaseId && caseResult.CaseNumber &&
-                                        !caseNumberSet.has(caseResult.CaseNumber)) {
-                                        altCases.push({
-                                            caseId: caseResult.EncryptedCaseId,
-                                            caseNumber: caseResult.CaseNumber
-                                        });
-                                        caseNumberSet.add(caseResult.CaseNumber);
-                                    }
-                                }
-                            }
-                        }
-
-                        if (altCases.length > 0) {
-                            console.log(`Alternative parsing found ${altCases.length} cases`);
-                            return {
-                                cases: altCases,
-                                error: undefined
-                            };
-                        }
-                    }
-                }
-            } catch (altError) {
-                console.error('Alternative parsing also failed:', altError);
-            }
-
             // If JSON parsing has failed, we cannot proceed
-            const errorMessage = 'Failed to parse search results data after multiple attempts';
+            const errorMessage = 'Failed to parse search results data';
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
                 'JSON parsing failure in name search',
-                new Error(errorMessage),
+                jsonError instanceof Error ? jsonError : new Error(errorMessage),
                 {
                     name,
                     resource: 'portal-search-results',
