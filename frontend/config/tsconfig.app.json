@@ -25,5 +25,6 @@
         /* Testing */
         "types": ["vitest/globals", "node"]
     },
-    "include": ["../src", "../tailwind.config.js", "../src/ZipCaseClient.ts"]
+    "include": ["../src", "../tailwind.config.js", "../src/ZipCaseClient.ts"],
+    "exclude": ["../src/**/__tests__/**/*", "../src/**/*.test.ts", "../src/**/*.test.tsx"]
 }
