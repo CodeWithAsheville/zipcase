@@ -335,7 +335,7 @@ export async function fetchCasesByName(
 
         const client = wrapper(axios).create({
             timeout: 20000,
-            maxRedirects: 10,
+            maxRedirects: 0,
             validateStatus: status => status < 500, // Only reject on 5xx errors
             jar: cookieJar,
             withCredentials: true,
@@ -366,24 +366,164 @@ export async function fetchCasesByName(
         }
 
         console.log("Posting smart search");
-        const searchResponse = await client.post(
-            `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
-            searchFormData
-        );
 
-        if (searchResponse.status !== 200) {
-            const errorMessage = `Search request failed with status ${searchResponse.status}`;
+        // Log request details before sending
+        console.log('SMART SEARCH REQUEST DETAILS:');
+        console.log(`URL: ${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`);
+        console.log('Headers:');
+        console.log(JSON.stringify(client.defaults.headers, null, 2));
+        console.log('Form Data:');
+        console.log(Object.fromEntries(searchFormData.entries()));
+
+        // Step 1a: Make initial POST request and handle the 302
+        try {
+            const initialResponse = await client.post(
+                `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
+                searchFormData
+            );
+
+            console.log(`Initial response status: ${initialResponse.status}`);
+
+            // Log ALL headers from the initial 302 response
+            console.log('ALL HEADERS from 302 response:');
+            console.log(JSON.stringify(initialResponse.headers, null, 2));
+
+            // Parse and log specific important headers
+            if (initialResponse.headers) {
+                console.log('\nImportant headers breakdown:');
+                if (initialResponse.headers.location) {
+                    console.log(`Location: ${initialResponse.headers.location}`);
+                }
+                if (initialResponse.headers['set-cookie']) {
+                    console.log('Set-Cookie headers:');
+                    console.log(JSON.stringify(initialResponse.headers['set-cookie'], null, 2));
+
+                    // Ensure the SmartSearchCriteria cookie is in the jar
+                    const setCookieHeaders = initialResponse.headers['set-cookie'];
+                    if (Array.isArray(setCookieHeaders)) {
+                        const smartSearchCookie = setCookieHeaders.find(c => c.includes('SmartSearchCriteria='));
+                        if (smartSearchCookie) {
+                            console.log(`Found SmartSearchCriteria in redirect: ${smartSearchCookie}`);
+                        }
+                    }
+                }
+            }
+
+            // After the 302 response, follow the redirect location from the header
+            if (initialResponse.status === 302) {
+                // Check if we have a location header
+                if (!initialResponse.headers.location) {
+                    console.error('302 received but no location header found');
+                    throw new Error('302 redirect without location header');
+                }
+
+                // Get the redirect URL from the location header
+                const redirectLocation = initialResponse.headers.location;
+                let redirectUrl = redirectLocation;
+
+                // If the location is not an absolute URL, construct it using the base portal URL
+                if (!redirectLocation.startsWith('http')) {
+                    redirectUrl = new URL(redirectLocation, portalUrl).toString();
+                }
+
+                console.log(`302 received. Following redirect to location: ${redirectUrl}`);
+
+                // Log all request details for redirect request
+                console.log('REDIRECT NAVIGATION REQUEST DETAILS:');
+                console.log(`URL: ${redirectUrl}`);
+                console.log('Headers:');
+                console.log(JSON.stringify(client.defaults.headers, null, 2));
+
+                // Log cookies being sent with this request
+                const preCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+                console.log(`Cookies being sent with redirect (${preCookies.length}):`);
+                preCookies.forEach(cookie => {
+                    console.log(`- ${cookie.key}=${cookie.value}`);
+                });
+
+                const redirectResponse = await client.get(redirectUrl);
+                console.log(`Redirect response status: ${redirectResponse.status}`);
+                console.log(`Redirect response URL: ${redirectUrl}`);
+
+                // Log full response body preview (first 500 chars)
+                if (redirectResponse.data) {
+                    const responseText = typeof redirectResponse.data === 'string'
+                        ? redirectResponse.data
+                        : JSON.stringify(redirectResponse.data);
+                    console.log('Redirect response preview:');
+                    console.log(responseText.substring(0, 500) + '...');
+                }
+
+                // Log any cookies or headers from this response
+                if (redirectResponse.headers) {
+                    console.log('Redirect response headers:');
+                    console.log(JSON.stringify(redirectResponse.headers, null, 2));
+
+                    if (redirectResponse.headers['set-cookie']) {
+                        console.log('Found Set-Cookie headers in redirect response:');
+                        console.log(JSON.stringify(redirectResponse.headers['set-cookie'], null, 2));
+                    }
+                }
+
+                // Log cookies in jar after redirect request
+                const redirectCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+                console.log(`Cookie jar after redirect request contains ${redirectCookies.length} cookies:`);
+                redirectCookies.forEach(cookie => {
+                    console.log(`- ${cookie.key}=${cookie.value} (domain=${cookie.domain}, path=${cookie.path})`);
+                });
+
+                // Continue with normal flow using the redirect response
+                if (redirectResponse.status !== 200) {
+                    const errorMessage = `Redirect request failed with status ${redirectResponse.status}`;
+
+                    await AlertService.logError(
+                        Severity.ERROR,
+                        AlertCategory.PORTAL,
+                        'Name search redirect navigation failed',
+                        new Error(errorMessage),
+                        {
+                            name,
+                            statusCode: redirectResponse.status,
+                            resource: 'portal-redirect-navigation',
+                        }
+                    );
+
+                    return {
+                        cases: [],
+                        error: errorMessage,
+                    };
+                }
+            } else if (initialResponse.status !== 200) {
+                // Handle non-redirect error
+                const errorMessage = `Search request failed with status ${initialResponse.status}`;
+
+                await AlertService.logError(
+                    Severity.ERROR,
+                    AlertCategory.PORTAL,
+                    'Name search request failed',
+                    new Error(errorMessage),
+                    {
+                        name,
+                        statusCode: initialResponse.status,
+                        resource: 'portal-search',
+                    }
+                );
+
+                return {
+                    cases: [],
+                    error: errorMessage,
+                };
+            }
+        } catch (redirectError) {
+            console.error("Error during smart search with redirect handling:", redirectError);
+            const errorMessage = `Search request error: ${(redirectError as Error).message}`;
 
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'Name search request failed',
-                new Error(errorMessage),
-                {
-                    name,
-                    statusCode: searchResponse.status,
-                    resource: 'portal-search',
-                }
+                'Name search request failed with exception',
+                redirectError as Error,
+                { name, resource: 'portal-search' }
             );
 
             return {
@@ -392,39 +532,60 @@ export async function fetchCasesByName(
             };
         }
 
-        // Extract SmartSearchCriteria cookie from response headers
-        const setCookieHeader = searchResponse.headers['set-cookie'];
-        let smartSearchCriteriaCookie = '';
+        // Check if cookies were actually added to the jar after redirect handling
+        const cookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+        console.log(`Cookie jar after SmartSearch request contains ${cookies.length} cookies:`);
+        cookies.forEach(cookie => {
+            console.log(`- ${cookie.key}=${cookie.value} (domain=${cookie.domain}, path=${cookie.path})`);
+        });
 
-        if (setCookieHeader) {
-            if (Array.isArray(setCookieHeader)) {
-                // Find the SmartSearchCriteria cookie if it's in an array of cookies
-                const smartSearchCookie = setCookieHeader.find(cookie =>
-                    cookie.startsWith('SmartSearchCriteria='));
-                if (smartSearchCookie) {
-                    smartSearchCriteriaCookie = smartSearchCookie.split(';')[0];
-                    console.log(`Found SmartSearchCriteria cookie: ${smartSearchCriteriaCookie}`);
-                }
-            }
-        }
+        // Check specifically for SmartSearchCriteria cookie
+        const hasSmartSearchCookie = cookies.some(c => c.key === 'SmartSearchCriteria');
+        console.log(`Has SmartSearchCriteria cookie: ${hasSmartSearchCookie}`);
 
         // Step 2: Get the search results page
         console.log("Getting smart search results");
 
-        let requestOptions = {};
+        // Look specifically for SmartSearchCriteria cookie as it's essential
+        const smartSearchCriteriaCookie = cookies.find(c => c.key === 'SmartSearchCriteria');
         if (smartSearchCriteriaCookie) {
-            requestOptions = {
-                headers: {
-                    'Cookie': smartSearchCriteriaCookie
-                }
-            };
-            console.log('Adding SmartSearchCriteria cookie to request');
+            console.log(`Found SmartSearchCriteria in jar: ${smartSearchCriteriaCookie.key}=${smartSearchCriteriaCookie.value}`);
+        } else {
+            console.warn('WARNING: SmartSearchCriteria cookie not found in cookie jar!');
         }
 
+        // Set up headers for the results request
+        const resultsRequestHeaders: Record<string, string> = {
+            'Referer': `${portalUrl}/Portal/Home/WorkspaceMode?p=0`,  // Important to set proper referer
+        };
+
+        // Log full request details for SmartSearchResults request
+        console.log('SMART SEARCH RESULTS REQUEST DETAILS:');
+        console.log(`URL: ${portalUrl}/Portal/SmartSearch/SmartSearchResults`);
+        console.log('Headers to be sent:');
+        console.log(JSON.stringify({
+            ...client.defaults.headers,
+            ...resultsRequestHeaders
+        }, null, 2));
+
+        // Log all cookies that will be sent with this request
+        const resultsCookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+        console.log(`Cookies being sent to SmartSearchResults (${resultsCookies.length}):`);
+        resultsCookies.forEach(cookie => {
+            console.log(`- ${cookie.key}=${cookie.value}`);
+        });
+
+        // Continue with the rest of the flow using the same client (with updated cookie jar)
         const resultsResponse = await client.get(
             `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
-            requestOptions
+            { headers: resultsRequestHeaders }
         );
+
+        console.log(`SmartSearchResults response status: ${resultsResponse.status}`);
+        if (resultsResponse.headers) {
+            console.log('SmartSearchResults headers:');
+            console.log(JSON.stringify(resultsResponse.headers, null, 2));
+        }
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;
@@ -479,15 +640,109 @@ export async function fetchCasesByName(
         const caseNumberSet = new Set<string>(); // For deduplication
 
         try {
+            // Log the content type of the response
+            console.log(`SmartSearchResults response content length: ${htmlContent.length} bytes`);
+
+            // Check if the response is HTML and contains expected elements
+            const isHtml = htmlContent.includes('<!DOCTYPE html>') || htmlContent.includes('<html');
+            const hasGrid = htmlContent.includes('id="Grid"');
+            console.log(`Response appears to be HTML: ${isHtml}, Contains Grid element: ${hasGrid}`);
+
             // Find the kendoGrid initialization with JSON data
             const kendoGridMatch = htmlContent.match(/jQuery\("#Grid"\)\.kendoGrid\((.*?)\);/s);
+            console.log(`KendoGrid initialization ${kendoGridMatch ? 'found' : 'NOT found'} in response`);
 
             if (kendoGridMatch && kendoGridMatch[1]) {
-                // Extract and parse the JSON data
-                const gridDataText = kendoGridMatch[1];
-                // Convert text to valid JSON by wrapping in {}
-                const gridJson = JSON.parse(`{${gridDataText}}`);
+                // Extract the raw JSON text for debugging
+                const gridDataText = kendoGridMatch[1].trim();
 
+                // Add more detailed logging to understand the JSON structure
+                console.log('Found kendo grid initialization. First 100 chars:');
+                console.log(gridDataText.substring(0, 100) + '...');
+
+                let gridJson;
+
+                try {
+                    // Extract just the data section we need using a specific pattern
+                    console.log('Extracting just the data section using pattern...');
+
+                    // Look for the pattern "data":{"Data": ... "Total":<number>}}
+                    // This captures the property name 'data' AND its value
+                    const dataMatch = gridDataText.match(/"data":\{"Data":.*?"Total":\d+\}\}/s);
+
+                    if (dataMatch && dataMatch[0]) {
+                        // Include the property name "data" in our extracted JSON
+                        const dataSection = `{${dataMatch[0]}`;
+                        console.log(`Found data section (${dataSection.length} chars), parsing as JSON...`);
+                        console.log('Data section preview:');
+                        console.log(dataSection.substring(0, 100) + '...');
+
+                        // Parse the complete JSON object with the data property
+                        try {
+                            gridJson = JSON.parse(dataSection);
+                            console.log('Data section parsed successfully as complete object');
+                        } catch (innerError) {
+                            console.log('Failed to parse with complete wrapper, trying to clean the data section...');
+
+                            // Try fixing any JSON format issues before parsing
+                            let fixedDataSection = dataSection
+                                .replace(/,\s*([}\]])/g, '$1'); // Remove trailing commas
+
+                            gridJson = JSON.parse(fixedDataSection);
+                            console.log('Data section parsed successfully after cleaning');
+                        }
+                    } else {
+                        console.log('Could not find data section with specified pattern, falling back to full parsing');
+
+                        // Handle window.odyPortal references and other function references as fallback
+                        let cleanedGridDataText = gridDataText
+                            // Replace function references and JavaScript expressions with string placeholders
+                            .replace(/window\.odyPortal\.[^,}]+/g, '"__FUNCTION_PLACEHOLDER__"')
+                            .replace(/function\s*\([^)]*\)\s*{[^}]*}/g, '"__FUNCTION_PLACEHOLDER__"')
+                            // Handle any other JavaScript expressions that aren't valid JSON
+                            .replace(/:\s*([^",{\[\s][^,}\]]*)/g, ':"$1"');
+
+                        console.log('Cleaned first 100 chars:');
+                        console.log(cleanedGridDataText.substring(0, 100) + '...');
+
+                        // Convert text to valid JSON and parse it
+                        console.log('Attempting to parse full JSON as fallback...');
+                        gridJson = JSON.parse(`{${cleanedGridDataText}}`);
+                        console.log('Full JSON parsed successfully as fallback');
+                    }
+
+                    if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
+                        console.log(`Found ${gridJson.data.Data.length} data entries in grid`);
+                    }
+                } catch (parseError) {
+                    console.error('JSON parsing error:', parseError);
+                    console.log('First 100 chars of gridDataText:');
+                    console.log(gridDataText.substring(0, 100));
+                    console.log('Last 100 chars of gridDataText:');
+                    console.log(gridDataText.substring(gridDataText.length - 100));
+
+                    // Try to fix common JSON parsing issues
+                    console.log('Attempting to fix JSON format before parsing...');
+                    let fixedGridDataText = gridDataText.trim();
+
+                    // Remove any trailing commas that could cause parsing issues
+                    fixedGridDataText = fixedGridDataText.replace(/,\s*([}\]])/g, '$1');
+
+                    // Try parsing with the fixed text
+                    try {
+                        gridJson = JSON.parse(`{${fixedGridDataText}}`);
+                        console.log('JSON parsed successfully after fixing format');
+
+                        if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
+                            console.log(`Found ${gridJson.data.Data.length} data entries in grid after fixing format`);
+                        }
+                    } catch (fixError) {
+                        console.error('Still failed to parse JSON after fixes:', fixError);
+                        throw fixError; // Re-throw to be caught by the outer catch block
+                    }
+                }
+
+                // If we have valid grid data, process it
                 if (gridJson && gridJson.data && gridJson.data.Data && Array.isArray(gridJson.data.Data)) {
                     // Loop through each party in the Data array
                     for (const party of gridJson.data.Data) {
@@ -524,6 +779,108 @@ export async function fetchCasesByName(
 
         } catch (jsonError) {
             console.error('Error parsing kendoGrid JSON data:', jsonError);
+
+            // Log the HTML content for debugging when kendoGrid JSON is not found
+            console.log('HTML Response Content Preview:');
+            // Log just the first 500 characters to avoid excessive logging
+            console.log(htmlContent.substring(0, 500) + (htmlContent.length > 500 ? '...' : ''));
+
+            // Look for specific error messages in the HTML content
+            const errorMessages = [
+                'Smart Search is having trouble',
+                'An error has occurred',
+                'server error',
+                'not found',
+                'access denied',
+                'unauthorized'
+            ];
+
+            for (const errorText of errorMessages) {
+                if (htmlContent.toLowerCase().includes(errorText.toLowerCase())) {
+                    console.log(`Found error text in response: "${errorText}"`);
+                }
+            }
+
+            // Try a different regex pattern that might be more forgiving
+            console.log('Attempting alternative parsing methods...');
+            try {
+                // Method 1: Try to extract just the data section
+                console.log('Method 1: Extracting only the data property...');
+                const dataMatch = htmlContent.match(/data\s*:\s*(\{[^}]*"Data"\s*:\s*\[.*?\]\s*\})/s);
+                if (dataMatch && dataMatch[1]) {
+                    console.log('Found data section, attempting to parse...');
+                    const dataJson = JSON.parse(dataMatch[1].replace(/([{,])\s*([^"'\s][^:]*?):\s*/g, '$1"$2":'));
+
+                    if (dataJson && dataJson.Data && Array.isArray(dataJson.Data)) {
+                        console.log(`Found ${dataJson.Data.length} data entries using data extraction method`);
+
+                        // Process the data section directly
+                        const dataCases = [];
+                        for (const party of dataJson.Data) {
+                            if (party.CaseResults && Array.isArray(party.CaseResults)) {
+                                for (const caseResult of party.CaseResults) {
+                                    if (caseResult.EncryptedCaseId && caseResult.CaseNumber &&
+                                        !caseNumberSet.has(caseResult.CaseNumber)) {
+                                        dataCases.push({
+                                            caseId: caseResult.EncryptedCaseId,
+                                            caseNumber: caseResult.CaseNumber
+                                        });
+                                        caseNumberSet.add(caseResult.CaseNumber);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (dataCases.length > 0) {
+                            console.log(`Data extraction found ${dataCases.length} cases`);
+                            return {
+                                cases: dataCases,
+                                error: undefined
+                            };
+                        }
+                    }
+                }
+
+                // Method 2: Try a broader match for grid data
+                console.log('Method 2: Using broader grid data match...');
+                const altGridMatch = htmlContent.match(/data\s*:\s*(\{.*?\})\s*,/s);
+                if (altGridMatch && altGridMatch[1]) {
+                    console.log('Alternative match found, attempting to parse...');
+                    const altGridJson = JSON.parse(altGridMatch[1]);
+
+                    if (altGridJson && altGridJson.Data && Array.isArray(altGridJson.Data)) {
+                        console.log(`Found ${altGridJson.Data.length} data entries using alternative parsing`);
+
+                        // Process the data similar to the main path
+                        const altCases = [];
+                        for (const party of altGridJson.Data) {
+                            if (party.CaseResults && Array.isArray(party.CaseResults)) {
+                                for (const caseResult of party.CaseResults) {
+                                    if (caseResult.EncryptedCaseId && caseResult.CaseNumber &&
+                                        !caseNumberSet.has(caseResult.CaseNumber)) {
+                                        altCases.push({
+                                            caseId: caseResult.EncryptedCaseId,
+                                            caseNumber: caseResult.CaseNumber
+                                        });
+                                        caseNumberSet.add(caseResult.CaseNumber);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (altCases.length > 0) {
+                            console.log(`Alternative parsing found ${altCases.length} cases`);
+                            return {
+                                cases: altCases,
+                                error: undefined
+                            };
+                        }
+                    }
+                }
+            } catch (altError) {
+                console.error('Alternative parsing also failed:', altError);
+            }
+
             // Return empty result but with no error - we'll treat this as a search with no results
             return {
                 cases: [] as { caseId: string; caseNumber: string }[],
@@ -543,9 +900,11 @@ export async function fetchCasesByName(
                 name,
                 resource: 'name-search',
             }
-        );            return {
-                cases: [],
-                error: errorMessage,
-            };
+        );
+
+        return {
+            cases: [],
+            error: errorMessage,
+        };
     }
 }
