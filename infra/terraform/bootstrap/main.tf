@@ -189,6 +189,20 @@ resource "aws_iam_policy" "github_actions_policy" {
         ]
       },
 
+      # CloudWatch Metrics and Alarms permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricAlarm",
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:DeleteAlarms",
+          "cloudwatch:GetMetricData",
+          "cloudwatch:ListMetrics",
+          "cloudwatch:PutMetricData"
+        ]
+        Resource = "*"
+      },
+
       # SQS permissions for Serverless Framework
       {
         Effect = "Allow"

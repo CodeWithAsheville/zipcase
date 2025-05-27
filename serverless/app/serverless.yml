@@ -69,6 +69,12 @@ provider:
                   Action:
                       - sns:Publish
                   Resource: ${ssm:/zipcase/alert-topic-arn}
+
+                - Effect: Allow
+                  Action:
+                      - ssm:GetParameter
+                  Resource:
+                      - arn:aws:ssm:${self:provider.region}:*:parameter/zipcase/alert-topic-arn
     httpApi:
         cors: true
         disableDefaultEndpoint: true
@@ -196,6 +202,25 @@ resources:
                     - ${ssm:/zipcase/alert-topic-arn}
                 TreatMissingData: notBreaching
 
+        ProcessNameSearchErrorsAlarm:
+            Type: AWS::CloudWatch::Alarm
+            Properties:
+                AlarmName: ZipCase-${self:provider.stage}-ProcessNameSearchErrors
+                AlarmDescription: High error rate in processNameSearch Lambda function
+                Namespace: 'AWS/Lambda'
+                MetricName: Errors
+                Dimensions:
+                    - Name: FunctionName
+                      Value: ${self:service}-${self:provider.stage}-processNameSearch
+                Statistic: Sum
+                Period: 60
+                EvaluationPeriods: 1
+                Threshold: 2
+                ComparisonOperator: GreaterThanThreshold
+                AlarmActions:
+                    - ${ssm:/zipcase/alert-topic-arn}
+                TreatMissingData: notBreaching
+
 functions:
     getApiKey:
         handler: handlers/apiKey.get
@@ -288,13 +313,14 @@ functions:
                   method: get
                   authorizer: cognitoAuth
 
-    processCaseSearch:
-        handler: handlers/case.processCaseSearch
-        timeout: 12
+    processSearch:
+        handler: handlers/search.processSearch
+        timeout: 30
         events:
             - sqs:
                   arn: ${cf:infra-${self:provider.stage}.SearchQueueArn}
                   batchSize: 1
+                  functionResponseType: ReportBatchItemFailures
 
     processCaseData:
         handler: handlers/case.processCaseData

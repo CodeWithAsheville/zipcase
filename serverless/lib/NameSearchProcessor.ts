@@ -1,32 +1,44 @@
 import { v4 as uuidv4 } from 'uuid';
-import { NameSearchRequest, NameSearchResponse, NameSearchData } from '../../shared/types/Search';
+import { NameSearchResponse, NameSearchData } from '../../shared/types';
 import StorageClient from './StorageClient';
 import NameParser from './NameParser';
 import QueueClient from './QueueClient';
 import PortalAuthenticator from './PortalAuthenticator';
 import AlertService, { Severity, AlertCategory } from './AlertService';
+import { CookieJar } from 'tough-cookie';
+import axios from 'axios';
+import { wrapper } from 'axios-cookiejar-support';
+import * as cheerio from 'cheerio';
+import UserAgentClient from './UserAgentClient';
 
-export async function processNameSearchRequest(req: NameSearchRequest, userId: string): Promise<NameSearchResponse> {
-    // Check user auth/session
-    const userSession = await StorageClient.getUserSession(userId);
-    let searchId = '';
+// Process API name search requests - creates an entry in DynamoDB and queues for processing
+export async function processNameSearchRequest(
+    req: { name: string; dateOfBirth?: string; soundsLike: boolean; userAgent?: string },
+    userId: string
+): Promise<NameSearchResponse> {
+    const searchId = uuidv4();
+
+    let success = true;
+    let error: string | undefined;
 
     try {
-        // Normalize the name input
         const normalizedName = NameParser.parseAndStandardizeName(req.name);
-
         if (!normalizedName) {
-            return {
-                searchId: '',
-                results: {}
-            };
+            success = false;
+            error = `Name could not be parsed from input [${req.name}]`;
         }
 
-        // Generate a unique ID for this search
-        searchId = uuidv4();
+        let userSession = null;
+        if (success) {
+            userSession = await PortalAuthenticator.getOrCreateUserSession(userId, req.userAgent);
+            if (!userSession.success) {
+                success = false;
+                error = userSession.message;
+            }
+        }
 
         // Store the search data in DynamoDB with TTL of 24 hours
-        const expiresAt = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // 24 hours from now
+        const expiresAt = Math.floor(Date.now() / 1000) + 24 * 60 * 60; // 24 hours from now
 
         const nameSearchData: NameSearchData = {
             originalName: req.name,
@@ -34,138 +46,39 @@ export async function processNameSearchRequest(req: NameSearchRequest, userId: s
             dateOfBirth: req.dateOfBirth,
             soundsLike: req.soundsLike,
             cases: [],
+            status: success ? 'queued' : 'failed',
         };
 
         await StorageClient.saveNameSearch(searchId, nameSearchData, expiresAt);
 
-        // Queue the name search for processing
-        if (userSession) {
-            console.log(`Queueing name search ${searchId} for processing with existing session`);
-            await QueueClient.queueNameSearchForProcessing(
-                searchId,
-                userId,
-                req.name,
-                req.dateOfBirth,
-                req.soundsLike,
-                req.userAgent
+        if (!success) {
+            console.log(
+                `Could not process name search with input [${req.name}] (ID [${searchId}]) for user [${userId}]: ${error}`
             );
-        } else {
-            // No user session - need to check for portal credentials
-            const portalCredentials = await StorageClient.sensitiveGetPortalCredentials(userId);
 
-            if (portalCredentials) {
-                try {
-                    // Authenticate with portal using user agent if provided
-                    const authResult = await PortalAuthenticator.authenticateWithPortal(
-                        portalCredentials.username,
-                        portalCredentials.password,
-                        { userAgent: req.userAgent }
-                    );
-
-                    if (!authResult.success || !authResult.cookieJar) {
-                        const errorMsg = `Failed to authenticate with portal for user ${userId}: ${authResult.message}`;
-                        console.error(errorMsg);
-
-                        await AlertService.logError(
-                            Severity.ERROR,
-                            AlertCategory.AUTHENTICATION,
-                            errorMsg,
-                            undefined,
-                            { userId, searchId }
-                        );
-
-                        // Get the existing search data
-                        const existingSearch = await StorageClient.getNameSearch(searchId);
-                        if (existingSearch) {
-                            await StorageClient.saveNameSearch(searchId, {
-                                ...existingSearch,
-                                status: 'failed',
-                                message: `Authentication failed: ${authResult.message}`,
-                            });
-                        }
-                    } else {
-                        // Store the session token (cookie jar)
-                        const sessionToken = JSON.stringify(authResult.cookieJar.toJSON());
-
-                        // Calculate expiration time (24 hours from now)
-                        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-                        await StorageClient.saveUserSession(userId, sessionToken, expiresAt);
-                        console.log(
-                            `Successfully authenticated and stored session for user ${userId}`
-                        );
-
-                        // Now queue the name search for processing
-                        await QueueClient.queueNameSearchForProcessing(
-                            searchId,
-                            userId,
-                            req.name,
-                            req.dateOfBirth,
-                            req.soundsLike,
-                            req.userAgent
-                        );
-                    }
-                } catch (error) {
-                    const errorMsg = `Failed to authenticate with portal for user ${userId} due to exception`;
-                    console.error(errorMsg, error);
-
-                    await AlertService.logError(
-                        Severity.ERROR,
-                        AlertCategory.AUTHENTICATION,
-                        errorMsg,
-                        error instanceof Error ? error : new Error(String(error)),
-                        { userId, searchId }
-                    );
-
-                    // Get the existing search data
-                    const existingSearch = await StorageClient.getNameSearch(searchId);
-                    if (existingSearch) {
-                        await StorageClient.saveNameSearch(searchId, {
-                            ...existingSearch,
-                            status: 'failed',
-                            message: `Authentication error: ${error instanceof Error ? error.message : String(error)}`,
-                        });
-                    }
-                }
-            } else {
-                const errorMsg = `No portal credentials found for user ${userId}`;
-                console.log(errorMsg);
-
-                await AlertService.logError(
-                    Severity.WARNING,
-                    AlertCategory.AUTHENTICATION,
-                    errorMsg,
-                    undefined,
-                    { userId, searchId }
-                );
-
-                // Get the existing search data
-                const existingSearch = await StorageClient.getNameSearch(searchId);
-                if (existingSearch) {
-                    await StorageClient.saveNameSearch(searchId, {
-                        ...existingSearch,
-                        status: 'failed',
-                        message: 'No portal credentials found',
-                    });
-                }
-            }
-        }
-
-        const nameSearchStatus = await StorageClient.getNameSearch(searchId);
-
-        if (nameSearchStatus && nameSearchStatus.status === 'failed') {
             return {
                 searchId,
                 results: {},
-                success: false,
-                error: nameSearchStatus.message || 'Authentication failed'
+                success,
+                error,
             };
         }
+
+        // Queue the name search for processing
+        console.log(`Queueing name search ${searchId} for processing with existing session`);
+        await QueueClient.queueNameSearch(
+            searchId,
+            normalizedName,
+            userId,
+            req.dateOfBirth,
+            req.soundsLike,
+            req.userAgent
+        );
 
         return {
             searchId,
             results: {},
-            success: true
+            success: true,
         };
     } catch (error) {
         const errorMsg = 'Error processing name search request';
@@ -179,23 +92,20 @@ export async function processNameSearchRequest(req: NameSearchRequest, userId: s
             { userId, searchId }
         );
 
-        if (searchId) {
-            // Get the existing search data
-            const existingSearch = await StorageClient.getNameSearch(searchId);
-            if (existingSearch) {
-                await StorageClient.saveNameSearch(searchId, {
-                    ...existingSearch,
-                    status: 'failed',
-                    message: `Error: ${error instanceof Error ? error.message : String(error)}`,
-                });
-            }
+        const existingSearch = await StorageClient.getNameSearch(searchId);
+        if (existingSearch) {
+            await StorageClient.saveNameSearch(searchId, {
+                ...existingSearch,
+                status: 'failed',
+                message: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            });
         }
 
         return {
-            searchId: searchId || '',
+            searchId: searchId,
             results: {},
             success: false,
-            error: 'Internal error processing name search'
+            error: 'Internal error processing name search',
         };
     }
 }
@@ -221,12 +131,469 @@ export async function getNameSearchResults(searchId: string): Promise<NameSearch
         return {
             searchId,
             results,
+            success: nameSearchData.status !== 'failed',
+            error: nameSearchData.status === 'failed' ? nameSearchData.message : undefined,
         };
     } catch (error) {
         console.error('Error getting name search results:', error);
         return {
             searchId,
             results: {},
+            success: false,
+            error: 'Error retrieving name search results',
+        };
+    }
+}
+
+interface NameSearchResult {
+    cases: { caseId: string; caseNumber: string }[];
+    error?: string;
+}
+
+// Process a name search SQS message
+export async function processNameSearchRecord(
+    searchId: string,
+    name: string,
+    userId: string,
+    receiptHandle: string,
+    logger: ReturnType<typeof AlertService.forCategory>,
+    dateOfBirth?: string,
+    soundsLike: boolean = false,
+    userAgent?: string
+): Promise<void> {
+    console.log(`Processing name search ${searchId} for user ${userId}`);
+
+    try {
+        // Update status to processing
+        const nameSearch = await StorageClient.getNameSearch(searchId);
+        if (!nameSearch) {
+            console.error(`Name search ${searchId} not found`);
+            await QueueClient.deleteMessage(receiptHandle, 'search');
+            return;
+        }
+
+        await StorageClient.saveNameSearch(searchId, {
+            ...nameSearch,
+            status: 'processing',
+        });
+
+        // Authenticate with the portal
+        const authResult = await PortalAuthenticator.getOrCreateUserSession(userId, userAgent);
+
+        if (!authResult?.success || !authResult.cookieJar) {
+            const message = !authResult?.success
+                ? authResult?.message || 'Unknown authentication error'
+                : `No session CookieJar found for user ${userId}`;
+
+            if (message.includes('Invalid Email or password')) {
+                await logger.error(
+                    'Portal authentication failed during name search: ' + message,
+                    undefined,
+                    {
+                        userId,
+                        searchId,
+                    }
+                );
+            } else {
+                await logger.critical(
+                    'Portal authentication failed during name search: ' + message,
+                    undefined,
+                    {
+                        userId,
+                        searchId,
+                    }
+                );
+            }
+
+            await StorageClient.saveNameSearch(searchId, {
+                ...nameSearch,
+                status: 'failed',
+                message: `Authentication failed: ${message}`,
+            });
+
+            // Delete the queue item since we've saved the failed status
+            await QueueClient.deleteMessage(receiptHandle, 'search');
+            return;
+        }
+
+        // Search for cases by name
+        const searchResult = await fetchCasesByName(
+            nameSearch.normalizedName,
+            authResult.cookieJar,
+            dateOfBirth,
+            soundsLike
+        );
+
+        if (searchResult.error) {
+            await logger.error(
+                'Name search failed with error: ' + searchResult.error,
+                new Error(searchResult.error),
+                {
+                    userId,
+                    searchId,
+                    name,
+                }
+            );
+
+            await StorageClient.saveNameSearch(searchId, {
+                ...nameSearch,
+                status: 'failed',
+                message: `Search failed: ${searchResult.error}`,
+            });
+
+            await QueueClient.deleteMessage(receiptHandle, 'search');
+            return;
+        }
+
+        if (searchResult.cases.length === 0) {
+            // No cases found
+            console.log(`No cases found for name ${name}`);
+
+            await StorageClient.saveNameSearch(searchId, {
+                ...nameSearch,
+                status: 'complete',
+                cases: [],
+            });
+
+            await QueueClient.deleteMessage(receiptHandle, 'search');
+            return;
+        }
+
+        // Found cases - queue them for processing and update the name search
+        const casesToProcess = searchResult.cases;
+        console.log(`Found ${casesToProcess.length} cases for name ${name}`);
+
+        // Update the name search with the case numbers and set status to complete
+        const caseNumbers = casesToProcess.map(caseItem => caseItem.caseNumber);
+        await StorageClient.saveNameSearch(searchId, {
+            ...nameSearch,
+            status: 'complete',
+            cases: caseNumbers,
+        });
+
+        // Queue all found cases for search
+        await QueueClient.queueCasesForDataRetrieval(userId, casesToProcess);
+
+        // Delete the name search queue item
+        await QueueClient.deleteMessage(receiptHandle, 'search');
+    } catch (error) {
+        await logger.error('Failed to process name search record', error as Error, {
+            searchId,
+            name,
+            userId,
+        });
+
+        // Try to save failure status
+        try {
+            const nameSearch = await StorageClient.getNameSearch(searchId);
+            if (nameSearch) {
+                await StorageClient.saveNameSearch(searchId, {
+                    ...nameSearch,
+                    status: 'failed',
+                    message: `Error: ${(error as Error).message}`,
+                });
+            }
+        } catch (saveError) {
+            console.error('Failed to save error status:', saveError);
+        }
+
+        // Delete the message to prevent retries
+        await QueueClient.deleteMessage(receiptHandle, 'search');
+    }
+}
+
+// Fetch cases by name from the portal
+export async function fetchCasesByName(
+    name: string,
+    cookieJar: CookieJar,
+    dateOfBirth?: string,
+    soundsLike: boolean = false
+): Promise<NameSearchResult> {
+    try {
+        // Get the portal URL from environment variable
+        const portalUrl = process.env.PORTAL_URL;
+
+        if (!portalUrl) {
+            const errorMsg = 'PORTAL_URL environment variable is not set';
+
+            await AlertService.logError(
+                Severity.CRITICAL,
+                AlertCategory.SYSTEM,
+                'Missing required environment variable: PORTAL_URL',
+                new Error(errorMsg),
+                { resource: 'name-search' }
+            );
+
+            return {
+                cases: [] as { caseId: string; caseNumber: string }[],
+                error: 'Portal URL environment variable is not set',
+            };
+        }
+
+        const userAgent = await UserAgentClient.getUserAgent('system');
+
+        const client = wrapper(axios).create({
+            timeout: 20000,
+            maxRedirects: 10,
+            validateStatus: status => status < 500, // Only reject on 5xx errors
+            jar: cookieJar,
+            withCredentials: true,
+            headers: {
+                ...PortalAuthenticator.getDefaultRequestHeaders(userAgent),
+                Origin: portalUrl,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+        });
+
+        console.log(
+            `Searching for name: ${name}, DOB: ${dateOfBirth || 'not provided'}, sounds-like: ${soundsLike}`
+        );
+
+        // Step 1: Submit the search form with name parameter
+        const searchFormData = new URLSearchParams();
+        searchFormData.append('caseCriteria.SearchCriteria', name);
+        searchFormData.append('caseCriteria.SearchByPartyName', 'true');
+        searchFormData.append('caseCriteria.SearchCases', 'true');
+
+        if (dateOfBirth) {
+            searchFormData.append('caseCriteria.DOBFrom', dateOfBirth);
+            searchFormData.append('caseCriteria.DOBTo', dateOfBirth);
+        }
+
+        if (soundsLike) {
+            searchFormData.append('caseCriteria.UseSoundex', 'true');
+        }
+
+        const searchResponse = await client.post(
+            `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
+            searchFormData
+        );
+
+        console.log(`Search response status: ${searchResponse.status}`);
+
+        // Step 2: Get the search results page
+
+        // Verify the presence of the essential SmartSearchCriteria cookie
+        const cookies = cookieJar.getCookiesSync(`${portalUrl}/Portal`);
+        const smartSearchCriteriaCookie = cookies.find(c => c.key === 'SmartSearchCriteria');
+        if (!smartSearchCriteriaCookie) {
+            console.warn('WARNING: SmartSearchCriteria cookie not found in cookie jar!');
+
+            // If the essential SmartSearchCriteria cookie is missing, we cannot proceed
+            const errorMessage = 'Missing SmartSearchCriteria cookie required for search results';
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Missing required cookie for name search',
+                new Error(errorMessage),
+                {
+                    name,
+                    resource: 'portal-search',
+                }
+            );
+
+            return {
+                cases: [],
+                error: errorMessage,
+            };
+        }
+
+        // Request the search results
+        const resultsRequestHeaders: Record<string, string> = {
+            Referer: `${portalUrl}/Portal/Home/WorkspaceMode?p=0`,
+        };
+        const resultsResponse = await client.get(
+            `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
+            { headers: resultsRequestHeaders }
+        );
+
+        console.log(`SmartSearchResults response status: ${resultsResponse.status}`);
+
+        if (resultsResponse.status !== 200) {
+            const errorMessage = `Results request failed with status ${resultsResponse.status}`;
+
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Name search results request failed',
+                new Error(errorMessage),
+                {
+                    name,
+                    statusCode: resultsResponse.status,
+                    resource: 'portal-search-results',
+                }
+            );
+
+            return {
+                cases: [],
+                error: errorMessage,
+            };
+        }
+
+        // Check for specific error messages
+        const errorString = 'Smart Search is having trouble processing your search';
+        if (resultsResponse.data.includes(errorString)) {
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'Smart Search processing error',
+                new Error(errorString),
+                {
+                    name,
+                    resource: 'smart-search',
+                }
+            );
+
+            return {
+                cases: [],
+                error: errorString,
+            };
+        }
+
+        // Step 3: Extract case data from the response
+
+        const htmlContent = resultsResponse.data;
+        const cases: { caseId: string; caseNumber: string }[] = [];
+        const caseNumberSet = new Set<string>(); // For deduplication
+
+        try {
+            // Find the kendoGrid initialization with JSON data
+            const kendoGridMatch = htmlContent.match(/jQuery\("#Grid"\)\.kendoGrid\((.*?)\);/s);
+            if (kendoGridMatch && kendoGridMatch[1]) {
+                // Extract the raw JSON text for debugging
+                const gridDataText = kendoGridMatch[1].trim();
+                let gridJson;
+
+                try {
+                    const dataMatch = gridDataText.match(/"data":\{"Data":.*?"Total":\d+\}\}/s);
+
+                    if (!dataMatch) {
+                        throw new Error('Could not find data section in grid JSON');
+                    }
+
+                    try {
+                        // Add leading open curly brace to make a valid JSON string
+                        gridJson = JSON.parse(`{${dataMatch[0]}`);
+                    } catch (parseError) {
+                        console.error('Failed to parse data section:', parseError);
+                        throw new Error('Failed to parse JSON data section');
+                    }
+
+                    if (!gridJson?.data?.Data) {
+                        throw new Error('Parsed JSON does not contain expected data structure');
+                    }
+
+                    console.log(`Found ${gridJson.data.Data.length} data entries in grid`);
+                } catch (error) {
+                    console.error('Error parsing grid data:', error);
+
+                    const errorMessage = `Error parsing search results: ${error instanceof Error ? error.message : String(error)}`;
+                    await AlertService.logError(
+                        Severity.ERROR,
+                        AlertCategory.PORTAL,
+                        'Failed to parse search results data',
+                        error instanceof Error ? error : new Error(errorMessage),
+                        {
+                            name,
+                            resource: 'portal-search-results-json',
+                        }
+                    );
+
+                    return {
+                        cases: [],
+                        error: errorMessage,
+                    };
+                }
+
+                // If we have valid grid data, process it
+                // Loop through each party in the Data array
+                for (const party of gridJson.data.Data) {
+                    // Process CaseResults for this party if they exist
+                    if (party.CaseResults && Array.isArray(party.CaseResults)) {
+                        for (const caseResult of party.CaseResults) {
+                            if (caseResult.EncryptedCaseId && caseResult.CaseNumber) {
+                                // Only add if we haven't seen this case number before
+                                if (!caseNumberSet.has(caseResult.CaseNumber)) {
+                                    cases.push({
+                                        caseId: caseResult.EncryptedCaseId,
+                                        caseNumber: caseResult.CaseNumber,
+                                    });
+                                    caseNumberSet.add(caseResult.CaseNumber);
+                                    console.log(
+                                        `Found case: ${caseResult.CaseNumber}, ID: ${caseResult.EncryptedCaseId}`
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            console.log(`Found ${cases.length} unique case entries`);
+
+            return {
+                cases,
+                error: undefined,
+            };
+        } catch (jsonError) {
+            console.error('Error parsing kendoGrid JSON data:', jsonError);
+
+            // Log the HTML content for debugging when kendoGrid JSON is not found
+            console.log('HTML Response Content Preview:');
+            // Log just the first 500 characters to avoid excessive logging
+            console.log(htmlContent.substring(0, 500) + (htmlContent.length > 500 ? '...' : ''));
+
+            // Look for specific error messages in the HTML content
+            const errorMessages = [
+                'Smart Search is having trouble',
+                'An error has occurred',
+                'server error',
+                'not found',
+                'access denied',
+                'unauthorized',
+            ];
+
+            for (const errorText of errorMessages) {
+                if (htmlContent.toLowerCase().includes(errorText.toLowerCase())) {
+                    console.log(`Found error text in response: "${errorText}"`);
+                }
+            }
+
+            // If JSON parsing has failed, we cannot proceed
+            const errorMessage = 'Failed to parse search results data';
+            await AlertService.logError(
+                Severity.ERROR,
+                AlertCategory.PORTAL,
+                'JSON parsing failure in name search',
+                jsonError instanceof Error ? jsonError : new Error(errorMessage),
+                {
+                    name,
+                    resource: 'portal-search-results',
+                }
+            );
+
+            return {
+                cases: [],
+                error: errorMessage,
+            };
+        }
+    } catch (error) {
+        const errorMessage = `Error searching by name: ${(error as Error).message}`;
+
+        await AlertService.logError(
+            Severity.ERROR,
+            AlertCategory.PORTAL,
+            'Failed to search by name',
+            error as Error,
+            {
+                name,
+                resource: 'name-search',
+            }
+        );
+
+        return {
+            cases: [],
+            error: errorMessage,
         };
     }
 }

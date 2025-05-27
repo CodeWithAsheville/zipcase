@@ -1,11 +1,11 @@
 import StorageClient from './StorageClient';
-import { SearchResponse, StatusRequest } from '../../shared/types';
+import { CaseSearchResponse, CaseSearchStatusRequest } from '../../shared/types';
 
 /**
  * Process a status request for existing cases without re-queuing.
  * Used for polling existing cases without causing state thrashing.
  */
-export async function getStatusForCases(req: StatusRequest): Promise<SearchResponse> {
+export async function getStatusForCases(req: CaseSearchStatusRequest): Promise<CaseSearchResponse> {
     try {
         // Get results for the requested case numbers - never requeue anything
         const results = await StorageClient.getSearchResults(req.caseNumbers);
