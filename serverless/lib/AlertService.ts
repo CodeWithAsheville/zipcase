@@ -10,11 +10,18 @@
 import { CloudWatchClient, PutMetricDataCommand } from '@aws-sdk/client-cloudwatch';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+import {
+    DynamoDBClient,
+    PutItemCommand,
+    GetItemCommand,
+    UpdateItemCommand,
+} from '@aws-sdk/client-dynamodb';
 
 // Initialize AWS clients
 const cloudWatch = new CloudWatchClient({ region: process.env.AWS_REGION || 'us-east-2' });
 const sns = new SNSClient({ region: process.env.AWS_REGION || 'us-east-2' });
 const ssm = new SSMClient({ region: process.env.AWS_REGION || 'us-east-2' });
+const dynamodb = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-2' });
 
 // Error severity levels
 export enum Severity {
@@ -37,37 +44,150 @@ export enum AlertCategory {
 // Error context to provide additional information
 export type ErrorContext = Record<string, unknown>;
 
-// In-memory cache for deduplication
-interface ErrorCache {
-    [key: string]: {
-        count: number;
-        firstSeen: number;
-        lastSeen: number;
-        lastReported: number;
-    };
-}
-
 // Cache errors for 15 minutes by default
 const ERROR_CACHE_TTL_MS = 15 * 60 * 1000;
 // Only report duplicate errors after 10 occurrences or 5 minutes
 const ERROR_REPORT_THRESHOLD = 10;
 const ERROR_REPORT_INTERVAL_MS = 5 * 60 * 1000;
 
-// In-memory cache for deduplication
-const errorCache: ErrorCache = {};
+// DynamoDB table name for error deduplication
+const ERROR_CACHE_TABLE = `zipcase-error-cache-${process.env.STAGE || 'dev'}`;
 
-// Clean up cache periodically (every 5 minutes)
-setInterval(
-    () => {
-        const now = Date.now();
-        Object.keys(errorCache).forEach(key => {
-            if (now - errorCache[key].lastSeen > ERROR_CACHE_TTL_MS) {
-                delete errorCache[key];
-            }
-        });
-    },
-    5 * 60 * 1000
-);
+/**
+ * Get error cache entry from DynamoDB
+ */
+async function getErrorCacheEntry(errorKey: string): Promise<{
+    count: number;
+    firstSeen: number;
+    lastSeen: number;
+    lastReported: number;
+} | null> {
+    try {
+        const result = await dynamodb.send(
+            new GetItemCommand({
+                TableName: ERROR_CACHE_TABLE,
+                Key: {
+                    errorKey: { S: errorKey },
+                },
+            })
+        );
+
+        if (!result.Item) {
+            return null;
+        }
+
+        return {
+            count: parseInt(result.Item.count?.N || '0'),
+            firstSeen: parseInt(result.Item.firstSeen?.N || '0'),
+            lastSeen: parseInt(result.Item.lastSeen?.N || '0'),
+            lastReported: parseInt(result.Item.lastReported?.N || '0'),
+        };
+    } catch (error) {
+        // If DynamoDB is unavailable, log but don't fail the alert
+        console.warn('Failed to get error cache entry from DynamoDB:', error);
+        return null;
+    }
+}
+
+/**
+ * Update error cache entry in DynamoDB
+ */
+async function updateErrorCacheEntry(
+    errorKey: string,
+    isNewError: boolean
+): Promise<{
+    count: number;
+    firstSeen: number;
+    lastSeen: number;
+    lastReported: number;
+}> {
+    const now = Date.now();
+    const ttlTimestamp = Math.floor((now + ERROR_CACHE_TTL_MS) / 1000); // DynamoDB TTL uses seconds
+
+    try {
+        if (isNewError) {
+            // Create new entry
+            await dynamodb.send(
+                new PutItemCommand({
+                    TableName: ERROR_CACHE_TABLE,
+                    Item: {
+                        errorKey: { S: errorKey },
+                        count: { N: '1' },
+                        firstSeen: { N: now.toString() },
+                        lastSeen: { N: now.toString() },
+                        lastReported: { N: '0' },
+                        ttl: { N: ttlTimestamp.toString() },
+                    },
+                })
+            );
+
+            return {
+                count: 1,
+                firstSeen: now,
+                lastSeen: now,
+                lastReported: 0,
+            };
+        } else {
+            // Update existing entry
+            const result = await dynamodb.send(
+                new UpdateItemCommand({
+                    TableName: ERROR_CACHE_TABLE,
+                    Key: {
+                        errorKey: { S: errorKey },
+                    },
+                    UpdateExpression: 'ADD #count :inc SET lastSeen = :now, ttl = :ttl',
+                    ExpressionAttributeNames: {
+                        '#count': 'count',
+                    },
+                    ExpressionAttributeValues: {
+                        ':inc': { N: '1' },
+                        ':now': { N: now.toString() },
+                        ':ttl': { N: ttlTimestamp.toString() },
+                    },
+                    ReturnValues: 'ALL_NEW',
+                })
+            );
+
+            return {
+                count: parseInt(result.Attributes?.count?.N || '1'),
+                firstSeen: parseInt(result.Attributes?.firstSeen?.N || now.toString()),
+                lastSeen: parseInt(result.Attributes?.lastSeen?.N || now.toString()),
+                lastReported: parseInt(result.Attributes?.lastReported?.N || '0'),
+            };
+        }
+    } catch (error) {
+        // If DynamoDB is unavailable, return sensible defaults
+        console.warn('Failed to update error cache entry in DynamoDB:', error);
+        return {
+            count: 1,
+            firstSeen: now,
+            lastSeen: now,
+            lastReported: 0,
+        };
+    }
+}
+
+/**
+ * Update last reported timestamp in DynamoDB
+ */
+async function updateLastReported(errorKey: string, timestamp: number): Promise<void> {
+    try {
+        await dynamodb.send(
+            new UpdateItemCommand({
+                TableName: ERROR_CACHE_TABLE,
+                Key: {
+                    errorKey: { S: errorKey },
+                },
+                UpdateExpression: 'SET lastReported = :timestamp',
+                ExpressionAttributeValues: {
+                    ':timestamp': { N: timestamp.toString() },
+                },
+            })
+        );
+    } catch (error) {
+        console.warn('Failed to update last reported timestamp in DynamoDB:', error);
+    }
+}
 
 /**
  * Generate a unique key for an error based on message and category
@@ -231,18 +351,12 @@ const AlertService = {
         const errorKey = generateErrorKey(message, category);
         const now = Date.now();
 
+        // Get existing error cache entry
+        const existingEntry = await getErrorCacheEntry(errorKey);
+        const isNewError = !existingEntry;
+
         // Update error cache
-        if (!errorCache[errorKey]) {
-            errorCache[errorKey] = {
-                count: 1,
-                firstSeen: now,
-                lastSeen: now,
-                lastReported: 0, // Never reported yet
-            };
-        } else {
-            errorCache[errorKey].count += 1;
-            errorCache[errorKey].lastSeen = now;
-        }
+        const cacheEntry = await updateErrorCacheEntry(errorKey, isNewError);
 
         // Publish metric to CloudWatch for all errors
         await publishMetric('Errors', 1, 'Count', [
@@ -251,9 +365,8 @@ const AlertService = {
         ]);
 
         // Determine if we should send an alert
-        const cached = errorCache[errorKey];
-        const exceedsThreshold = cached.count >= ERROR_REPORT_THRESHOLD;
-        const exceedsTimeInterval = now - cached.lastReported > ERROR_REPORT_INTERVAL_MS;
+        const exceedsThreshold = cacheEntry.count >= ERROR_REPORT_THRESHOLD;
+        const exceedsTimeInterval = now - cacheEntry.lastReported > ERROR_REPORT_INTERVAL_MS;
 
         // Send alerts for:
         // 1. All CRITICAL errors immediately
@@ -262,10 +375,10 @@ const AlertService = {
         if (
             severity === Severity.CRITICAL ||
             (severity === Severity.ERROR && (exceedsThreshold || exceedsTimeInterval)) ||
-            (severity === Severity.WARNING && cached.count >= ERROR_REPORT_THRESHOLD * 2)
+            (severity === Severity.WARNING && cacheEntry.count >= ERROR_REPORT_THRESHOLD * 2)
         ) {
-            await sendAlert(severity, category, message, cached.count, context);
-            errorCache[errorKey].lastReported = now;
+            await sendAlert(severity, category, message, cacheEntry.count, context);
+            await updateLastReported(errorKey, now);
         }
     },
 
