@@ -25,7 +25,7 @@ export async function processNameSearchRequest(
         const normalizedName = NameParser.parseAndStandardizeName(req.name);
         if (!normalizedName) {
             success = false;
-            error = `Name could not be parsed from input ${req.name}`;
+            error = `Name could not be parsed from input [${req.name}]`;
         }
 
         let userSession = null;
@@ -68,7 +68,7 @@ export async function processNameSearchRequest(
         console.log(`Queueing name search ${searchId} for processing with existing session`);
         await QueueClient.queueNameSearch(
             searchId,
-            req.name,
+            normalizedName,
             userId,
             req.dateOfBirth,
             req.soundsLike,
@@ -145,7 +145,6 @@ export async function getNameSearchResults(searchId: string): Promise<NameSearch
     }
 }
 
-// Name search result interface
 interface NameSearchResult {
     cases: { caseId: string; caseNumber: string }[];
     error?: string;
@@ -192,7 +191,7 @@ export async function processNameSearchRecord(
                     undefined,
                     {
                         userId,
-                        searchId
+                        searchId,
                     }
                 );
             } else {
@@ -201,7 +200,7 @@ export async function processNameSearchRecord(
                     undefined,
                     {
                         userId,
-                        searchId
+                        searchId,
                     }
                 );
             }
@@ -232,7 +231,7 @@ export async function processNameSearchRecord(
                 {
                     userId,
                     searchId,
-                    name
+                    name,
                 }
             );
 
@@ -281,7 +280,7 @@ export async function processNameSearchRecord(
         await logger.error('Failed to process name search record', error as Error, {
             searchId,
             name,
-            userId
+            userId,
         });
 
         // Try to save failure status
@@ -346,7 +345,9 @@ export async function fetchCasesByName(
             },
         });
 
-        console.log(`Searching for name: ${name}, DOB: ${dateOfBirth || 'not provided'}, sounds-like: ${soundsLike}`);
+        console.log(
+            `Searching for name: ${name}, DOB: ${dateOfBirth || 'not provided'}, sounds-like: ${soundsLike}`
+        );
 
         // Step 1: Submit the search form with name parameter
         const searchFormData = new URLSearchParams();
@@ -399,7 +400,7 @@ export async function fetchCasesByName(
 
         // Request the search results
         const resultsRequestHeaders: Record<string, string> = {
-            'Referer': `${portalUrl}/Portal/Home/WorkspaceMode?p=0`
+            Referer: `${portalUrl}/Portal/Home/WorkspaceMode?p=0`,
         };
         const resultsResponse = await client.get(
             `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
@@ -431,9 +432,7 @@ export async function fetchCasesByName(
 
         // Check for specific error messages
         const errorString = 'Smart Search is having trouble processing your search';
-        if (
-            resultsResponse.data.includes(errorString)
-        ) {
+        if (resultsResponse.data.includes(errorString)) {
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
@@ -502,7 +501,7 @@ export async function fetchCasesByName(
 
                     return {
                         cases: [],
-                        error: errorMessage
+                        error: errorMessage,
                     };
                 }
 
@@ -517,10 +516,12 @@ export async function fetchCasesByName(
                                 if (!caseNumberSet.has(caseResult.CaseNumber)) {
                                     cases.push({
                                         caseId: caseResult.EncryptedCaseId,
-                                        caseNumber: caseResult.CaseNumber
+                                        caseNumber: caseResult.CaseNumber,
                                     });
                                     caseNumberSet.add(caseResult.CaseNumber);
-                                    console.log(`Found case: ${caseResult.CaseNumber}, ID: ${caseResult.EncryptedCaseId}`);
+                                    console.log(
+                                        `Found case: ${caseResult.CaseNumber}, ID: ${caseResult.EncryptedCaseId}`
+                                    );
                                 }
                             }
                         }
@@ -532,9 +533,8 @@ export async function fetchCasesByName(
 
             return {
                 cases,
-                error: undefined
+                error: undefined,
             };
-
         } catch (jsonError) {
             console.error('Error parsing kendoGrid JSON data:', jsonError);
 
@@ -550,7 +550,7 @@ export async function fetchCasesByName(
                 'server error',
                 'not found',
                 'access denied',
-                'unauthorized'
+                'unauthorized',
             ];
 
             for (const errorText of errorMessages) {
@@ -574,10 +574,9 @@ export async function fetchCasesByName(
 
             return {
                 cases: [],
-                error: errorMessage
+                error: errorMessage,
             };
         }
-
     } catch (error) {
         const errorMessage = `Error searching by name: ${(error as Error).message}`;
 
