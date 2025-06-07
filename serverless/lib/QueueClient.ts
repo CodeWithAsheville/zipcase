@@ -3,6 +3,7 @@ import {
     SendMessageCommand,
     SendMessageBatchCommand,
     DeleteMessageCommand,
+    SendMessageCommandInput,
 } from '@aws-sdk/client-sqs';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 
@@ -10,12 +11,15 @@ const sqsClient = new SQSClient({ region: process.env.AWS_REGION || 'us-east-2' 
 
 const QueueClient = {
     // Queue a case for the search process (finding caseId)
-    async queueCaseForSearch(caseNumber: string, userId: string, userAgent?: string): Promise<void> {
+    async queueCaseForSearch(
+        caseNumber: string,
+        userId: string,
+        userAgent?: string
+    ): Promise<void> {
         const normalizedCaseNumber = caseNumber.toUpperCase();
         const params = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
-                searchType: 'case',
                 caseNumber,
                 userId,
                 userAgent,
@@ -40,11 +44,17 @@ const QueueClient = {
         }
     },
 
-    async queueNameSearchForProcessing(searchId: string, userId: string, name: string, dateOfBirth?: string, soundsLike: boolean = false, userAgent?: string): Promise<void> {
-        const params = {
+    async queueNameSearch(
+        searchId: string,
+        name: string,
+        userId: string,
+        dateOfBirth?: string,
+        soundsLike: boolean = false,
+        userAgent?: string
+    ): Promise<void> {
+        const params: SendMessageCommandInput = {
             QueueUrl: process.env.SEARCH_QUEUE_URL!,
             MessageBody: JSON.stringify({
-                searchType: 'name',
                 searchId,
                 name,
                 dateOfBirth,
@@ -69,6 +79,78 @@ const QueueClient = {
                 { searchId, userId, name }
             );
             throw error;
+        }
+    },
+
+    async queueCasesForDataRetrieval(
+        userId: string,
+        cases: { caseNumber: string, caseId: string }[]
+    ): Promise<void> {
+        if (!cases || cases.length === 0) {
+            return;
+        }
+
+        const timestamp = Date.now();
+
+        // SQS batch operations are limited to 10 messages per request
+        const BATCH_SIZE = 10;
+
+        // Process in batches of 10
+        for (let i = 0; i < cases.length; i += BATCH_SIZE) {
+            const batch = cases.slice(i, i + BATCH_SIZE);
+
+            const entries = batch.map(({ caseNumber, caseId }, index) => {
+                const normalizedCaseNumber = caseNumber.toUpperCase();
+                return {
+                    Id: `${index}`, // Unique ID within the batch request
+                    MessageBody: JSON.stringify({
+                        caseNumber,
+                        caseId,
+                        userId,
+                        timestamp,
+                    }),
+                    MessageGroupId: caseId, // Group by caseId
+                    MessageDeduplicationId: normalizedCaseNumber,
+                };
+            });
+
+            try {
+                const command = new SendMessageBatchCommand({
+                    QueueUrl: process.env.CASE_DATA_QUEUE_URL!,
+                    Entries: entries,
+                });
+
+                const response = await sqsClient.send(command);
+
+                // Check for failed messages
+                if (response.Failed && response.Failed.length > 0) {
+                    await AlertService.logError(
+                        Severity.ERROR,
+                        AlertCategory.QUEUE,
+                        `Failed to queue ${response.Failed.length} cases for data retrieval`,
+                        new Error(JSON.stringify(response.Failed)),
+                        {
+                            userId,
+                            batchSize: batch.length,
+                            failedCount: response.Failed.length,
+                        }
+                    );
+                    throw new Error(`Failed to queue ${response.Failed.length} cases for data retrieval`);
+                }
+            } catch (error) {
+                await AlertService.logError(
+                    Severity.ERROR,
+                    AlertCategory.QUEUE,
+                    'Error in batch queuing cases for data retrieval',
+                    error as Error,
+                    {
+                        userId,
+                        casesCount: cases.length,
+                        batchIndex: Math.floor(i / BATCH_SIZE),
+                    }
+                );
+                throw error;
+            }
         }
     },
 
@@ -126,7 +208,6 @@ const QueueClient = {
                 return {
                     Id: `${index}`, // Unique ID within the batch request
                     MessageBody: JSON.stringify({
-                        searchType: 'case',
                         caseNumber,
                         userId,
                         userAgent,
@@ -155,7 +236,7 @@ const QueueClient = {
                         {
                             userId,
                             batchSize: batch.length,
-                            failedCount: response.Failed.length
+                            failedCount: response.Failed.length,
                         }
                     );
                     throw new Error(`Failed to queue ${response.Failed.length} cases`);
@@ -169,7 +250,7 @@ const QueueClient = {
                     {
                         userId,
                         casesCount: cases.length,
-                        batchIndex: Math.floor(i / BATCH_SIZE)
+                        batchIndex: Math.floor(i / BATCH_SIZE),
                     }
                 );
                 throw error;
@@ -198,7 +279,7 @@ const QueueClient = {
                 error as Error,
                 {
                     queueType,
-                    receiptHandle: receiptHandle.substring(0, 20) + '...' // Truncate for readability
+                    receiptHandle: receiptHandle.substring(0, 20) + '...', // Truncate for readability
                 }
             );
             throw error;

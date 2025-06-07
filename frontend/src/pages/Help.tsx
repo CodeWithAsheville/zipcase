@@ -29,10 +29,9 @@ const Help: React.FC = () => {
                 <FaqSubheading>🔍 What is ZipCase?</FaqSubheading>
                 <Text>
                     ZipCase is an alternative way to access public court data quickly. It's designed
-                    for when you already have case numbers and does not support searching by name or
-                    other data at this time. Simply paste in any text that contains case numbers in
-                    standard or LexisNexis formats and ZipCase will give you fast access to those
-                    cases.
+                    for when you already have case numbers, and also has limited support for searching by name.
+                    Simply paste in any text that contains case numbers in standard or LexisNexis formats and
+                    ZipCase will give you fast access to those cases.
                 </Text>
             </section>
 
@@ -119,7 +118,7 @@ const Help: React.FC = () => {
             <section className="space-y-4">
                 <FaqSubheading>🔌 When will the API be available?</FaqSubheading>
                 <Text>
-                    We're targeting mid-April 2025 for the initial API release. This will allow
+                    We're targeting June 2025 for the initial API release. This will allow
                     developers to integrate ZipCase functionality directly into their own
                     applications.
                 </Text>
