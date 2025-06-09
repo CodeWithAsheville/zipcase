@@ -5,7 +5,7 @@ import {
     NameSearchResponse,
     PortalCredentialsRequest,
     PortalCredentialsResponse,
-    SearchResponse,
+    CaseSearchResponse,
     SearchResult,
     WebhookSettings,
 } from '../../../shared/types';
@@ -75,8 +75,8 @@ export class ZipCaseClient {
      * Case search and retrieval endpoints
      */
     cases = {
-        search: async (searchInput: string): Promise<ZipCaseResponse<SearchResponse>> => {
-            return await this.request<SearchResponse>('/search', {
+        search: async (searchInput: string): Promise<ZipCaseResponse<CaseSearchResponse>> => {
+            return await this.request<CaseSearchResponse>('/search', {
                 method: 'POST',
                 data: { search: searchInput },
             });
@@ -105,8 +105,8 @@ export class ZipCaseClient {
             });
         },
 
-        status: async (caseNumbers: string[]): Promise<ZipCaseResponse<SearchResponse>> => {
-            return await this.request<SearchResponse>('/status', {
+        status: async (caseNumbers: string[]): Promise<ZipCaseResponse<CaseSearchResponse>> => {
+            return await this.request<CaseSearchResponse>('/status', {
                 method: 'POST',
                 data: { caseNumbers },
             });

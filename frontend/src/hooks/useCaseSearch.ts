@@ -36,7 +36,7 @@ export function useCaseSearch() {
             const now = new Date().toISOString();
             const processedResults: Record<string, SearchResult> = {};
 
-            Object.entries(results).forEach(([caseNumber, result]) => {
+            Object.entries(results).forEach(([caseNumber, result]: [string, SearchResult]) => {
                 // If the result doesn't have a lastUpdated time or is new/queued, add current time
                 if (!result.zipCase.lastUpdated || result.zipCase.fetchStatus.status === 'queued') {
                     processedResults[caseNumber] = {
@@ -158,7 +158,7 @@ export function useConsolidatedPolling() {
                 searchBatches: [],
             };
 
-            Object.entries(results).forEach(([caseNumber, result]) => {
+            Object.entries(results).forEach(([caseNumber, result]: [string, SearchResult]) => {
                 const existingResult = currentState.results[caseNumber];
                 if (
                     !existingResult ||

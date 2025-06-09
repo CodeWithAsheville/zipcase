@@ -1,192 +1,76 @@
-import QueueClient from './QueueClient';
-import SearchParser from './SearchParser';
-import StorageClient from './StorageClient';
-import PortalAuthenticator from './PortalAuthenticator';
-import { SearchRequest, SearchResponse, SearchResult } from '../../shared/types';
+import { SQSHandler, SQSEvent } from 'aws-lambda';
+import AlertService, { AlertCategory } from './AlertService';
+import { processCaseSearchRecord } from './CaseSearchProcessor';
+import { processNameSearchRecord } from './NameSearchProcessor';
 
-export async function processSearchRequest(req: SearchRequest): Promise<SearchResponse> {
-    let caseNumbers = SearchParser.parseSearchInput(req.input);
-    caseNumbers = Array.from(new Set(caseNumbers));
+// Define union types for discriminating between search message types
+export interface CaseSearchMessage {
+    messageType: 'case';
+    caseNumber: string;
+    userId: string;
+    userAgent?: string;
+    timestamp: number;
+}
 
-    if (caseNumbers.length === 0) {
-        return { results: {} };
-    }
+export interface NameSearchMessage {
+    messageType: 'name';
+    searchId: string;
+    name: string;
+    userId: string;
+    dateOfBirth?: string;
+    soundsLike?: boolean;
+    userAgent?: string;
+    timestamp: number;
+}
 
-    // Get existing results from storage
-    const results: Record<string, SearchResult> = await StorageClient.getSearchResults(caseNumbers);
+// Union type for all search messages - used mainly for type checking
+export type SearchMessage = CaseSearchMessage | NameSearchMessage;
 
-    // Get or create a user session first - this is critical for portal authentication
-    const userSession = await StorageClient.getUserSession(req.userId);
+// Unified search queue processor handler
+export const processSearch: SQSHandler = async (event: SQSEvent) => {
+    console.log(`Received ${event.Records.length} search messages to process`);
 
-    // Cases that need to be queued (not found or in terminal states)
-    const casesToQueue: string[] = [];
+    // Create specialized logger for search processing
+    const searchLogger = AlertService.forCategory(AlertCategory.SYSTEM);
 
-    for (const caseNumber of caseNumbers) {
+    for (const record of event.Records) {
         try {
-            // Check if the case exists and if its status should be preserved
-            if (caseNumber in results) {
-                const status = results[caseNumber].zipCase.fetchStatus.status;
+            const messageBody = JSON.parse(record.body);
 
-                // Keep the existing status for all these states
-                if (['complete', 'processing', 'found', 'notFound'].includes(status)) {
-                    console.log(`Case ${caseNumber} already has status ${status}, preserving`);
-
-                    // Handle 'found' cases specially - queue directly for data retrieval
-                    if (status === 'found' && results[caseNumber].zipCase.caseId) {
-                        // Skip adding to search queue since it's already found
-                        // Instead, queue directly for data retrieval if not already complete
-                        console.log(
-                            `Case ${caseNumber} has 'found' status with caseId, queueing for data retrieval`
-                        );
-                        try {
-                            const caseId = results[caseNumber].zipCase.caseId;
-                            if (caseId) {
-                                await QueueClient.queueCaseForDataRetrieval(
-                                    caseNumber,
-                                    caseId,
-                                    req.userId
-                                );
-                            } else {
-                                console.error(`Case ${caseNumber} has 'found' status but missing caseId`);
-                            }
-                        } catch (error) {
-                            console.error(
-                                `Error queueing case ${caseNumber} for data retrieval:`,
-                                error
-                            );
-                        }
-                        continue;
-                    }
-
-                    // For other non-terminal states, queue for normal search processing
-                    if (!['complete', 'notFound', 'failed'].includes(status)) {
-                        casesToQueue.push(caseNumber);
-                    }
-                    continue;
-                }
-
-                // For other statuses (failed, queued), we'll re-queue
-                casesToQueue.push(caseNumber);
+            // Determine message type based on payload attributes
+            if (messageBody.caseNumber && !messageBody.searchId) {
+                // This is a case search message
+                await processCaseSearchRecord(
+                    messageBody.caseNumber,
+                    messageBody.userId,
+                    record.receiptHandle,
+                    searchLogger,
+                    messageBody.userAgent
+                );
+            } else if (messageBody.searchId && messageBody.name) {
+                // This is a name search message
+                await processNameSearchRecord(
+                    messageBody.searchId,
+                    messageBody.name,
+                    messageBody.userId,
+                    record.receiptHandle,
+                    searchLogger,
+                    messageBody.dateOfBirth,
+                    messageBody.soundsLike,
+                    messageBody.userAgent
+                );
             } else {
-                // Case doesn't exist yet - create it with queued status and add to queue
-                results[caseNumber] = {
-                    zipCase: {
-                        caseNumber,
-                        fetchStatus: { status: 'queued' },
-                    },
-                };
-
-                // Save the new case to storage
-                await StorageClient.saveCase({
-                    caseNumber,
-                    fetchStatus: { status: 'queued' },
-                });
-
-                casesToQueue.push(caseNumber);
+                // Unknown message type
+                await searchLogger.error(
+                    'Invalid message format, cannot determine search type',
+                    undefined,
+                    { messageId: record.messageId, payload: JSON.stringify(messageBody) }
+                );
             }
         } catch (error) {
-            console.error(`Error processing case ${caseNumber}:`, error);
-            results[caseNumber] = {
-                zipCase: {
-                    caseNumber,
-                    fetchStatus: { status: 'failed', message: (error as Error).message },
-                },
-            };
+            await searchLogger.error('Failed to process search record', error as Error, {
+                messageId: record.messageId,
+            });
         }
     }
-
-    // If we have cases to queue and a user session exists, queue them
-    if (casesToQueue.length > 0) {
-        if (userSession) {
-            console.log(
-                `Queueing ${casesToQueue.length} cases for processing with existing session`
-            );
-            await QueueClient.queueCasesForSearch(casesToQueue, req.userId, req.userAgent);
-        } else {
-            // No user session - need to check for portal credentials
-            const portalCredentials = await StorageClient.sensitiveGetPortalCredentials(req.userId);
-
-            if (portalCredentials) {
-                try {
-                    // Authenticate with portal using user agent if provided
-                    const authResult = await PortalAuthenticator.authenticateWithPortal(
-                        portalCredentials.username,
-                        portalCredentials.password,
-                        { userAgent: req.userAgent }
-                    );
-
-                    if (!authResult.success || !authResult.cookieJar) {
-                        console.error(
-                            `Failed to authenticate with portal for user ${req.userId}`,
-                            authResult.message
-                        );
-
-                        // Update failed cases status
-                        for (const caseNumber of casesToQueue) {
-                            results[caseNumber] = {
-                                zipCase: {
-                                    caseNumber,
-                                    fetchStatus: {
-                                        status: 'failed',
-                                        message:
-                                            'Authentication failed: ' +
-                                            (authResult.message || 'Unknown error'),
-                                    },
-                                },
-                            };
-                        }
-                    } else {
-                        // Store the session token (cookie jar)
-                        const sessionToken = JSON.stringify(authResult.cookieJar.toJSON());
-
-                        // Calculate expiration time (24 hours from now)
-                        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-                        await StorageClient.saveUserSession(req.userId, sessionToken, expiresAt);
-                        console.log(
-                            `Successfully authenticated and stored session for user ${req.userId}`
-                        );
-
-                        // Now queue the cases for processing
-                        await QueueClient.queueCasesForSearch(casesToQueue, req.userId, req.userAgent);
-                    }
-                } catch (error) {
-                    console.error(
-                        `Failed to authenticate with portal for user ${req.userId}:`,
-                        error
-                    );
-
-                    // Update failed cases status
-                    for (const caseNumber of casesToQueue) {
-                        results[caseNumber] = {
-                            zipCase: {
-                                caseNumber,
-                                fetchStatus: {
-                                    status: 'failed',
-                                    message: 'Authentication failed: ' + (error as Error).message,
-                                },
-                            },
-                        };
-                    }
-                }
-            } else {
-                console.log(`No portal credentials found for user ${req.userId}`);
-
-                // Update failed cases status
-                for (const caseNumber of casesToQueue) {
-                    results[caseNumber] = {
-                        zipCase: {
-                            caseNumber,
-                            fetchStatus: {
-                                status: 'failed',
-                                message: 'Portal credentials required',
-                            },
-                        },
-                    };
-                }
-            }
-        }
-    }
-
-    return { results };
-}
+};

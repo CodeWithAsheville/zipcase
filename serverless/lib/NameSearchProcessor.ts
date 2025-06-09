@@ -1,32 +1,40 @@
 import { v4 as uuidv4 } from 'uuid';
-import { NameSearchRequest, NameSearchResponse, NameSearchData } from '../../shared/types/Search';
+import { NameSearchResponse, NameSearchData } from '../../shared/types';
 import StorageClient from './StorageClient';
 import NameParser from './NameParser';
 import QueueClient from './QueueClient';
 import PortalAuthenticator from './PortalAuthenticator';
 import AlertService, { Severity, AlertCategory } from './AlertService';
+import { fetchCasesByName } from './NameSearchPortalClient';
 
-export async function processNameSearchRequest(req: NameSearchRequest, userId: string): Promise<NameSearchResponse> {
-    // Check user auth/session
-    const userSession = await StorageClient.getUserSession(userId);
-    let searchId = '';
+// Process API name search requests - creates an entry in DynamoDB and queues for processing
+export async function processNameSearchRequest(
+    req: { name: string; dateOfBirth?: string; soundsLike: boolean; userAgent?: string },
+    userId: string
+): Promise<NameSearchResponse> {
+    const searchId = uuidv4();
+
+    let success = true;
+    let error: string | undefined;
 
     try {
-        // Normalize the name input
         const normalizedName = NameParser.parseAndStandardizeName(req.name);
-
         if (!normalizedName) {
-            return {
-                searchId: '',
-                results: {}
-            };
+            success = false;
+            error = `Name could not be parsed from input [${req.name}]`;
         }
 
-        // Generate a unique ID for this search
-        searchId = uuidv4();
+        let userSession = null;
+        if (success) {
+            userSession = await PortalAuthenticator.getOrCreateUserSession(userId, req.userAgent);
+            if (!userSession.success) {
+                success = false;
+                error = userSession.message;
+            }
+        }
 
         // Store the search data in DynamoDB with TTL of 24 hours
-        const expiresAt = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // 24 hours from now
+        const expiresAt = Math.floor(Date.now() / 1000) + 24 * 60 * 60; // 24 hours from now
 
         const nameSearchData: NameSearchData = {
             originalName: req.name,
@@ -34,138 +42,39 @@ export async function processNameSearchRequest(req: NameSearchRequest, userId: s
             dateOfBirth: req.dateOfBirth,
             soundsLike: req.soundsLike,
             cases: [],
+            status: success ? 'queued' : 'failed',
         };
 
         await StorageClient.saveNameSearch(searchId, nameSearchData, expiresAt);
 
-        // Queue the name search for processing
-        if (userSession) {
-            console.log(`Queueing name search ${searchId} for processing with existing session`);
-            await QueueClient.queueNameSearchForProcessing(
-                searchId,
-                userId,
-                req.name,
-                req.dateOfBirth,
-                req.soundsLike,
-                req.userAgent
+        if (!success) {
+            console.log(
+                `Could not process name search with input [${req.name}] (ID [${searchId}]) for user [${userId}]: ${error}`
             );
-        } else {
-            // No user session - need to check for portal credentials
-            const portalCredentials = await StorageClient.sensitiveGetPortalCredentials(userId);
 
-            if (portalCredentials) {
-                try {
-                    // Authenticate with portal using user agent if provided
-                    const authResult = await PortalAuthenticator.authenticateWithPortal(
-                        portalCredentials.username,
-                        portalCredentials.password,
-                        { userAgent: req.userAgent }
-                    );
-
-                    if (!authResult.success || !authResult.cookieJar) {
-                        const errorMsg = `Failed to authenticate with portal for user ${userId}: ${authResult.message}`;
-                        console.error(errorMsg);
-
-                        await AlertService.logError(
-                            Severity.ERROR,
-                            AlertCategory.AUTHENTICATION,
-                            errorMsg,
-                            undefined,
-                            { userId, searchId }
-                        );
-
-                        // Get the existing search data
-                        const existingSearch = await StorageClient.getNameSearch(searchId);
-                        if (existingSearch) {
-                            await StorageClient.saveNameSearch(searchId, {
-                                ...existingSearch,
-                                status: 'failed',
-                                message: `Authentication failed: ${authResult.message}`,
-                            });
-                        }
-                    } else {
-                        // Store the session token (cookie jar)
-                        const sessionToken = JSON.stringify(authResult.cookieJar.toJSON());
-
-                        // Calculate expiration time (24 hours from now)
-                        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-                        await StorageClient.saveUserSession(userId, sessionToken, expiresAt);
-                        console.log(
-                            `Successfully authenticated and stored session for user ${userId}`
-                        );
-
-                        // Now queue the name search for processing
-                        await QueueClient.queueNameSearchForProcessing(
-                            searchId,
-                            userId,
-                            req.name,
-                            req.dateOfBirth,
-                            req.soundsLike,
-                            req.userAgent
-                        );
-                    }
-                } catch (error) {
-                    const errorMsg = `Failed to authenticate with portal for user ${userId} due to exception`;
-                    console.error(errorMsg, error);
-
-                    await AlertService.logError(
-                        Severity.ERROR,
-                        AlertCategory.AUTHENTICATION,
-                        errorMsg,
-                        error instanceof Error ? error : new Error(String(error)),
-                        { userId, searchId }
-                    );
-
-                    // Get the existing search data
-                    const existingSearch = await StorageClient.getNameSearch(searchId);
-                    if (existingSearch) {
-                        await StorageClient.saveNameSearch(searchId, {
-                            ...existingSearch,
-                            status: 'failed',
-                            message: `Authentication error: ${error instanceof Error ? error.message : String(error)}`,
-                        });
-                    }
-                }
-            } else {
-                const errorMsg = `No portal credentials found for user ${userId}`;
-                console.log(errorMsg);
-
-                await AlertService.logError(
-                    Severity.WARNING,
-                    AlertCategory.AUTHENTICATION,
-                    errorMsg,
-                    undefined,
-                    { userId, searchId }
-                );
-
-                // Get the existing search data
-                const existingSearch = await StorageClient.getNameSearch(searchId);
-                if (existingSearch) {
-                    await StorageClient.saveNameSearch(searchId, {
-                        ...existingSearch,
-                        status: 'failed',
-                        message: 'No portal credentials found',
-                    });
-                }
-            }
-        }
-
-        const nameSearchStatus = await StorageClient.getNameSearch(searchId);
-
-        if (nameSearchStatus && nameSearchStatus.status === 'failed') {
             return {
                 searchId,
                 results: {},
-                success: false,
-                error: nameSearchStatus.message || 'Authentication failed'
+                success,
+                error,
             };
         }
+
+        // Queue the name search for processing
+        console.log(`Queueing name search ${searchId} for processing with existing session`);
+        await QueueClient.queueNameSearch(
+            searchId,
+            normalizedName,
+            userId,
+            req.dateOfBirth,
+            req.soundsLike,
+            req.userAgent
+        );
 
         return {
             searchId,
             results: {},
-            success: true
+            success: true,
         };
     } catch (error) {
         const errorMsg = 'Error processing name search request';
@@ -179,23 +88,20 @@ export async function processNameSearchRequest(req: NameSearchRequest, userId: s
             { userId, searchId }
         );
 
-        if (searchId) {
-            // Get the existing search data
-            const existingSearch = await StorageClient.getNameSearch(searchId);
-            if (existingSearch) {
-                await StorageClient.saveNameSearch(searchId, {
-                    ...existingSearch,
-                    status: 'failed',
-                    message: `Error: ${error instanceof Error ? error.message : String(error)}`,
-                });
-            }
+        const existingSearch = await StorageClient.getNameSearch(searchId);
+        if (existingSearch) {
+            await StorageClient.saveNameSearch(searchId, {
+                ...existingSearch,
+                status: 'failed',
+                message: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            });
         }
 
         return {
-            searchId: searchId || '',
+            searchId: searchId,
             results: {},
             success: false,
-            error: 'Internal error processing name search'
+            error: 'Internal error processing name search',
         };
     }
 }
@@ -221,12 +127,169 @@ export async function getNameSearchResults(searchId: string): Promise<NameSearch
         return {
             searchId,
             results,
+            success: nameSearchData.status !== 'failed',
+            error: nameSearchData.status === 'failed' ? nameSearchData.message : undefined,
         };
     } catch (error) {
         console.error('Error getting name search results:', error);
         return {
             searchId,
             results: {},
+            success: false,
+            error: 'Error retrieving name search results',
         };
     }
 }
+
+// Process a name search SQS message
+export async function processNameSearchRecord(
+    searchId: string,
+    name: string,
+    userId: string,
+    receiptHandle: string,
+    logger: ReturnType<typeof AlertService.forCategory>,
+    dateOfBirth?: string,
+    soundsLike: boolean = false,
+    userAgent?: string
+): Promise<void> {
+    console.log(`Processing name search ${searchId} for user ${userId}`);
+
+    try {
+        // Update status to processing
+        const nameSearch = await StorageClient.getNameSearch(searchId);
+        if (!nameSearch) {
+            console.error(`Name search ${searchId} not found`);
+            await QueueClient.deleteMessage(receiptHandle, 'search');
+            return;
+        }
+
+        await StorageClient.saveNameSearch(searchId, {
+            ...nameSearch,
+            status: 'processing',
+        });
+
+        // Authenticate with the portal
+        const authResult = await PortalAuthenticator.getOrCreateUserSession(userId, userAgent);
+
+        if (!authResult?.success || !authResult.cookieJar) {
+            const message = !authResult?.success
+                ? authResult?.message || 'Unknown authentication error'
+                : `No session CookieJar found for user ${userId}`;
+
+            if (message.includes('Invalid Email or password')) {
+                await logger.error(
+                    'Portal authentication failed during name search: ' + message,
+                    undefined,
+                    {
+                        userId,
+                        searchId,
+                    }
+                );
+            } else {
+                await logger.critical(
+                    'Portal authentication failed during name search: ' + message,
+                    undefined,
+                    {
+                        userId,
+                        searchId,
+                    }
+                );
+            }
+
+            await StorageClient.saveNameSearch(searchId, {
+                ...nameSearch,
+                status: 'failed',
+                message: `Authentication failed: ${message}`,
+            });
+
+            // Delete the queue item since we've saved the failed status
+            await QueueClient.deleteMessage(receiptHandle, 'search');
+            return;
+        }
+
+        // Search for cases by name
+        const searchResult = await fetchCasesByName(
+            nameSearch.normalizedName,
+            authResult.cookieJar,
+            dateOfBirth,
+            soundsLike
+        );
+
+        if (searchResult.error) {
+            await logger.error(
+                'Name search failed with error: ' + searchResult.error,
+                new Error(searchResult.error),
+                {
+                    userId,
+                    searchId,
+                    name,
+                }
+            );
+
+            await StorageClient.saveNameSearch(searchId, {
+                ...nameSearch,
+                status: 'failed',
+                message: `Search failed: ${searchResult.error}`,
+            });
+
+            await QueueClient.deleteMessage(receiptHandle, 'search');
+            return;
+        }
+
+        if (searchResult.cases.length === 0) {
+            // No cases found
+            console.log(`No cases found for name ${name}`);
+
+            await StorageClient.saveNameSearch(searchId, {
+                ...nameSearch,
+                status: 'complete',
+                cases: [],
+            });
+
+            await QueueClient.deleteMessage(receiptHandle, 'search');
+            return;
+        }
+
+        // Found cases - queue them for processing and update the name search
+        const casesToProcess = searchResult.cases;
+        console.log(`Found ${casesToProcess.length} cases for name ${name}`);
+
+        // Update the name search with the case numbers and set status to complete
+        const caseNumbers = casesToProcess.map(caseItem => caseItem.caseNumber);
+        await StorageClient.saveNameSearch(searchId, {
+            ...nameSearch,
+            status: 'complete',
+            cases: caseNumbers,
+        });
+
+        // Queue all found cases for search
+        await QueueClient.queueCasesForDataRetrieval(userId, casesToProcess);
+
+        // Delete the name search queue item
+        await QueueClient.deleteMessage(receiptHandle, 'search');
+    } catch (error) {
+        await logger.error('Failed to process name search record', error as Error, {
+            searchId,
+            name,
+            userId,
+        });
+
+        // Try to save failure status
+        try {
+            const nameSearch = await StorageClient.getNameSearch(searchId);
+            if (nameSearch) {
+                await StorageClient.saveNameSearch(searchId, {
+                    ...nameSearch,
+                    status: 'failed',
+                    message: `Error: ${(error as Error).message}`,
+                });
+            }
+        } catch (saveError) {
+            console.error('Failed to save error status:', saveError);
+        }
+
+        // Delete the message to prevent retries
+        await QueueClient.deleteMessage(receiptHandle, 'search');
+    }
+}
+
