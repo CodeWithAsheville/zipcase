@@ -1,14 +1,16 @@
 /**
  * Tests for the NameSearchProcessor module
  */
-// First, let's mock the entire NameSearchProcessor module
-jest.mock('../NameSearchProcessor');
+// Mock the NameSearchPortalClient module
+jest.mock('../NameSearchPortalClient');
 
 // Import the mocked module
-import * as NameSearchProcessor from '../NameSearchProcessor';
+import * as NameSearchPortalClient from '../NameSearchPortalClient';
 
 // Convert to mocked type for better TypeScript support
-const mockedNameSearchProcessor = NameSearchProcessor as jest.Mocked<typeof NameSearchProcessor>;
+const mockedNameSearchPortalClient = NameSearchPortalClient as jest.Mocked<
+    typeof NameSearchPortalClient
+>;
 
 // Import the actual implementations for testing
 const {
@@ -37,7 +39,7 @@ describe('NameSearchProcessor', () => {
         (StorageClient.saveNameSearch as jest.Mock).mockResolvedValue(undefined);
 
         // Set up default mock for fetchCasesByName
-        mockedNameSearchProcessor.fetchCasesByName.mockResolvedValue({
+        mockedNameSearchPortalClient.fetchCasesByName.mockResolvedValue({
             cases: [],
             error: undefined,
         });
@@ -472,7 +474,7 @@ describe('NameSearchProcessor', () => {
             });
 
             // Mock fetchCasesByName to return an error
-            mockedNameSearchProcessor.fetchCasesByName.mockResolvedValue({
+            mockedNameSearchPortalClient.fetchCasesByName.mockResolvedValue({
                 cases: [],
                 error: 'Failed to search for cases',
             });
@@ -535,7 +537,7 @@ describe('NameSearchProcessor', () => {
             });
 
             // Mock fetchCasesByName to return no cases (empty array, no error)
-            mockedNameSearchProcessor.fetchCasesByName.mockResolvedValue({
+            mockedNameSearchPortalClient.fetchCasesByName.mockResolvedValue({
                 cases: [],
                 error: undefined,
             });
@@ -596,7 +598,7 @@ describe('NameSearchProcessor', () => {
             });
 
             // Mock fetchCasesByName to return cases
-            mockedNameSearchProcessor.fetchCasesByName.mockResolvedValue({
+            mockedNameSearchPortalClient.fetchCasesByName.mockResolvedValue({
                 cases: mockCases,
                 error: undefined,
             });
