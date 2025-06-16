@@ -275,7 +275,7 @@ async function sendAlert(
         const availableChars = 100 - prefix.length;
         // Replace any non-ASCII characters and limit length
         const sanitizedMessage = message
-            .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII characters
+            .replace(/[^\x20-\x7E]/g, '') // Remove non-printable characters (keep printable ASCII only)
             .substring(0, Math.max(0, availableChars));
 
         // Ensure subject is not empty by adding a fallback if sanitizedMessage is empty
