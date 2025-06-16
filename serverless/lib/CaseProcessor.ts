@@ -10,6 +10,11 @@ import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import * as cheerio from 'cheerio';
 
+// Type for raw portal JSON data - using `any` is acceptable here since we're dealing with
+// dynamic external API responses that we don't control
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PortalApiResponse = any;
+
 // Process the case search queue - responsible for finding caseId (status: 'found')
 const processCaseSearch: SQSHandler = async (event: SQSEvent) => {
     console.log(`Received ${event.Records.length} case search messages`);
@@ -570,7 +575,7 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
         });
 
         // First, collect all raw data from endpoints
-        const rawData: Record<string, any> = {};
+        const rawData: Record<string, PortalApiResponse> = {};
 
         // Create an array of promises for all endpoint requests
         const endpointPromises = Object.entries(caseEndpoints).map(async ([key, endpoint]) => {
@@ -655,7 +660,7 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
     }
 }
 
-function buildCaseSummary(rawData: Record<string, any>): CaseSummary | null {
+function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSummary | null {
     try {
         if (!rawData['summary'] || !rawData['charges'] || !rawData['dispositionEvents']) {
             console.error('Missing required raw data for building case summary');
@@ -672,6 +677,7 @@ function buildCaseSummary(rawData: Record<string, any>): CaseSummary | null {
 
         // Process charges
         const charges = rawData['charges']['Charges'] || [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         charges.forEach((chargeData: any) => {
             if (!chargeData) return;
 
@@ -702,7 +708,12 @@ function buildCaseSummary(rawData: Record<string, any>): CaseSummary | null {
 
         // Process dispositions and link them to charges
         const events = rawData['dispositionEvents']['Events'] || [];
-        events.filter((eventData: any) => eventData && eventData['Type'] === 'CriminalDispositionEvent')
+        events
+            .filter(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (eventData: any) => eventData && eventData['Type'] === 'CriminalDispositionEvent'
+            )
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .forEach((eventData: any) => {
                 if (!eventData || !eventData['Event']) return;
 
@@ -723,6 +734,7 @@ function buildCaseSummary(rawData: Record<string, any>): CaseSummary | null {
                     ).catch(err => console.error('Failed to log alert:', err));
                 }
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 dispositions.forEach((disp: any) => {
                     if (!disp) return;
 
@@ -743,14 +755,14 @@ function buildCaseSummary(rawData: Record<string, any>): CaseSummary | null {
                     const chargeId = disp['ChargeID'];
 
                     // Find the matching charge and add the disposition
-                    if (chargeId) {
+                    if (chargeId && typeof chargeId === 'string') {
                         const charge = chargeMap.get(chargeId);
                         if (charge) {
                             charge.dispositions.push(disposition);
                         }
                     }
                 });
-        });
+            });
 
         return caseSummary;
     } catch (error) {
@@ -761,7 +773,7 @@ function buildCaseSummary(rawData: Record<string, any>): CaseSummary | null {
             'Error building case summary from raw data',
             error as Error,
             {
-            caseId: rawData.summary?.CaseSummaryHeader?.CaseId || 'unknown'
+                caseId: rawData['summary']['CaseSummaryHeader']['CaseId'] || 'unknown',
             }
         ).catch(err => console.error('Failed to log alert:', err));
         return null;
