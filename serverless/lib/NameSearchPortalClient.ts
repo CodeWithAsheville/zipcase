@@ -1,7 +1,6 @@
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
-import * as cheerio from 'cheerio';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 import PortalAuthenticator from './PortalAuthenticator';
 import UserAgentClient from './UserAgentClient';

@@ -35,7 +35,8 @@ function removeDynamoAttributes<T>(data: T): T {
     }
 
     if (typeof data === 'object' && data !== null) {
-        const cleanedObject = { ...data as object } as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cleanedObject = { ...(data as object) } as any;
 
         // Remove DynamoDB attributes
         DYNAMO_ATTRIBUTES.forEach(attr => {
@@ -190,11 +191,7 @@ async function get<T>(key: DynamoCompositeKey): Promise<T | null> {
  * @param item The item data to save (without PK and SK)
  * @returns Promise that resolves when the item is saved
  */
-async function save<T>(
-    key: DynamoCompositeKey,
-    item: T,
-    _options?: { removeUndefinedValues?: boolean } // Kept for backward compatibility but ignored
-): Promise<void> {
+async function save<T>(key: DynamoCompositeKey, item: T): Promise<void> {
     await dynamoDb.send(
         new PutCommand({
             TableName: TABLE_NAME,
