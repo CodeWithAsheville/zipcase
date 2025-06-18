@@ -15,6 +15,7 @@ import { wrapper } from 'axios-cookiejar-support';
 import StorageClient from './StorageClient';
 import UserAgentClient from './UserAgentClient';
 import AlertService, { Severity, AlertCategory } from './AlertService';
+import AwsWafChallengeSolver from './AwsWafChallengeSolver';
 
 const DEFAULT_TIMEOUT = 20000;
 
@@ -129,6 +130,41 @@ const PortalAuthenticator = {
 
             if (debug) {
                 console.log('Cookie jar after login page response:', jar.toJSON());
+            }
+
+            // Check for AWS WAF challenge and solve if detected
+            if (AwsWafChallengeSolver.detectChallenge(loginPageResponse)) {
+                if (debug) console.log('AWS WAF challenge detected, attempting to solve...');
+
+                try {
+                    const wafResult = await AwsWafChallengeSolver.solveChallenge(
+                        portalBaseUrl + '/Portal/Account/Login',
+                        loginPageResponse.data
+                    );
+
+                    if (wafResult.success && wafResult.cookie) {
+                        // Add the solved WAF cookie to our cookie jar
+                        jar.setCookieSync(wafResult.cookie, portalBaseUrl);
+                        if (debug) console.log('AWS WAF challenge solved, cookie added to jar');
+
+                        // Re-fetch the login page with the WAF cookie
+                        const retryLoginPageResponse = await client.get(
+                            portalBaseUrl + '/Portal/Account/Login'
+                        );
+
+                        // Use the retry response for subsequent processing
+                        Object.assign(loginPageResponse, retryLoginPageResponse);
+
+                        if (debug) console.log('Re-fetched login page after solving WAF challenge');
+                    } else {
+                        console.warn(
+                            'Failed to solve AWS WAF challenge, continuing without WAF token'
+                        );
+                    }
+                } catch (error) {
+                    console.warn('Error solving AWS WAF challenge:', error);
+                    // Continue with authentication attempt even if WAF solving fails
+                }
             }
 
             // Extract the verification token for CSRF protection
