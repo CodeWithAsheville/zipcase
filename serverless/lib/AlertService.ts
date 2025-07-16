@@ -57,7 +57,7 @@ const ERROR_CACHE_TABLE = `zipcase-error-cache-${process.env.STAGE || 'dev'}`;
  * Get error cache entry from DynamoDB
  */
 async function getErrorCacheEntry(errorKey: string): Promise<{
-    count: number;
+    errorCount: number;
     firstSeen: number;
     lastSeen: number;
     lastReported: number;
@@ -77,7 +77,7 @@ async function getErrorCacheEntry(errorKey: string): Promise<{
         }
 
         return {
-            count: parseInt(result.Item.count?.N || '0'),
+            errorCount: parseInt(result.Item.errorCount?.N || '0'),
             firstSeen: parseInt(result.Item.firstSeen?.N || '0'),
             lastSeen: parseInt(result.Item.lastSeen?.N || '0'),
             lastReported: parseInt(result.Item.lastReported?.N || '0'),
@@ -96,7 +96,7 @@ async function updateErrorCacheEntry(
     errorKey: string,
     isNewError: boolean
 ): Promise<{
-    count: number;
+    errorCount: number;
     firstSeen: number;
     lastSeen: number;
     lastReported: number;
@@ -112,7 +112,7 @@ async function updateErrorCacheEntry(
                     TableName: ERROR_CACHE_TABLE,
                     Item: {
                         errorKey: { S: errorKey },
-                        count: { N: '1' },
+                        errorCount: { N: '1' },
                         firstSeen: { N: now.toString() },
                         lastSeen: { N: now.toString() },
                         lastReported: { N: '0' },
@@ -122,7 +122,7 @@ async function updateErrorCacheEntry(
             );
 
             return {
-                count: 1,
+                errorCount: 1,
                 firstSeen: now,
                 lastSeen: now,
                 lastReported: 0,
@@ -135,9 +135,9 @@ async function updateErrorCacheEntry(
                     Key: {
                         errorKey: { S: errorKey },
                     },
-                    UpdateExpression: 'ADD #count :inc SET lastSeen = :now, ttl = :ttl',
+                    UpdateExpression: 'ADD errorCount :inc SET lastSeen = :now, #ttl = :ttl',
                     ExpressionAttributeNames: {
-                        '#count': 'count',
+                        '#ttl': 'ttl',
                     },
                     ExpressionAttributeValues: {
                         ':inc': { N: '1' },
@@ -149,7 +149,7 @@ async function updateErrorCacheEntry(
             );
 
             return {
-                count: parseInt(result.Attributes?.count?.N || '1'),
+                errorCount: parseInt(result.Attributes?.errorCount?.N || '1'),
                 firstSeen: parseInt(result.Attributes?.firstSeen?.N || now.toString()),
                 lastSeen: parseInt(result.Attributes?.lastSeen?.N || now.toString()),
                 lastReported: parseInt(result.Attributes?.lastReported?.N || '0'),
@@ -159,7 +159,7 @@ async function updateErrorCacheEntry(
         // If DynamoDB is unavailable, return sensible defaults
         console.warn('Failed to update error cache entry in DynamoDB:', error);
         return {
-            count: 1,
+            errorCount: 1,
             firstSeen: now,
             lastSeen: now,
             lastReported: 0,
@@ -365,7 +365,7 @@ const AlertService = {
         ]);
 
         // Determine if we should send an alert
-        const exceedsThreshold = cacheEntry.count >= ERROR_REPORT_THRESHOLD;
+        const exceedsThreshold = cacheEntry.errorCount >= ERROR_REPORT_THRESHOLD;
         const exceedsTimeInterval = now - cacheEntry.lastReported > ERROR_REPORT_INTERVAL_MS;
 
         // Send alerts for:
@@ -375,9 +375,9 @@ const AlertService = {
         if (
             severity === Severity.CRITICAL ||
             (severity === Severity.ERROR && (exceedsThreshold || exceedsTimeInterval)) ||
-            (severity === Severity.WARNING && cacheEntry.count >= ERROR_REPORT_THRESHOLD * 2)
+            (severity === Severity.WARNING && cacheEntry.errorCount >= ERROR_REPORT_THRESHOLD * 2)
         ) {
-            await sendAlert(severity, category, message, cacheEntry.count, context);
+            await sendAlert(severity, category, message, cacheEntry.errorCount, context);
             await updateLastReported(errorKey, now);
         }
     },

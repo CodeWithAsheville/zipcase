@@ -5,7 +5,7 @@
  * in a development environment
  *
  * Run with:
- * USERNAME=your_username PASSWORD=your_password npm run test:integration
+ * PORTAL_URL=https://your-portal-url.com USERNAME=your_username PASSWORD=your_password npm run test:integration
  */
 import PortalAuthenticator from '../lib/PortalAuthenticator';
 import { CookieJar } from 'tough-cookie';
@@ -13,9 +13,12 @@ import { CookieJar } from 'tough-cookie';
 // Check for required environment variables
 const username = process.env.USERNAME;
 const password = process.env.PASSWORD;
+const portalUrl = process.env.PORTAL_URL;
 
-// Set the portal URL environment variable (required by PortalAuthenticator)
-process.env.PORTAL_URL = 'https://portal.example.com';
+// Set a default portal URL environment variable if not already set (required by PortalAuthenticator)
+if (!portalUrl) {
+    process.env.PORTAL_URL = 'https://portal.example.com';
+}
 
 // Skip all tests if credentials are not provided
 const runTests = !!username && !!password;
@@ -28,7 +31,7 @@ describe('Portal Authentication Integration', () => {
         if (!runTests) {
             console.warn(
                 'Skipping Portal auth tests. ' +
-                    'Set USERNAME and PASSWORD environment variables to run these tests.'
+                    'Set PORTAL_URL, USERNAME and PASSWORD environment variables to run these tests.'
             );
         }
     });
@@ -57,7 +60,7 @@ describe('Portal Authentication Integration', () => {
         // Log cookies for debugging
         console.log('Authentication successful');
         if (result.cookieJar) {
-            const cookies = result.cookieJar.getCookiesSync('https://portal.example.com', {
+            const cookies = result.cookieJar.getCookiesSync(process.env.PORTAL_URL!, {
                 allPaths: true,
             });
             console.log(`Number of cookies: ${cookies.length}`);
@@ -85,7 +88,7 @@ describe('Portal Authentication Integration', () => {
         console.log('Verifying session with cookie jar...');
 
         // Log the cookies again before verification
-        const cookies = cookieJar.getCookiesSync('https://portal.example.com', {
+        const cookies = cookieJar.getCookiesSync(process.env.PORTAL_URL!, {
             allPaths: true,
         });
         console.log(`Number of cookies before verification: ${cookies.length}`);

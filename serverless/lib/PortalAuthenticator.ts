@@ -128,6 +128,17 @@ const PortalAuthenticator = {
 
             const loginPageResponse = await client.get(portalBaseUrl + '/Portal/Account/Login');
 
+            // Extract the login URL if we were redirected
+            const loginUrl = extractLoginUrl(loginPageResponse);
+            if (!loginUrl) {
+                return {
+                    success: false,
+                    message: 'Failed to extract login URL from response',
+                };
+            }
+
+            if (debug) console.log(`Login URL: ${loginUrl}`);
+
             if (debug) {
                 console.log('Cookie jar after login page response:', jar.toJSON());
             }
@@ -144,7 +155,9 @@ const PortalAuthenticator = {
 
                     if (wafResult.success && wafResult.cookie) {
                         // Add the solved WAF cookie to our cookie jar
-                        jar.setCookieSync(wafResult.cookie, portalBaseUrl);
+                        // Extract the base URL from loginUrl to set the cookie domain properly
+                        const loginUrlBase = new URL(loginUrl).origin;
+                        jar.setCookieSync(`aws-waf-token=${wafResult.cookie}`, loginUrlBase);
                         if (debug) console.log('AWS WAF challenge solved, cookie added to jar');
 
                         // Re-fetch the login page with the WAF cookie
@@ -187,17 +200,6 @@ const PortalAuthenticator = {
             }
 
             if (debug) console.log(`Verification token: ${verificationToken}`);
-
-            // Extract the login URL if we were redirected
-            const loginUrl = extractLoginUrl(loginPageResponse);
-            if (!loginUrl) {
-                return {
-                    success: false,
-                    message: 'Failed to extract login URL from response',
-                };
-            }
-
-            if (debug) console.log(`Login URL: ${loginUrl}`);
 
             // Step 2: Submit Login Form - Send credentials
             if (debug) console.log('Step 2: Submitting login form');
@@ -263,6 +265,57 @@ const PortalAuthenticator = {
             }
 
             if (debug) console.log(loginSubmitResponse.data);
+
+            // Check for AWS WAF challenge after login form submission
+            if (AwsWafChallengeSolver.detectChallenge(loginSubmitResponse)) {
+                if (debug)
+                    console.log(
+                        'AWS WAF challenge detected after login submission, attempting to solve...'
+                    );
+
+                try {
+                    const wafResult = await AwsWafChallengeSolver.solveChallenge(
+                        loginUrl,
+                        loginSubmitResponse.data
+                    );
+
+                    if (wafResult.success && wafResult.cookie) {
+                        // Add the solved WAF cookie to our cookie jar
+                        jar.setCookieSync(wafResult.cookie, portalBaseUrl);
+                        if (debug)
+                            console.log(
+                                'AWS WAF challenge solved after login, cookie added to jar'
+                            );
+
+                        // Re-submit the login form with the WAF cookie
+                        const retryLoginSubmitResponse = await client.post(
+                            loginUrl,
+                            loginFormData,
+                            {
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                    Origin: new URL(loginUrl).origin,
+                                    Referer: loginUrl,
+                                    'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
+                                },
+                            }
+                        );
+
+                        // Use the retry response for subsequent processing
+                        Object.assign(loginSubmitResponse, retryLoginSubmitResponse);
+
+                        if (debug)
+                            console.log('Re-submitted login form after solving WAF challenge');
+                    } else {
+                        console.warn(
+                            'Failed to solve AWS WAF challenge after login, continuing without WAF token'
+                        );
+                    }
+                } catch (error) {
+                    console.warn('Error solving AWS WAF challenge after login:', error);
+                    // Continue with authentication attempt even if WAF solving fails
+                }
+            }
 
             // Extract the WS-Federation token from the response
             const wsFedToken = extractWsFedToken(loginSubmitResponse.data);
@@ -349,7 +402,7 @@ const PortalAuthenticator = {
                         username,
                         hasWelcomeUser,
                         hasSignIn,
-                        cookieCount: cookies.length
+                        cookieCount: cookies.length,
                     }
                 );
                 return {
@@ -516,7 +569,9 @@ const PortalAuthenticator = {
         // Get user agent using the tiered strategy
         const resolvedUserAgent = await UserAgentClient.getUserAgent(userId, userAgent);
 
-        console.log(`Authenticating user ${userId} with portal using user agent ${resolvedUserAgent}.`);
+        console.log(
+            `Authenticating user ${userId} with portal using user agent ${resolvedUserAgent}.`
+        );
 
         const authResult = await this.authenticateWithPortal(
             portalCredentials.username,
