@@ -264,6 +264,7 @@ functions:
 
     postPortalCredentials:
         handler: handlers/portal-credentials.set
+        timeout: 60
         events:
             - httpApi:
                   path: /portal-credentials
