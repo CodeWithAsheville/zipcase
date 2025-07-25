@@ -154,11 +154,20 @@ const PortalAuthenticator = {
                     );
 
                     if (wafResult.success && wafResult.cookie) {
-                        // Add the solved WAF cookie to our cookie jar
-                        // Extract the base URL from loginUrl to set the cookie domain properly
+                        // Add the solved WAF cookie to our cookie jar for both the login page domain and the portal domain
                         const loginUrlBase = new URL(loginUrl).origin;
+                        const portalBase = new URL(portalBaseUrl).origin;
                         jar.setCookieSync(`aws-waf-token=${wafResult.cookie}`, loginUrlBase);
-                        if (debug) console.log('AWS WAF challenge solved, cookie added to jar');
+                        if (loginUrlBase !== portalBase) {
+                            jar.setCookieSync(`aws-waf-token=${wafResult.cookie}`, portalBase);
+                        }
+                        if (debug) {
+                            console.log(
+                                'AWS WAF challenge solved, cookie added to jar for domains:',
+                                loginUrlBase,
+                                portalBase
+                            );
+                        }
 
                         // Re-fetch the login page with the WAF cookie
                         const retryLoginPageResponse = await client.get(
