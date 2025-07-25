@@ -48,6 +48,13 @@ provider:
                   Action:
                       - sns:Publish
                   Resource: ${ssm:/zipcase/alert-topic-arn}
+
+                - Effect: Allow
+                  Action:
+                      - ssm:GetParameter
+                  Resource:
+                      - arn:aws:ssm:${self:provider.region}:*:parameter/zipcase*
+
     apiGateway:
         disableDefaultEndpoint: true
         apiKeys:
