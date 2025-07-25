@@ -179,8 +179,8 @@ const PortalAuthenticator = {
 
                         if (debug) console.log('Re-fetched login page after solving WAF challenge');
                     } else {
-                        console.warn(
-                            'Failed to solve AWS WAF challenge, continuing without WAF token'
+                        throw new Error(
+                            'Failed to solve AWS WAF challenge, aborting authentication process.'
                         );
                     }
                 } catch (error) {
