@@ -84,6 +84,7 @@ The IAM policy includes permissions for:
 - SSM Parameter Store (reading configuration)
 - DynamoDB (application data and Terraform state locking)
 - CloudWatch Logs
+- SNS
 - SQS
 - Cognito
 - Route53 (domain management)

@@ -275,7 +275,7 @@ resource "aws_iam_policy" "github_actions_policy" {
       {
         Effect = "Allow"
         Action = [
-          "sns:GetTopicAttributes"
+          "sns:*"
         ]
         Resource = "arn:aws:sns:${var.aws_region}:*:zipcase-alerts-prod"
       }
