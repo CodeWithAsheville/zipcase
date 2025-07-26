@@ -280,6 +280,15 @@ resource "aws_iam_policy" "github_actions_policy" {
           "cloudformation:*"
         ]
         Resource = "*"
+      },
+
+      # SNS permissions for accessing topic attributes
+      {
+        Effect = "Allow"
+        Action = [
+          "sns:GetTopicAttributes"
+        ]
+        Resource = "arn:aws:sns:${var.aws_region}:*:zipcase-alerts-prod"
       }
     ]
   })
