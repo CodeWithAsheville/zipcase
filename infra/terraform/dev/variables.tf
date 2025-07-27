@@ -15,3 +15,9 @@ variable "alert_email" {
     type        = string
 }
 
+variable "capsolver_api_key" {
+    description = "API key for CapSolver WAF solver"
+    type        = string
+    sensitive   = true
+}
+

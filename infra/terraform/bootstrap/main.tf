@@ -1,14 +1,3 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-
-  required_version = ">= 1.5.0"
-}
-
 provider "aws" {
   region = var.aws_region
 }
@@ -286,7 +275,7 @@ resource "aws_iam_policy" "github_actions_policy" {
       {
         Effect = "Allow"
         Action = [
-          "sns:GetTopicAttributes"
+          "sns:*"
         ]
         Resource = "arn:aws:sns:${var.aws_region}:*:zipcase-alerts-prod"
       }

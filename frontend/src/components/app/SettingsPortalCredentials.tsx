@@ -198,7 +198,11 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
     // Create a mutation for saving credentials
     const saveCredentialsMutation = useMutation({
         mutationFn: async () => {
-            await savePortalCredentials();
+            const response = await savePortalCredentials();
+            if (!response.success) {
+                throw new Error(response.error || 'Failed to validate credentials. If your portal username and password are correct, please contact support.');
+            }
+            return response;
         },
         onMutate: () => {
             dispatch({ type: 'SET_VALIDATION_STATE', payload: { status: 'validating' } });
