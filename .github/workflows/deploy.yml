@@ -90,6 +90,7 @@ jobs:
             - name: Set Terraform environment variables
               run: |
                   echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
+                  echo "TF_VAR_capsolver_api_key=${{ secrets.CAPSOLVER_API_KEY }}" >> $GITHUB_ENV
 
             - name: Terraform Init
               working-directory: ./infra/terraform/${{ needs.determine-environment.outputs.environment_name }}
