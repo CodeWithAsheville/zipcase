@@ -94,7 +94,7 @@ jobs:
 
             - name: Set Terraform environment variables
               run: |
-                echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
+                  echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
 
             - name: Terraform Plan
               working-directory: ./infra/terraform/dev
@@ -166,7 +166,7 @@ jobs:
 
             - name: Set Terraform environment variables
               run: |
-                echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
+                  echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
 
             - name: Terraform Plan
               working-directory: ./infra/terraform/prod
