@@ -325,7 +325,7 @@ const StorageClient = {
         await save(Key.User(userId).SESSION, {
             sessionToken,
             expiresAtIso,
-            expiresAt: new Date(expiresAtIso).getTime() / 1000,
+            expiresAt: Math.floor(new Date(expiresAtIso).getTime() / 1000),
         });
     },
 
