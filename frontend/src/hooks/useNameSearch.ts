@@ -42,6 +42,9 @@ export function useNameSearch() {
                     return;
                 }
 
+                // Check for completion status
+                const status = response.data?.status;
+                const isComplete = status === 'complete';
                 const results = response.data?.results || {};
                 const hasNewResults = Object.keys(results).length > 0;
 
@@ -50,6 +53,16 @@ export function useNameSearch() {
                     results: {},
                     searchBatches: [],
                     nameSearches: {},
+                };
+
+                // Update the last polled time
+                const now = new Date().toISOString();
+                let updatedNameSearches = {
+                    ...existingState.nameSearches,
+                    [searchId]: {
+                        ...existingState.nameSearches[searchId],
+                        lastPolled: now,
+                    },
                 };
 
                 // If we have new results, update the state
@@ -76,13 +89,10 @@ export function useNameSearch() {
                         updatedBatches = [newCaseNumbers, ...updatedBatches];
                     }
 
-                    // Update the last polled time
-                    const now = new Date().toISOString();
-                    const updatedNameSearches = {
-                        ...existingState.nameSearches,
+                    updatedNameSearches = {
+                        ...updatedNameSearches,
                         [searchId]: {
-                            ...existingState.nameSearches[searchId],
-                            lastPolled: now,
+                            ...updatedNameSearches[searchId],
                             lastNewResult: now,
                         },
                     };
@@ -95,17 +105,26 @@ export function useNameSearch() {
                     });
                 } else {
                     // No new results, just update the lastPolled time
-                    const now = new Date().toISOString();
                     queryClient.setQueryData(['searchResults'], {
                         ...existingState,
+                        nameSearches: updatedNameSearches,
+                    });
+                }
+
+                // If complete, mark as complete and stop polling
+                if (isComplete) {
+                    queryClient.setQueryData(['searchResults'], {
+                        ...queryClient.getQueryData<ResultsState>(['searchResults']),
                         nameSearches: {
-                            ...existingState.nameSearches,
+                            ...updatedNameSearches,
                             [searchId]: {
-                                ...existingState.nameSearches[searchId],
-                                lastPolled: now,
+                                ...updatedNameSearches[searchId],
+                                pollingComplete: true,
                             },
                         },
                     });
+                    pollingState.active = false;
+                    return;
                 }
 
                 // Schedule the next poll

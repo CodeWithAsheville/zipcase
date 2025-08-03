@@ -37,6 +37,7 @@ export interface NameSearchResponse {
     results: Record<string, SearchResult>;
     success?: boolean;
     error?: string;
+    status?: 'queued' | 'processing' | 'complete' | 'failed';
 }
 
 export interface NameSearchData {
