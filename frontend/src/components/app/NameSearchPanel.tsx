@@ -9,6 +9,7 @@ interface State {
     dateOfBirth: string;
     formattedDate: string;
     soundsLike: boolean;
+    criminalOnly: boolean;
     error: null | string;
 }
 
@@ -17,6 +18,7 @@ const initialState: State = {
     dateOfBirth: '',
     formattedDate: '',
     soundsLike: false,
+    criminalOnly: true,
     error: null,
 };
 
@@ -25,6 +27,7 @@ type Action =
     | { type: 'SET_DATE_OF_BIRTH'; payload: string }
     | { type: 'SET_FORMATTED_DATE'; payload: string }
     | { type: 'SET_SOUNDS_LIKE'; payload: boolean }
+    | { type: 'SET_CRIMINAL_ONLY'; payload: boolean }
     | { type: 'SET_ERROR'; payload: string | null };
 
 const reducer = (state: State, action: Action): State => {
@@ -39,13 +42,20 @@ const reducer = (state: State, action: Action): State => {
             return { ...state, soundsLike: action.payload };
         case 'SET_ERROR':
             return { ...state, error: action.payload };
+        case 'SET_CRIMINAL_ONLY':
+            return { ...state, criminalOnly: action.payload };
         default:
             return state;
     }
 };
 
 interface NameSearchPanelProps {
-    onSearch?: (name: string, dateOfBirth?: string, soundsLike?: boolean) => void;
+    onSearch?: (
+        name: string,
+        dateOfBirth?: string,
+        soundsLike?: boolean,
+        criminalOnly?: boolean
+    ) => void;
 }
 
 const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
@@ -165,6 +175,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                 name: localState.name,
                 dateOfBirth: parsedDate,
                 soundsLike: localState.soundsLike,
+                criminalOnly: localState.criminalOnly,
             },
             {
                 onSuccess: () => {
@@ -184,11 +195,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
         );
 
         if (onSearch) {
-            onSearch(
-                localState.name,
-                parsedDate,
-                localState.soundsLike
-            );
+            onSearch(localState.name, parsedDate, localState.soundsLike, localState.criminalOnly);
         }
 
         // Input will be locked during the pending state via the disabled attribute
@@ -295,6 +302,30 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                             </div>
                                         )}
                                     </div>
+                                </div>
+
+                                {/* Criminal Only checkbox */}
+                                <div className="flex items-center -mt-2">
+                                    <input
+                                        id="criminal_only"
+                                        name="criminal_only"
+                                        type="checkbox"
+                                        className="h-4 w-4 text-[#336699] focus:ring-[#336699] border-gray-300 rounded"
+                                        checked={localState.criminalOnly}
+                                        onChange={e =>
+                                            localDispatch({
+                                                type: 'SET_CRIMINAL_ONLY',
+                                                payload: Boolean(e.target.checked),
+                                            })
+                                        }
+                                        disabled={nameSearch.isPending}
+                                    />
+                                    <label
+                                        htmlFor="criminal_only"
+                                        className="ml-2 block text-sm text-gray-700"
+                                    >
+                                        Criminal cases only
+                                    </label>
                                 </div>
 
                                 {/* Date of Birth input */}

@@ -2,13 +2,13 @@
  * Tests for the useCaseSearch hooks
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useSearchResults, useConsolidatedPolling } from '../useCaseSearch';
 
 vi.mock('../../aws-exports', () => ({
-  API_URL: 'http://test-api.example.com'
+    API_URL: 'http://test-api.example.com',
 }));
 
 // Create a wrapper for the tests that need React Query context
@@ -45,14 +45,16 @@ describe('useSearchResults', () => {
         vi.resetAllMocks();
     });
 
-    it('should return empty results when no data is available', () => {
+    it('should return empty results when no data is available', async () => {
         const { result } = renderHook(() => useSearchResults(), {
             wrapper: createWrapper(),
         });
 
-        expect(result.current.data).toEqual({
-            results: {},
-            searchBatches: [],
+        await waitFor(() => {
+            expect(result.current.data).toEqual({
+                results: {},
+                searchBatches: [],
+            });
         });
     });
 

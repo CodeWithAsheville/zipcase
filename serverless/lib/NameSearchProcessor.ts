@@ -9,7 +9,13 @@ import { fetchCasesByName } from './NameSearchPortalClient';
 
 // Process API name search requests - creates an entry in DynamoDB and queues for processing
 export async function processNameSearchRequest(
-    req: { name: string; dateOfBirth?: string; soundsLike: boolean; userAgent?: string },
+    req: {
+        name: string;
+        dateOfBirth?: string;
+        soundsLike: boolean;
+        userAgent?: string;
+        criminalOnly?: boolean;
+    },
     userId: string
 ): Promise<NameSearchResponse> {
     const searchId = uuidv4();
@@ -41,6 +47,7 @@ export async function processNameSearchRequest(
             normalizedName,
             dateOfBirth: req.dateOfBirth,
             soundsLike: req.soundsLike,
+            criminalOnly: req.criminalOnly,
             cases: [],
             status: success ? 'queued' : 'failed',
         };
@@ -68,6 +75,7 @@ export async function processNameSearchRequest(
             userId,
             req.dateOfBirth,
             req.soundsLike,
+            req.criminalOnly,
             req.userAgent
         );
 
@@ -150,6 +158,7 @@ export async function processNameSearchRecord(
     logger: ReturnType<typeof AlertService.forCategory>,
     dateOfBirth?: string,
     soundsLike: boolean = false,
+    criminalOnly?: boolean,
     userAgent?: string
 ): Promise<void> {
     console.log(`Processing name search ${searchId} for user ${userId}`);
@@ -212,7 +221,8 @@ export async function processNameSearchRecord(
             nameSearch.normalizedName,
             authResult.cookieJar,
             dateOfBirth,
-            soundsLike
+            soundsLike,
+            nameSearch.criminalOnly
         );
 
         if (searchResult.error) {
