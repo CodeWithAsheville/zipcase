@@ -51,6 +51,44 @@ describe('NameSearchProcessor', () => {
     });
 
     describe('processNameSearchRequest', () => {
+        it('should propagate criminalOnly flag to QueueClient.queueNameSearch', async () => {
+            // Mock successful authentication
+            (PortalAuthenticator.getOrCreateUserSession as jest.Mock).mockResolvedValue({
+                success: true,
+                cookieJar: {},
+            });
+
+            // Mock successful queue operation
+            (QueueClient.queueNameSearch as jest.Mock).mockResolvedValue(undefined);
+
+            const result = await processNameSearchRequest(
+                {
+                    name: 'Jane Doe',
+                    soundsLike: false,
+                    dateOfBirth: '1990-02-02',
+                    userAgent: 'test-user-agent',
+                    criminalOnly: true,
+                },
+                'test-user-id'
+            );
+
+            expect(result).toMatchObject({
+                searchId: expect.any(String),
+                results: {},
+                success: true,
+            });
+
+            // Assert that QueueClient.queueNameSearch was called with criminalOnly true
+            expect(QueueClient.queueNameSearch).toHaveBeenCalledWith(
+                expect.any(String), // searchId
+                'Doe, Jane', // name
+                'test-user-id', // userId
+                '1990-02-02', // dateOfBirth
+                false, // soundsLike
+                true, // criminalOnly
+                'test-user-agent' // userAgent
+            );
+        });
         it('should return failure when name parsing fails', async () => {
             const result = await processNameSearchRequest(
                 { name: '', soundsLike: false },
@@ -174,6 +212,7 @@ describe('NameSearchProcessor', () => {
                 'test-user-id', // userId
                 '1980-01-01', // dateOfBirth
                 false, // soundsLike
+                undefined, // criminalOnly
                 'test-user-agent' // userAgent
             );
 
@@ -310,9 +349,10 @@ describe('NameSearchProcessor', () => {
                 userId,
                 receiptHandle,
                 mockLogger,
-                undefined,
-                false,
-                'test-user-agent'
+                undefined,        // dateOfBirth
+                false,            // soundsLike
+                undefined,        // criminalOnly
+                'test-user-agent' // userAgent
             );
 
             // Verify StorageClient.getNameSearch was called
@@ -351,9 +391,10 @@ describe('NameSearchProcessor', () => {
                 userId,
                 receiptHandle,
                 mockLogger,
-                undefined,
-                false,
-                'test-user-agent'
+                undefined,        // dateOfBirth
+                false,            // soundsLike
+                undefined,        // criminalOnly
+                'test-user-agent' // userAgent
             );
 
             // Verify StorageClient.getNameSearch was called
@@ -427,9 +468,10 @@ describe('NameSearchProcessor', () => {
                 userId,
                 receiptHandle,
                 mockLogger,
-                undefined,
-                false,
-                'test-user-agent'
+                undefined,        // dateOfBirth
+                false,            // soundsLike
+                undefined,        // criminalOnly
+                'test-user-agent' // userAgent
             );
 
             // Verify StorageClient.saveNameSearch was called for the failure

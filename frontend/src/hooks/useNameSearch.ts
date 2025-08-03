@@ -2,12 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ZipCaseClient } from '../services';
 import { SearchResult } from '../../../shared/types/Search';
 
-const client = new ZipCaseClient();
-
 interface NameSearchParams {
     name: string;
     dateOfBirth?: string;
     soundsLike: boolean;
+    criminalOnly?: boolean;
 }
 
 /**
@@ -16,6 +15,9 @@ interface NameSearchParams {
  */
 export function useNameSearch() {
     const queryClient = useQueryClient();
+
+    // Instantiate client inside the hook so test mocks are picked up
+    const client = new ZipCaseClient();
 
     /**
      * Start polling for name search results.
@@ -158,7 +160,8 @@ export function useNameSearch() {
             const response = await client.cases.nameSearch(
                 searchParams.name,
                 searchParams.dateOfBirth,
-                searchParams.soundsLike
+                searchParams.soundsLike,
+                searchParams.criminalOnly
             );
 
             if (!response.success) {

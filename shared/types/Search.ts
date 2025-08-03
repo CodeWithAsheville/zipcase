@@ -11,6 +11,7 @@ export interface NameSearchRequest {
     userId: string;
     dateOfBirth?: string;
     soundsLike: boolean;
+    criminalOnly?: boolean;
     userAgent?: string;
 }
 
@@ -43,6 +44,7 @@ export interface NameSearchData {
     normalizedName: string;
     dateOfBirth?: string;
     soundsLike: boolean;
+    criminalOnly?: boolean;
     cases: string[];
     status?: 'queued' | 'processing' | 'complete' | 'failed';
     message?: string;
