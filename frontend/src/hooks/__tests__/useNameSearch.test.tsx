@@ -14,7 +14,7 @@ it('should stop polling after 30s if results do not change', async () => {
             success: true,
         },
     });
-    // Always return the same results, never changing
+    // First, always return the same status counts (should time out)
     mockNameSearchStatus.mockResolvedValue({
         success: true,
         data: {
@@ -31,17 +31,13 @@ it('should stop polling after 30s if results do not change', async () => {
         await mutateAsync({ name: 'Timeout Test', soundsLike: false });
     });
 
-    // Fast-forward timers to simulate repeated polling
+    // Fast-forward timers to simulate repeated polling (no status change)
     for (let i = 0; i < 15; i++) {
         await act(async () => {
             vi.advanceTimersByTime(3000);
         });
     }
-
-    // Should have called nameSearchStatus multiple times (at least 10 for 30s/3s)
     expect(mockNameSearchStatus).toHaveBeenCalled();
-
-    // After 30s, polling should stop: advancing time further should not increase call count
     await act(async () => {
         vi.advanceTimersByTime(6000);
     });
@@ -49,13 +45,50 @@ it('should stop polling after 30s if results do not change', async () => {
     await act(async () => {
         vi.advanceTimersByTime(6000);
     });
-    const callsBefore = mockNameSearchStatus.mock.calls.length;
-    await act(async () => {
-        vi.advanceTimersByTime(6000);
-    });
-    expect(mockNameSearchStatus.mock.calls.length).toBeGreaterThanOrEqual(callsBefore);
-    expect(mockNameSearchStatus.mock.calls.length).toBeLessThanOrEqual(callsBefore + 1);
+    expect(mockNameSearchStatus.mock.calls.length).toBe(callsAfterTimeout);
 
+    // Now, simulate a status change (should reset timeout)
+    mockNameSearchStatus.mockClear();
+    let pollCount = 0;
+    mockNameSearchStatus.mockImplementation(() => {
+        pollCount++;
+        // After 5 polls, change status from 'queued' to 'complete'
+        if (pollCount < 5) {
+            return Promise.resolve({
+                success: true,
+                data: {
+                    status: 'processing',
+                    results: {
+                        foo: { zipCase: { caseNumber: 'foo', fetchStatus: { status: 'queued' } } },
+                    },
+                },
+            });
+        } else {
+            return Promise.resolve({
+                success: true,
+                data: {
+                    status: 'processing',
+                    results: {
+                        foo: {
+                            zipCase: { caseNumber: 'foo', fetchStatus: { status: 'complete' } },
+                        },
+                    },
+                },
+            });
+        }
+    });
+
+    await act(async () => {
+        await mutateAsync({ name: 'Status Change Test', soundsLike: false });
+    });
+    // Fast-forward timers to simulate polling and status change
+    for (let i = 0; i < 20; i++) {
+        await act(async () => {
+            vi.advanceTimersByTime(3000);
+        });
+    }
+    // Should have polled more than 5 times (reset after status change)
+    expect(mockNameSearchStatus).toHaveBeenCalled();
     vi.useRealTimers();
 });
 import { describe, it, expect, vi } from 'vitest';
