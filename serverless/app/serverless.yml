@@ -273,6 +273,7 @@ functions:
 
     postSearch:
         handler: handlers/search.handler
+        timeout: 60
         memorySize: 1024
         events:
             - httpApi:
@@ -291,6 +292,7 @@ functions:
 
     postNameSearch:
         handler: handlers/name-search.handler
+        timeout: 60
         memorySize: 1024
         events:
             - httpApi:
