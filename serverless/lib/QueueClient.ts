@@ -50,6 +50,7 @@ const QueueClient = {
         userId: string,
         dateOfBirth?: string,
         soundsLike: boolean = false,
+        criminalOnly?: boolean,
         userAgent?: string
     ): Promise<void> {
         const params: SendMessageCommandInput = {
@@ -61,6 +62,7 @@ const QueueClient = {
                 soundsLike,
                 userId,
                 userAgent,
+                criminalOnly,
                 timestamp: Date.now(),
             }),
             MessageGroupId: userId, // Group by userId to process requests serially per user
@@ -84,7 +86,7 @@ const QueueClient = {
 
     async queueCasesForDataRetrieval(
         userId: string,
-        cases: { caseNumber: string, caseId: string }[]
+        cases: { caseNumber: string; caseId: string }[]
     ): Promise<void> {
         if (!cases || cases.length === 0) {
             return;

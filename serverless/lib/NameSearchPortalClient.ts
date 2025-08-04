@@ -16,7 +16,8 @@ export async function fetchCasesByName(
     name: string,
     cookieJar: CookieJar,
     dateOfBirth?: string,
-    soundsLike: boolean = false
+    soundsLike: boolean = false,
+    criminalOnly?: boolean
 ): Promise<NameSearchResult> {
     try {
         // Get the portal URL from environment variable
@@ -63,6 +64,10 @@ export async function fetchCasesByName(
         searchFormData.append('caseCriteria.SearchCriteria', name);
         searchFormData.append('caseCriteria.SearchByPartyName', 'true');
         searchFormData.append('caseCriteria.SearchCases', 'true');
+
+        if (criminalOnly) {
+            searchFormData.append('caseCriteria.CaseType', 'Criminal and Infraction');
+        }
 
         if (dateOfBirth) {
             searchFormData.append('caseCriteria.DOBFrom', dateOfBirth);

@@ -2,12 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ZipCaseClient } from '../services';
 import { SearchResult } from '../../../shared/types/Search';
 
-const client = new ZipCaseClient();
-
 interface NameSearchParams {
     name: string;
     dateOfBirth?: string;
     soundsLike: boolean;
+    criminalOnly?: boolean;
 }
 
 /**
@@ -17,16 +16,37 @@ interface NameSearchParams {
 export function useNameSearch() {
     const queryClient = useQueryClient();
 
+    // Instantiate client inside the hook so test mocks are picked up
+    const client = new ZipCaseClient();
+
     /**
      * Start polling for name search results.
      * This function is defined inside the hook to properly use React hooks.
      */
     const startPolling = (searchId: string) => {
-        // Create a ref-like object for tracking polling state
+        // Track polling state and previous status counts
         const pollingState = {
             active: true,
             lastChangeTime: Date.now(),
             timeoutId: null as NodeJS.Timeout | null,
+            prevStatusCounts: {} as Record<string, number>,
+        };
+
+        const getStatusCounts = (results: Record<string, SearchResult>) => {
+            const counts: Record<string, number> = {};
+            Object.values(results).forEach(result => {
+                const status = result.zipCase.fetchStatus.status;
+                counts[status] = (counts[status] || 0) + 1;
+            });
+            return counts;
+        };
+
+        const statusCountsEqual = (a: Record<string, number>, b: Record<string, number>) => {
+            const allKeys = new Set([...Object.keys(a), ...Object.keys(b)]);
+            for (const key of allKeys) {
+                if ((a[key] || 0) !== (b[key] || 0)) return false;
+            }
+            return true;
         };
 
         const pollNameSearch = async () => {
@@ -41,7 +61,11 @@ export function useNameSearch() {
                 }
 
                 const results = response.data?.results || {};
-                const hasNewResults = Object.keys(results).length > 0;
+                const statusCounts = getStatusCounts(results);
+                const hasStatusChange = !statusCountsEqual(
+                    statusCounts,
+                    pollingState.prevStatusCounts
+                );
 
                 // Get existing state
                 const existingState = queryClient.getQueryData<ResultsState>(['searchResults']) || {
@@ -50,10 +74,19 @@ export function useNameSearch() {
                     nameSearches: {},
                 };
 
-                // If we have new results, update the state
-                if (hasNewResults) {
-                    // New results found, update the last change time
+                // Update the last polled time
+                const now = new Date().toISOString();
+                let updatedNameSearches = {
+                    ...existingState.nameSearches,
+                    [searchId]: {
+                        ...existingState.nameSearches[searchId],
+                        lastPolled: now,
+                    },
+                };
+
+                if (hasStatusChange) {
                     pollingState.lastChangeTime = Date.now();
+                    pollingState.prevStatusCounts = statusCounts;
 
                     // Merge new results with existing ones
                     const mergedResults = { ...existingState.results, ...results };
@@ -74,13 +107,10 @@ export function useNameSearch() {
                         updatedBatches = [newCaseNumbers, ...updatedBatches];
                     }
 
-                    // Update the last polled time
-                    const now = new Date().toISOString();
-                    const updatedNameSearches = {
-                        ...existingState.nameSearches,
+                    updatedNameSearches = {
+                        ...updatedNameSearches,
                         [searchId]: {
-                            ...existingState.nameSearches[searchId],
-                            lastPolled: now,
+                            ...updatedNameSearches[searchId],
                             lastNewResult: now,
                         },
                     };
@@ -92,17 +122,10 @@ export function useNameSearch() {
                         nameSearches: updatedNameSearches,
                     });
                 } else {
-                    // No new results, just update the lastPolled time
-                    const now = new Date().toISOString();
+                    // No status change, just update the lastPolled time
                     queryClient.setQueryData(['searchResults'], {
                         ...existingState,
-                        nameSearches: {
-                            ...existingState.nameSearches,
-                            [searchId]: {
-                                ...existingState.nameSearches[searchId],
-                                lastPolled: now,
-                            },
-                        },
+                        nameSearches: updatedNameSearches,
                     });
                 }
 
@@ -158,7 +181,8 @@ export function useNameSearch() {
             const response = await client.cases.nameSearch(
                 searchParams.name,
                 searchParams.dateOfBirth,
-                searchParams.soundsLike
+                searchParams.soundsLike,
+                searchParams.criminalOnly
             );
 
             if (!response.success) {
