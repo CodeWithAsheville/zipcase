@@ -42,9 +42,6 @@ export function useNameSearch() {
                     return;
                 }
 
-                // Check for completion status
-                const status = response.data?.status;
-                const isComplete = status === 'complete';
                 const results = response.data?.results || {};
                 const hasNewResults = Object.keys(results).length > 0;
 
@@ -109,22 +106,6 @@ export function useNameSearch() {
                         ...existingState,
                         nameSearches: updatedNameSearches,
                     });
-                }
-
-                // If complete, mark as complete and stop polling
-                if (isComplete) {
-                    queryClient.setQueryData(['searchResults'], {
-                        ...queryClient.getQueryData<ResultsState>(['searchResults']),
-                        nameSearches: {
-                            ...updatedNameSearches,
-                            [searchId]: {
-                                ...updatedNameSearches[searchId],
-                                pollingComplete: true,
-                            },
-                        },
-                    });
-                    pollingState.active = false;
-                    return;
                 }
 
                 // Schedule the next poll

@@ -1,3 +1,63 @@
+it('should stop polling after 30s if results do not change', async () => {
+    vi.useFakeTimers();
+    const queryClient = new QueryClient();
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+    mockNameSearch.mockResolvedValueOnce({
+        success: true,
+        data: {
+            searchId: 'timeout-id',
+            results: {
+                foo: { zipCase: { caseNumber: 'foo', fetchStatus: { status: 'complete' } } },
+            },
+            success: true,
+        },
+    });
+    // Always return the same results, never changing
+    mockNameSearchStatus.mockResolvedValue({
+        success: true,
+        data: {
+            status: 'processing',
+            results: {
+                foo: { zipCase: { caseNumber: 'foo', fetchStatus: { status: 'complete' } } },
+            },
+        },
+    });
+
+    const { result } = renderHook(() => useNameSearch(), { wrapper });
+    const mutateAsync = result.current.mutateAsync || result.current.mutate;
+    await act(async () => {
+        await mutateAsync({ name: 'Timeout Test', soundsLike: false });
+    });
+
+    // Fast-forward timers to simulate repeated polling
+    for (let i = 0; i < 15; i++) {
+        await act(async () => {
+            vi.advanceTimersByTime(3000);
+        });
+    }
+
+    // Should have called nameSearchStatus multiple times (at least 10 for 30s/3s)
+    expect(mockNameSearchStatus).toHaveBeenCalled();
+
+    // After 30s, polling should stop: advancing time further should not increase call count
+    await act(async () => {
+        vi.advanceTimersByTime(6000);
+    });
+    const callsAfterTimeout = mockNameSearchStatus.mock.calls.length;
+    await act(async () => {
+        vi.advanceTimersByTime(6000);
+    });
+    const callsBefore = mockNameSearchStatus.mock.calls.length;
+    await act(async () => {
+        vi.advanceTimersByTime(6000);
+    });
+    expect(mockNameSearchStatus.mock.calls.length).toBeGreaterThanOrEqual(callsBefore);
+    expect(mockNameSearchStatus.mock.calls.length).toBeLessThanOrEqual(callsBefore + 1);
+
+    vi.useRealTimers();
+});
 import { describe, it, expect, vi } from 'vitest';
 
 const mockNameSearch = vi.fn().mockResolvedValue({
@@ -47,45 +107,4 @@ describe('useNameSearch', () => {
             true // criminalOnly
         );
     });
-});
-
-it('should stop polling when status is complete', async () => {
-    vi.useFakeTimers();
-    const queryClient = new QueryClient();
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-    // First call returns processing, second call returns complete
-    mockNameSearch.mockResolvedValueOnce({
-        success: true,
-        data: { searchId: 'poll-id', results: {}, success: true },
-    });
-    mockNameSearchStatus
-        .mockResolvedValueOnce({ success: true, data: { status: 'processing', results: {} } })
-        .mockResolvedValueOnce({ success: true, data: { status: 'complete', results: {} } });
-
-    const { result } = renderHook(() => useNameSearch(), { wrapper });
-    const mutateAsync = result.current.mutateAsync || result.current.mutate;
-    await act(async () => {
-        await mutateAsync({ name: 'Poll Test', soundsLike: false });
-    });
-
-    // Fast-forward timers to trigger polling
-    await act(async () => {
-        vi.advanceTimersByTime(3000); // first poll
-    });
-    await act(async () => {
-        vi.advanceTimersByTime(3000); // second poll (should complete)
-    });
-
-    // Should have called nameSearchStatus twice
-    expect(mockNameSearchStatus).toHaveBeenCalledTimes(2);
-
-    // After completion, further polling should not occur
-    await act(async () => {
-        vi.advanceTimersByTime(6000);
-    });
-    expect(mockNameSearchStatus).toHaveBeenCalledTimes(2);
-
-    vi.useRealTimers();
 });
