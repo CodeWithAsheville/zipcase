@@ -16,6 +16,11 @@ import Clients from '../../pages/Clients';
 import Settings from '../../pages/Settings';
 import Help from '../../pages/Help';
 
+import React, { useContext, useEffect } from 'react';
+import { AppContext } from './AppContext';
+import { useZipCaseApi } from '../../hooks';
+import { useNavigate, useLocation } from 'react-router-dom';
+
 // Create theme for Amplify UI components
 const amplifyTheme = {
     tokens: {
@@ -130,29 +135,71 @@ const components = {
     },
 };
 
+// Onboarding logic: check for portal credentials on login, set firstTimeUser, and redirect if needed
 const App: React.FC = () => {
     return (
         <ThemeProvider theme={{ ...defaultTheme, ...amplifyTheme }}>
             <Authenticator hideSignUp={true} components={components}>
                 <QueryClientProvider client={queryClient}>
-                    <AppContextProvider>
-                        <BrowserRouter>
-                            <Routes>
-                                <Route path="/" element={<Navigate to="/search/case" />} />
-                                <Route element={<Shell />}>
-                                    <Route path="/search" element={<Navigate to="/search/case" />} />
-                                    <Route path="/search/case" element={<Search type="case" />} />
-                                    <Route path="/search/name" element={<Search type="name" />} />
-                                    <Route path="/clients" element={<Clients />} />
-                                    <Route path="/settings" element={<Settings />} />
-                                    <Route path="/help" element={<Help />} />
-                                </Route>
-                            </Routes>
-                        </BrowserRouter>
-                    </AppContextProvider>
+                    <BrowserRouter>
+                        <AppContextProvider>
+                            <OnboardingRouter />
+                        </AppContextProvider>
+                    </BrowserRouter>
                 </QueryClientProvider>
             </Authenticator>
         </ThemeProvider>
+    );
+};
+
+const OnboardingRouter: React.FC = () => {
+    const { dispatch } = useContext(AppContext);
+    const getPortalCredentials = useZipCaseApi(client => client.credentials.get()).callApi;
+    const [checked, setChecked] = React.useState(false);
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    useEffect(() => {
+        // Check onboarding on first mount and on login (when location or credentials change)
+        let cancelled = false;
+        (async () => {
+            try {
+                const resp = await getPortalCredentials();
+                const isFirstTime = !resp.success || !resp.data || !resp.data.username;
+                dispatch({ type: 'SET_FIRST_TIME_USER', payload: isFirstTime });
+                if (isFirstTime && location.pathname.startsWith('/search')) {
+                    navigate('/settings', { replace: true });
+                }
+            } catch {
+                dispatch({ type: 'SET_FIRST_TIME_USER', payload: true });
+                if (location.pathname.startsWith('/search')) {
+                    navigate('/settings', { replace: true });
+                }
+            } finally {
+                if (!cancelled) setChecked(true);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+        // Run on mount and when location changes (to catch initial login)
+    }, [location.pathname, dispatch, getPortalCredentials, navigate]);
+
+    // Wait until onboarding check is done before rendering routes
+    if (!checked) return null;
+
+    return (
+        <Routes>
+            <Route path="/" element={<Navigate to="/search/case" />} />
+            <Route element={<Shell />}>
+                <Route path="/search" element={<Navigate to="/search/case" />} />
+                <Route path="/search/case" element={<Search type="case" />} />
+                <Route path="/search/name" element={<Search type="name" />} />
+                <Route path="/clients" element={<Clients />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/help" element={<Help />} />
+            </Route>
+        </Routes>
     );
 };
 
