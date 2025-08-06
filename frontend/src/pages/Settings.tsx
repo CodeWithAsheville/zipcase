@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SettingsPortalCredentials, SettingsApiKeys } from '../components';
 import { useZipCaseApi } from '../hooks';
+import { AppContext } from '../components/app/AppContext';
 
 const Settings: React.FC = () => {
     const getPortalCredentials = useZipCaseApi(client => client.credentials.get()).callApi;
