@@ -21,7 +21,7 @@ describe('Name Search Handler', () => {
         return {
             body: JSON.stringify(body),
             headers: {
-                'User-Agent': 'Jest Test Environment'
+                'User-Agent': 'Jest Test Environment',
             },
             requestContext: {
                 authorizer: {
@@ -89,13 +89,13 @@ describe('Name Search Handler', () => {
             const event = createEvent({
                 name,
                 dateOfBirth,
-                soundsLike
+                soundsLike,
             });
 
             const mockResults = {
                 searchId: 'test-search-id',
                 results: {},
-                success: true
+                success: true,
             };
 
             // Mock the processor to return our results
@@ -179,9 +179,9 @@ describe('Name Search Handler', () => {
                         zipCase: {
                             caseNumber: '23CR123456',
                             fetchStatus: { status: 'complete' },
-                        }
-                    }
-                }
+                        },
+                    },
+                },
             };
 
             // Mock the processor to return our results
