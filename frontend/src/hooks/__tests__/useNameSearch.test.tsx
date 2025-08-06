@@ -28,7 +28,7 @@ it('should stop polling after 30s if results do not change', async () => {
     const { result } = renderHook(() => useNameSearch(), { wrapper });
     const mutateAsync = result.current.mutateAsync || result.current.mutate;
     await act(async () => {
-        await mutateAsync({ name: 'Timeout Test', soundsLike: false });
+        await mutateAsync({ name: 'Timeout Test', soundsLike: false, criminalOnly: true });
     });
 
     // Fast-forward timers to simulate repeated polling (no status change)
@@ -79,7 +79,7 @@ it('should stop polling after 30s if results do not change', async () => {
     });
 
     await act(async () => {
-        await mutateAsync({ name: 'Status Change Test', soundsLike: false });
+        await mutateAsync({ name: 'Status Change Test', soundsLike: false, criminalOnly: true });
     });
     // Fast-forward timers to simulate polling and status change
     for (let i = 0; i < 20; i++) {

@@ -49,8 +49,8 @@ const QueueClient = {
         name: string,
         userId: string,
         dateOfBirth?: string,
-        soundsLike: boolean = false,
-        criminalOnly?: boolean,
+        soundsLike = false,
+        criminalOnly = true,
         userAgent?: string
     ): Promise<void> {
         const params: SendMessageCommandInput = {

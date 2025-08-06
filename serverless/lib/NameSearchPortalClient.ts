@@ -16,8 +16,8 @@ export async function fetchCasesByName(
     name: string,
     cookieJar: CookieJar,
     dateOfBirth?: string,
-    soundsLike: boolean = false,
-    criminalOnly?: boolean
+    soundsLike = false,
+    criminalOnly = true,
 ): Promise<NameSearchResult> {
     try {
         // Get the portal URL from environment variable

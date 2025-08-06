@@ -112,7 +112,8 @@ describe('Name Search Handler', () => {
                     name,
                     dateOfBirth,
                     soundsLike: true,
-                    userAgent: expect.any(String)
+                    criminalOnly: true,
+                    userAgent: expect.any(String),
                 },
                 'test-user-id'
             );
