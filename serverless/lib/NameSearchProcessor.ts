@@ -13,8 +13,8 @@ export async function processNameSearchRequest(
         name: string;
         dateOfBirth?: string;
         soundsLike: boolean;
+        criminalOnly: boolean;
         userAgent?: string;
-        criminalOnly?: boolean;
     },
     userId: string
 ): Promise<NameSearchResponse> {
@@ -29,6 +29,8 @@ export async function processNameSearchRequest(
             success = false;
             error = `Name could not be parsed from input [${req.name}]`;
         }
+
+        const criminalOnly = typeof req.criminalOnly === 'boolean' ? req.criminalOnly : true;
 
         let userSession = null;
         if (success) {
@@ -47,7 +49,7 @@ export async function processNameSearchRequest(
             normalizedName,
             dateOfBirth: req.dateOfBirth,
             soundsLike: req.soundsLike,
-            criminalOnly: req.criminalOnly,
+            criminalOnly,
             cases: [],
             status: success ? 'queued' : 'failed',
         };
@@ -75,7 +77,7 @@ export async function processNameSearchRequest(
             userId,
             req.dateOfBirth,
             req.soundsLike,
-            req.criminalOnly,
+            criminalOnly,
             req.userAgent
         );
 
@@ -102,6 +104,10 @@ export async function processNameSearchRequest(
                 ...existingSearch,
                 status: 'failed',
                 message: `Error: ${error instanceof Error ? error.message : String(error)}`,
+                criminalOnly:
+                    typeof existingSearch.criminalOnly === 'boolean'
+                        ? existingSearch.criminalOnly
+                        : true,
             });
         }
 
@@ -157,8 +163,8 @@ export async function processNameSearchRecord(
     receiptHandle: string,
     logger: ReturnType<typeof AlertService.forCategory>,
     dateOfBirth?: string,
-    soundsLike: boolean = false,
-    criminalOnly?: boolean,
+    soundsLike = false,
+    criminalOnly = true,
     userAgent?: string
 ): Promise<void> {
     console.log(`Processing name search ${searchId} for user ${userId}`);
@@ -302,4 +308,3 @@ export async function processNameSearchRecord(
         await QueueClient.deleteMessage(receiptHandle, 'search');
     }
 }
-

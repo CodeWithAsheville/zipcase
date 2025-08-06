@@ -65,9 +65,9 @@ describe('NameSearchProcessor', () => {
                 {
                     name: 'Jane Doe',
                     soundsLike: false,
+                    criminalOnly: true,
                     dateOfBirth: '1990-02-02',
                     userAgent: 'test-user-agent',
-                    criminalOnly: true,
                 },
                 'test-user-id'
             );
@@ -112,6 +112,7 @@ describe('NameSearchProcessor', () => {
                     normalizedName: '',
                     status: 'failed',
                     soundsLike: false,
+                    criminalOnly: true,
                     dateOfBirth: undefined,
                     cases: [],
                 }),
@@ -148,6 +149,7 @@ describe('NameSearchProcessor', () => {
                     normalizedName: 'Smith, John',
                     status: 'failed',
                     soundsLike: false,
+                    criminalOnly: true,
                     dateOfBirth: undefined,
                     cases: [],
                 }),
@@ -175,6 +177,7 @@ describe('NameSearchProcessor', () => {
                 {
                     name: 'John Smith',
                     soundsLike: false,
+                    criminalOnly: true,
                     dateOfBirth: '1980-01-01',
                     userAgent: 'test-user-agent',
                 },
@@ -199,6 +202,7 @@ describe('NameSearchProcessor', () => {
                     normalizedName: 'Smith, John',
                     status: 'queued',
                     soundsLike: false,
+                    criminalOnly: true,
                     dateOfBirth: '1980-01-01',
                     cases: [],
                 }),
@@ -212,7 +216,7 @@ describe('NameSearchProcessor', () => {
                 'test-user-id', // userId
                 '1980-01-01', // dateOfBirth
                 false, // soundsLike
-                undefined, // criminalOnly
+                true,  // criminalOnly
                 'test-user-agent' // userAgent
             );
 
@@ -351,7 +355,7 @@ describe('NameSearchProcessor', () => {
                 mockLogger,
                 undefined,        // dateOfBirth
                 false,            // soundsLike
-                undefined,        // criminalOnly
+                true,             // criminalOnly
                 'test-user-agent' // userAgent
             );
 
@@ -393,7 +397,7 @@ describe('NameSearchProcessor', () => {
                 mockLogger,
                 undefined,        // dateOfBirth
                 false,            // soundsLike
-                undefined,        // criminalOnly
+                true,             // criminalOnly
                 'test-user-agent' // userAgent
             );
 
@@ -470,7 +474,7 @@ describe('NameSearchProcessor', () => {
                 mockLogger,
                 undefined,        // dateOfBirth
                 false,            // soundsLike
-                undefined,        // criminalOnly
+                true,             // criminalOnly
                 'test-user-agent' // userAgent
             );
 

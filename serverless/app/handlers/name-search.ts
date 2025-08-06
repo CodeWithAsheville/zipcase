@@ -29,6 +29,7 @@ export const handler: APIGatewayProxyHandler = async event => {
                 name: body.name,
                 dateOfBirth: body.dateOfBirth,
                 soundsLike: !!body.soundsLike,
+                criminalOnly: typeof body.criminalOnly === 'boolean' ? body.criminalOnly : true,
                 userAgent,
             },
             userId

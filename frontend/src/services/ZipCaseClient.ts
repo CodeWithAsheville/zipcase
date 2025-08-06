@@ -86,7 +86,7 @@ export class ZipCaseClient {
             name: string,
             dateOfBirth?: string,
             soundsLike = false,
-            criminalOnly?: boolean
+            criminalOnly = true
         ): Promise<ZipCaseResponse<NameSearchResponse>> => {
             return await this.request<NameSearchResponse>('/name-search', {
                 method: 'POST',

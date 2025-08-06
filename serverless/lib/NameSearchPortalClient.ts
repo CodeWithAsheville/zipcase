@@ -16,8 +16,8 @@ export async function fetchCasesByName(
     name: string,
     cookieJar: CookieJar,
     dateOfBirth?: string,
-    soundsLike: boolean = false,
-    criminalOnly?: boolean
+    soundsLike = false,
+    criminalOnly = true,
 ): Promise<NameSearchResult> {
     try {
         // Get the portal URL from environment variable
@@ -56,7 +56,7 @@ export async function fetchCasesByName(
         });
 
         console.log(
-            `Searching for name: ${name}, DOB: ${dateOfBirth || 'not provided'}, sounds-like: ${soundsLike}`
+            `Searching for name: ${name}, DOB: ${dateOfBirth || 'not provided'}, sounds-like: ${soundsLike}, criminal-only: ${criminalOnly}`
         );
 
         // Step 1: Submit the search form with name parameter

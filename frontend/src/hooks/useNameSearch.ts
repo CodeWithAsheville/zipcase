@@ -6,7 +6,7 @@ interface NameSearchParams {
     name: string;
     dateOfBirth?: string;
     soundsLike: boolean;
-    criminalOnly?: boolean;
+    criminalOnly: boolean;
 }
 
 /**
