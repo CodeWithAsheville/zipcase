@@ -151,4 +151,25 @@ describe('SearchResult component', () => {
         // Cleanup
         consoleErrorSpy.mockRestore();
     });
+
+    it('displays error message for failed cases', () => {
+        const testCase = createTestCase({
+            zipCase: {
+                caseNumber: '22CR123456-789',
+                caseId: undefined,
+                fetchStatus: {
+                    status: 'failed',
+                    message: 'Error: Failed to fetch case data',
+                },
+            },
+        });
+        render(<SearchResult searchResult={testCase} />);
+
+        // Check that error message is displayed
+        expect(screen.getByText('Error: Failed to fetch case data')).toBeInTheDocument();
+
+        // Check that the error message is styled correctly
+        const errorMessage = screen.getByText('Error: Failed to fetch case data');
+        expect(errorMessage).toHaveClass('text-sm', 'text-red-600');
+    });
 });

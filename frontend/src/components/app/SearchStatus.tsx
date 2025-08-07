@@ -35,19 +35,12 @@ const renderSearchStatus = (status: FetchStatus) => {
                 <ClockIcon className="text-gray-300" title="queued" aria-label="queued" />
             );
         case 'failed':
-            return (
-                <div className="flex flex-col items-center">
-                    {renderStatusIcon(
-                        <ExclamationCircleIcon
-                            className="text-red-600"
-                            title="failed"
-                            aria-label="failed"
-                        />
-                    )}
-                    {status.message && (
-                        <p className="mt-2 text-sm text-red-600">{status.message}</p>
-                    )}
-                </div>
+            return renderStatusIcon(
+                <ExclamationCircleIcon
+                    className="text-red-600"
+                    title="failed"
+                    aria-label="failed"
+                />
             );
         case 'notFound':
             return renderStatusIcon(
