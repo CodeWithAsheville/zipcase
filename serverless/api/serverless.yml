@@ -9,6 +9,7 @@ provider:
     deploymentBucket:
         name: zipcase-serverless-deployments-${self:provider.stage}
     environment:
+        STAGE: ${self:provider.stage}
         SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.SearchQueueUrl}
         CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
         PORTAL_URL: ${ssm:/zipcase/portal_url}
