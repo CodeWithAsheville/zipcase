@@ -52,6 +52,13 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                             )} */}
                         </div>
 
+                        {/* Display error message for failed cases */}
+                        {c.fetchStatus.status === 'failed' && c.fetchStatus.message && (
+                            <div className="mt-2">
+                                <p className="text-sm text-red-600">{c.fetchStatus.message}</p>
+                            </div>
+                        )}
+
                         {summary && (
                             <div className="mt-4 space-y-4">
                                 <div className="text-sm text-gray-700">
