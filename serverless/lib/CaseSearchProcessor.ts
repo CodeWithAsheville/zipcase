@@ -56,20 +56,64 @@ export async function processCaseSearchRequest(
             // Check if the case exists and if its status should be preserved
             if (caseNumber in results) {
                 const status = results[caseNumber].zipCase.fetchStatus.status;
+                const caseId = results[caseNumber].zipCase.caseId;
+                const caseSummary = results[caseNumber].caseSummary;
 
-                // Keep the existing status for all these states
-                if (['complete', 'processing', 'found', 'notFound'].includes(status)) {
+                // Special handling for 'complete' status: check if summary exists
+                if (status === 'complete') {
+                    if (caseSummary) {
+                        // Truly complete - has both ID and summary
+                        console.log(`Case ${caseNumber} is complete with summary, preserving`);
+                        continue;
+                    } else if (caseId) {
+                        // Has ID but missing summary - treat as 'found' and queue for data retrieval
+                        console.log(
+                            `Case ${caseNumber} has 'complete' status but missing summary, treating as 'found' and queueing for data retrieval`
+                        );
+
+                        // Update status to 'found' since we need to rebuild the summary
+                        await StorageClient.saveCase({
+                            caseNumber,
+                            caseId,
+                            fetchStatus: { status: 'found' },
+                            lastUpdated: new Date().toISOString(),
+                        });
+
+                        // Also update the results object that will be returned to frontend
+                        results[caseNumber].zipCase.fetchStatus = { status: 'found' };
+                        results[caseNumber].zipCase.lastUpdated = new Date().toISOString();
+
+                        try {
+                            await QueueClient.queueCaseForDataRetrieval(
+                                caseNumber,
+                                caseId,
+                                req.userId
+                            );
+                        } catch (error) {
+                            console.error(
+                                `Error queueing case ${caseNumber} for data retrieval:`,
+                                error
+                            );
+                        }
+                        continue;
+                    } else {
+                        // Complete status but no caseId - this shouldn't happen but fall through to re-queue
+                        console.warn(
+                            `Case ${caseNumber} has 'complete' status but missing caseId, will re-queue for search`
+                        );
+                    }
+                }
+
+                // Keep the existing status for these states
+                if (['processing', 'found', 'notFound'].includes(status)) {
                     console.log(`Case ${caseNumber} already has status ${status}, preserving`);
 
                     // Handle 'found' cases specially - queue directly for data retrieval
-                    if (status === 'found' && results[caseNumber].zipCase.caseId) {
-                        // Skip adding to search queue since it's already found
-                        // Instead, queue directly for data retrieval if not already complete
+                    if (status === 'found' && caseId) {
                         console.log(
                             `Case ${caseNumber} has 'found' status with caseId, queueing for data retrieval`
                         );
                         try {
-                            const caseId = results[caseNumber].zipCase.caseId;
                             if (caseId) {
                                 await QueueClient.queueCaseForDataRetrieval(
                                     caseNumber,
@@ -91,7 +135,7 @@ export async function processCaseSearchRequest(
                     }
 
                     // For other non-terminal states, queue for normal search processing
-                    if (!['complete', 'notFound', 'failed'].includes(status)) {
+                    if (!['notFound', 'failed'].includes(status)) {
                         casesToQueue.push(caseNumber);
                     }
                     continue;
