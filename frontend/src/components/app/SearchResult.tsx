@@ -92,17 +92,20 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                             </div>
                                                         )}
                                                     </div>
-
-                                                    {charge.dispositions && charge.dispositions.length > 0 && (
-                                                        <div className="mt-2">
-                                                            <p className="text-xs font-medium mb-1">Dispositions:</p>
-                                                            {charge.dispositions.map((d, i) => (
-                                                                <div key={i} className="text-xs text-gray-500 ml-2">
-                                                                    {d.description} ({new Date(d.date).toLocaleDateString()})
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                    {charge.dispositions &&
+                                                        charge.dispositions.length > 0 && (
+                                                            <div className="mt-2 text-xs text-gray-600">
+                                                                <span className="font-medium">
+                                                                    Disposition:
+                                                                </span>{' '}
+                                                                {charge.dispositions[0].description}{' '}
+                                                                (
+                                                                {new Date(
+                                                                    charge.dispositions[0].date
+                                                                ).toLocaleDateString()}
+                                                                )
+                                                            </div>
+                                                        )}
                                                 </div>
                                             </div>
                                         ))}
