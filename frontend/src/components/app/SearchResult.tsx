@@ -52,6 +52,13 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                             )} */}
                         </div>
 
+                        {/* Display error message for failed cases */}
+                        {c.fetchStatus.status === 'failed' && c.fetchStatus.message && (
+                            <div className="mt-2">
+                                <p className="text-sm text-red-600">{c.fetchStatus.message}</p>
+                            </div>
+                        )}
+
                         {summary && (
                             <div className="mt-4 space-y-4">
                                 <div className="text-sm text-gray-700">
@@ -61,41 +68,70 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
 
                                 {summary.charges && summary.charges.length > 0 && (
                                     <div className="space-y-3">
-                                        <h4 className="text-sm font-medium text-gray-700">Charges</h4>
+                                        <h4 className="text-sm font-medium text-gray-700">
+                                            Charges
+                                        </h4>
                                         {summary.charges.map((charge, idx) => (
-                                            <div key={idx} className="pl-2 border-l-2 border-gray-200">
+                                            <div
+                                                key={idx}
+                                                className="pl-2 border-l-2 border-gray-200"
+                                            >
                                                 <div className="text-sm text-gray-800">
-                                                    <div className="font-medium mb-1">{charge.description}</div>
+                                                    <div className="font-medium mb-1">
+                                                        {charge.description}
+                                                    </div>
                                                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
                                                         <div>
-                                                            <span className="font-medium">Filed:</span> {new Date(charge.filedDate).toLocaleDateString()}
+                                                            <span className="font-medium">
+                                                                Filed:
+                                                            </span>{' '}
+                                                            {new Date(
+                                                                charge.filedDate
+                                                            ).toLocaleDateString()}
                                                         </div>
                                                         <div>
-                                                            <span className="font-medium">Offense:</span> {new Date(charge.offenseDate).toLocaleDateString()}
+                                                            <span className="font-medium">
+                                                                Offense:
+                                                            </span>{' '}
+                                                            {new Date(
+                                                                charge.offenseDate
+                                                            ).toLocaleDateString()}
                                                         </div>
                                                         <div>
-                                                            <span className="font-medium">Statute:</span> {charge.statute}
+                                                            <span className="font-medium">
+                                                                Statute:
+                                                            </span>{' '}
+                                                            {charge.statute}
                                                         </div>
                                                         <div>
-                                                            <span className="font-medium">Degree:</span> {charge.degree.description}
+                                                            <span className="font-medium">
+                                                                Degree:
+                                                            </span>{' '}
+                                                            {charge.degree.description}
                                                         </div>
                                                         {charge.fine > 0 && (
                                                             <div>
-                                                                <span className="font-medium">Fine:</span> ${charge.fine.toFixed(2)}
+                                                                <span className="font-medium">
+                                                                    Fine:
+                                                                </span>{' '}
+                                                                ${charge.fine.toFixed(2)}
                                                             </div>
                                                         )}
                                                     </div>
-
-                                                    {charge.dispositions && charge.dispositions.length > 0 && (
-                                                        <div className="mt-2">
-                                                            <p className="text-xs font-medium mb-1">Dispositions:</p>
-                                                            {charge.dispositions.map((d, i) => (
-                                                                <div key={i} className="text-xs text-gray-500 ml-2">
-                                                                    {d.description} ({new Date(d.date).toLocaleDateString()})
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                    {charge.dispositions &&
+                                                        charge.dispositions.length > 0 && (
+                                                            <div className="mt-2 text-xs text-gray-600">
+                                                                <span className="font-medium">
+                                                                    Disposition:
+                                                                </span>{' '}
+                                                                {charge.dispositions[0].description}{' '}
+                                                                (
+                                                                {new Date(
+                                                                    charge.dispositions[0].date
+                                                                ).toLocaleDateString()}
+                                                                )
+                                                            </div>
+                                                        )}
                                                 </div>
                                             </div>
                                         ))}

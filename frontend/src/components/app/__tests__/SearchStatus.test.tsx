@@ -28,19 +28,10 @@ describe('SearchStatus component', () => {
         expect(screen.getByLabelText('queued')).toBeInTheDocument();
     });
 
-    it('renders failed status with error icon and message', () => {
-        const errorMessage = 'Error: Failed to fetch case';
-        render(<SearchStatus status={createStatus('failed', errorMessage)} />);
-
-        expect(screen.getByLabelText('failed')).toBeInTheDocument();
-        expect(screen.getByText(errorMessage)).toBeInTheDocument();
-    });
-
-    it('renders failed status without message when none provided', () => {
+    it('renders failed status with error icon', () => {
         render(<SearchStatus status={createStatus('failed')} />);
 
         expect(screen.getByLabelText('failed')).toBeInTheDocument();
-        expect(screen.queryByText(/Error/)).not.toBeInTheDocument();
     });
 
     it('renders notFound status with X icon', () => {
