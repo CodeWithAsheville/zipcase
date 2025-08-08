@@ -1,4 +1,9 @@
-import { CaseSearchRequest, CaseSearchResponse, SearchResult, FetchStatus } from '../../shared/types';
+import {
+    CaseSearchRequest,
+    CaseSearchResponse,
+    SearchResult,
+    FetchStatus,
+} from '../../shared/types';
 import QueueClient from './QueueClient';
 import SearchParser from './SearchParser';
 import StorageClient from './StorageClient';
@@ -11,7 +16,9 @@ import * as cheerio from 'cheerio';
 import UserAgentClient from './UserAgentClient';
 
 // Process API case search requests
-export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<CaseSearchResponse> {
+export async function processCaseSearchRequest(
+    req: CaseSearchRequest
+): Promise<CaseSearchResponse> {
     let caseNumbers = SearchParser.parseSearchInput(req.input);
     caseNumbers = Array.from(new Set(caseNumbers));
 
@@ -199,15 +206,23 @@ export async function processCaseSearchRecord(
                 : `No session CookieJar found for user ${userId}`;
 
             if (message.includes('Invalid Email or password')) {
-                await logger.error('Portal authentication failed during case search: ' + message, undefined, {
-                    userId,
-                    caseNumber
-                });
+                await logger.error(
+                    'Portal authentication failed during case search: ' + message,
+                    undefined,
+                    {
+                        userId,
+                        caseNumber,
+                    }
+                );
             } else {
-                await logger.critical('Portal authentication failed during case search: ' + message, undefined, {
-                    userId,
-                    caseNumber
-                });
+                await logger.critical(
+                    'Portal authentication failed during case search: ' + message,
+                    undefined,
+                    {
+                        userId,
+                        caseNumber,
+                    }
+                );
             }
 
             const failedStatus: FetchStatus = { status: 'failed', message };
@@ -241,7 +256,7 @@ export async function processCaseSearchRecord(
                     {
                         userId,
                         caseNumber,
-                        resource: 'case-search'
+                        resource: 'case-search',
                     }
                 );
 
@@ -295,11 +310,10 @@ export async function processCaseSearchRecord(
     } catch (error) {
         const message = `Unhandled error while searching case ${caseNumber}: ${(error as Error).message}`;
 
-        await logger.error(
-            'Unhandled error during case search',
-            error as Error,
-            { caseNumber, userId }
-        );
+        await logger.error('Unhandled error during case search', error as Error, {
+            caseNumber,
+            userId,
+        });
 
         // Try to save failure status
         try {
