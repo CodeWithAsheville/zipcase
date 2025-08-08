@@ -708,6 +708,8 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
 
         // Process dispositions and link them to charges
         const events = rawData['dispositionEvents']['Events'] || [];
+        console.log(`📋 Found ${events.length} disposition events`);
+
         events
             .filter(
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -719,6 +721,9 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
 
                 // CriminalDispositions are inside the Event property
                 const dispositions = eventData['Event']['CriminalDispositions'] || [];
+                console.log(
+                    `🔍 Processing disposition event with ${dispositions.length} dispositions`
+                );
 
                 // Alert if more than one disposition
                 if (dispositions && dispositions.length > 1) {
@@ -750,6 +755,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                         code: dispTypeId['Word'] || '',
                         description: dispTypeId['Description'] || ''
                     };
+                    console.log(`📝 Created disposition:`, disposition);
 
                     // The charge ID is in ChargeID (note the capitalization)
                     const chargeId = disp['ChargeID'];
@@ -759,7 +765,19 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                         const charge = chargeMap.get(chargeId);
                         if (charge) {
                             charge.dispositions.push(disposition);
+                            console.log(
+                                `✅ Successfully matched disposition "${disposition.description}" to charge "${charge.description}" via ChargeID: ${chargeId}`
+                            );
+                        } else {
+                            console.log(
+                                `❌ No matching charge found for disposition "${disposition.description}" with ChargeID: ${chargeId}. Available charge IDs: [${Array.from(chargeMap.keys()).join(', ')}]`
+                            );
                         }
+                    } else {
+                        console.log(
+                            `⚠️ Invalid ChargeID for disposition "${disposition.description}". ChargeID value:`,
+                            chargeId
+                        );
                     }
                 });
             });
