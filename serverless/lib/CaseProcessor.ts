@@ -673,7 +673,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
             charges: []
         };
 
-        const chargeMap = new Map<string, Charge>();
+        const chargeMap = new Map<number, Charge>();
 
         // Process charges
         const charges = rawData['charges']['Charges'] || [];
@@ -701,7 +701,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
             caseSummary.charges.push(charge);
 
             // Add to map for easy lookup when processing dispositions
-            if (chargeData['ChargeId']) {
+            if (chargeData['ChargeId'] != null) {
                 chargeMap.set(chargeData['ChargeId'], charge);
             }
         });
@@ -761,7 +761,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                     const chargeId = disp['ChargeID'];
 
                     // Find the matching charge and add the disposition
-                    if (chargeId && typeof chargeId === 'string') {
+                    if (chargeId != null) {
                         const charge = chargeMap.get(chargeId);
                         if (charge) {
                             charge.dispositions.push(disposition);
@@ -775,7 +775,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                         }
                     } else {
                         console.log(
-                            `⚠️ Invalid ChargeID for disposition "${disposition.description}". ChargeID value:`,
+                            `⚠️ Missing ChargeID for disposition "${disposition.description}". ChargeID value:`,
                             chargeId
                         );
                     }
