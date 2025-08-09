@@ -119,9 +119,14 @@ const Help: React.FC = () => {
             <section className="space-y-4">
                 <FaqSubheading>🔌 When will the API be available?</FaqSubheading>
                 <Text>
-                    We're targeting June 2025 for the initial API release. This will allow
-                    developers to integrate ZipCase functionality directly into their own
+                    We're working with partners to establish how best to serve needs via the API and
+                    will release the initial version when we have a use case worked out. This will
+                    allow developers to integrate ZipCase functionality directly into their
                     applications.
+                </Text>
+                <Text>
+                    If you have a use case you'd like to discuss, please reach out to{' '}
+                    <TextLink href="mailto:support@zipcase.org">support@zipcase.org</TextLink>.
                 </Text>
             </section>
 
