@@ -40,7 +40,7 @@ const Help: React.FC = () => {
                 <FaqSubheading>👥 Who built this?</FaqSubheading>
                 <Text>
                     ZipCase is an open source project built by the community. It was initially
-                    conceived and built by members of Code with Asheville, a volunteer group of
+                    conceived of and built by members of Code with Asheville, a volunteer group of
                     civic-minded technologists. The source code is available at{' '}
                     <TextLink
                         href="https://github.com/CodeWithAsheville/zipcase"
