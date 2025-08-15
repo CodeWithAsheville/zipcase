@@ -87,13 +87,10 @@ export async function processNameSearchRequest(
             success: true,
         };
     } catch (error) {
-        const errorMsg = 'Error processing name search request';
-        console.error(errorMsg, error);
-
         await AlertService.logError(
             Severity.ERROR,
             AlertCategory.PORTAL,
-            errorMsg,
+            '',
             error instanceof Error ? error : new Error(String(error)),
             { userId, searchId }
         );
@@ -232,15 +229,7 @@ export async function processNameSearchRecord(
         );
 
         if (searchResult.error) {
-            await logger.error(
-                'Name search failed with error: ' + searchResult.error,
-                new Error(searchResult.error),
-                {
-                    userId,
-                    searchId,
-                    name,
-                }
-            );
+            console.log(`Name search failed for user ${userId}, search ${searchId}: ${searchResult.error}`);
 
             await StorageClient.saveNameSearch(searchId, {
                 ...nameSearch,

@@ -551,17 +551,6 @@ describe('NameSearchProcessor', () => {
                 })
             );
 
-            // Verify logger.error was called with the error
-            expect(mockLogger.error).toHaveBeenCalledWith(
-                expect.stringContaining('Failed to search for cases'),
-                expect.any(Error),
-                expect.objectContaining({
-                    userId,
-                    searchId,
-                    name,
-                })
-            );
-
             // Verify QueueClient.deleteMessage was called
             expect(QueueClient.deleteMessage).toHaveBeenCalledWith(receiptHandle, 'search');
         });

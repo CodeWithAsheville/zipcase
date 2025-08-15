@@ -97,7 +97,7 @@ const PortalAuthenticator = {
             await AlertService.logError(
                 Severity.CRITICAL,
                 AlertCategory.SYSTEM,
-                'Missing required environment variable: PORTAL_URL',
+                '',
                 new Error(errorMsg),
                 { resource: 'portal-auth' }
             );
