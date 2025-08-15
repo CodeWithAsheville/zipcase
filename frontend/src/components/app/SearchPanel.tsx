@@ -125,7 +125,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch }) => {
                                         }
                                     }}
                                     disabled={caseSearch.isPending}
-                                    maxLength={5000} // Reasonable limit for text input
+                                    maxLength={50000} // limit for text input
                                 />
                             </div>
                             <div className="mt-3 flex items-center">

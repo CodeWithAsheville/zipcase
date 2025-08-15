@@ -1,4 +1,9 @@
-import { CaseSearchRequest, CaseSearchResponse, SearchResult, FetchStatus } from '../../shared/types';
+import {
+    CaseSearchRequest,
+    CaseSearchResponse,
+    SearchResult,
+    FetchStatus,
+} from '../../shared/types';
 import QueueClient from './QueueClient';
 import SearchParser from './SearchParser';
 import StorageClient from './StorageClient';
@@ -11,7 +16,9 @@ import * as cheerio from 'cheerio';
 import UserAgentClient from './UserAgentClient';
 
 // Process API case search requests
-export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<CaseSearchResponse> {
+export async function processCaseSearchRequest(
+    req: CaseSearchRequest
+): Promise<CaseSearchResponse> {
     let caseNumbers = SearchParser.parseSearchInput(req.input);
     caseNumbers = Array.from(new Set(caseNumbers));
 
@@ -49,20 +56,64 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
             // Check if the case exists and if its status should be preserved
             if (caseNumber in results) {
                 const status = results[caseNumber].zipCase.fetchStatus.status;
+                const caseId = results[caseNumber].zipCase.caseId;
+                const caseSummary = results[caseNumber].caseSummary;
 
-                // Keep the existing status for all these states
-                if (['complete', 'processing', 'found', 'notFound'].includes(status)) {
+                // Special handling for 'complete' status: check if summary exists
+                if (status === 'complete') {
+                    if (caseSummary) {
+                        // Truly complete - has both ID and summary
+                        console.log(`Case ${caseNumber} is complete with summary, preserving`);
+                        continue;
+                    } else if (caseId) {
+                        // Has ID but missing summary - treat as 'found' and queue for data retrieval
+                        console.log(
+                            `Case ${caseNumber} has 'complete' status but missing summary, treating as 'found' and queueing for data retrieval`
+                        );
+
+                        // Update status to 'found' since we need to rebuild the summary
+                        await StorageClient.saveCase({
+                            caseNumber,
+                            caseId,
+                            fetchStatus: { status: 'found' },
+                            lastUpdated: new Date().toISOString(),
+                        });
+
+                        // Also update the results object that will be returned to frontend
+                        results[caseNumber].zipCase.fetchStatus = { status: 'found' };
+                        results[caseNumber].zipCase.lastUpdated = new Date().toISOString();
+
+                        try {
+                            await QueueClient.queueCaseForDataRetrieval(
+                                caseNumber,
+                                caseId,
+                                req.userId
+                            );
+                        } catch (error) {
+                            console.error(
+                                `Error queueing case ${caseNumber} for data retrieval:`,
+                                error
+                            );
+                        }
+                        continue;
+                    } else {
+                        // Complete status but no caseId - this shouldn't happen but fall through to re-queue
+                        console.warn(
+                            `Case ${caseNumber} has 'complete' status but missing caseId, will re-queue for search`
+                        );
+                    }
+                }
+
+                // Keep the existing status for these states
+                if (['processing', 'found', 'notFound'].includes(status)) {
                     console.log(`Case ${caseNumber} already has status ${status}, preserving`);
 
                     // Handle 'found' cases specially - queue directly for data retrieval
-                    if (status === 'found' && results[caseNumber].zipCase.caseId) {
-                        // Skip adding to search queue since it's already found
-                        // Instead, queue directly for data retrieval if not already complete
+                    if (status === 'found' && caseId) {
                         console.log(
                             `Case ${caseNumber} has 'found' status with caseId, queueing for data retrieval`
                         );
                         try {
-                            const caseId = results[caseNumber].zipCase.caseId;
                             if (caseId) {
                                 await QueueClient.queueCaseForDataRetrieval(
                                     caseNumber,
@@ -84,7 +135,7 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                     }
 
                     // For other non-terminal states, queue for normal search processing
-                    if (!['complete', 'notFound', 'failed'].includes(status)) {
+                    if (!['notFound', 'failed'].includes(status)) {
                         casesToQueue.push(caseNumber);
                     }
                     continue;
@@ -199,15 +250,23 @@ export async function processCaseSearchRecord(
                 : `No session CookieJar found for user ${userId}`;
 
             if (message.includes('Invalid Email or password')) {
-                await logger.error('Portal authentication failed during case search: ' + message, undefined, {
-                    userId,
-                    caseNumber
-                });
+                await logger.error(
+                    'Portal authentication failed during case search: ' + message,
+                    undefined,
+                    {
+                        userId,
+                        caseNumber,
+                    }
+                );
             } else {
-                await logger.critical('Portal authentication failed during case search: ' + message, undefined, {
-                    userId,
-                    caseNumber
-                });
+                await logger.critical(
+                    'Portal authentication failed during case search: ' + message,
+                    undefined,
+                    {
+                        userId,
+                        caseNumber,
+                    }
+                );
             }
 
             const failedStatus: FetchStatus = { status: 'failed', message };
@@ -241,7 +300,7 @@ export async function processCaseSearchRecord(
                     {
                         userId,
                         caseNumber,
-                        resource: 'case-search'
+                        resource: 'case-search',
                     }
                 );
 
@@ -295,11 +354,10 @@ export async function processCaseSearchRecord(
     } catch (error) {
         const message = `Unhandled error while searching case ${caseNumber}: ${(error as Error).message}`;
 
-        await logger.error(
-            'Unhandled error during case search',
-            error as Error,
-            { caseNumber, userId }
-        );
+        await logger.error('Unhandled error during case search', error as Error, {
+            caseNumber,
+            userId,
+        });
 
         // Try to save failure status
         try {

@@ -29,9 +29,10 @@ const Help: React.FC = () => {
                 <FaqSubheading>🔍 What is ZipCase?</FaqSubheading>
                 <Text>
                     ZipCase is an alternative way to access public court data quickly. It's designed
-                    for when you already have case numbers, and also has limited support for searching by name.
-                    Simply paste in any text that contains case numbers in standard or LexisNexis formats and
-                    ZipCase will give you fast access to those cases.
+                    for when you already have case numbers, and also has limited support for
+                    searching by name. Simply paste in any text that contains case numbers in
+                    standard or LexisNexis formats and ZipCase will give you fast access to those
+                    cases.
                 </Text>
             </section>
 
@@ -39,7 +40,7 @@ const Help: React.FC = () => {
                 <FaqSubheading>👥 Who built this?</FaqSubheading>
                 <Text>
                     ZipCase is an open source project built by the community. It was initially
-                    conceived and built by members of Code with Asheville, a volunteer group of
+                    conceived of and built by members of Code with Asheville, a volunteer group of
                     civic-minded technologists. The source code is available at{' '}
                     <TextLink
                         href="https://github.com/CodeWithAsheville/zipcase"
@@ -118,9 +119,14 @@ const Help: React.FC = () => {
             <section className="space-y-4">
                 <FaqSubheading>🔌 When will the API be available?</FaqSubheading>
                 <Text>
-                    We're targeting June 2025 for the initial API release. This will allow
-                    developers to integrate ZipCase functionality directly into their own
+                    We're working with partners to establish how best to serve needs via the API and
+                    will release the initial version when we have a use case worked out. This will
+                    allow developers to integrate ZipCase functionality directly into their
                     applications.
+                </Text>
+                <Text>
+                    If you have a use case you'd like to discuss, please reach out to{' '}
+                    <TextLink href="mailto:support@zipcase.org">support@zipcase.org</TextLink>.
                 </Text>
             </section>
 
