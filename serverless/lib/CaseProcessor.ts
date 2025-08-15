@@ -587,7 +587,6 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
 
                 if (response.status !== 200) {
                     const errorMessage = `${key} request failed with status ${response.status}`;
-                    console.error(errorMessage);
 
                     await AlertService.logError(
                         Severity.ERROR,
@@ -607,9 +606,6 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
                 // Just store the raw response data
                 return { key, success: true, data: response.data };
             } catch (error) {
-                const errorMessage = `Error fetching ${key}: ${(error as Error).message}`;
-                console.error(errorMessage);
-
                 await AlertService.logError(
                     Severity.ERROR,
                     AlertCategory.PORTAL,
@@ -621,7 +617,11 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
                     }
                 );
 
-                return { key, success: false, error: errorMessage };
+                return {
+                    key,
+                    success: false,
+                    error: `Error fetching ${key}: ${(error as Error).message}`,
+                };
             }
         });
 
@@ -784,7 +784,6 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
 
         return caseSummary;
     } catch (error) {
-        console.error('Error building case summary:', error);
         AlertService.logError(
             Severity.ERROR,
             AlertCategory.SYSTEM,
@@ -793,7 +792,8 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
             {
                 caseId: rawData['summary']['CaseSummaryHeader']['CaseId'] || 'unknown',
             }
-        ).catch(err => console.error('Failed to log alert:', err));
+        );
+
         return null;
     }
 }

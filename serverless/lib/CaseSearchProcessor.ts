@@ -390,7 +390,7 @@ export async function fetchCaseIdFromPortal(
             await AlertService.logError(
                 Severity.CRITICAL,
                 AlertCategory.SYSTEM,
-                'Missing required environment variable: PORTAL_URL',
+                '',
                 new Error(errorMsg),
                 { resource: 'case-search' }
             );
@@ -437,7 +437,7 @@ export async function fetchCaseIdFromPortal(
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'Case search request failed',
+                '',
                 new Error(errorMessage),
                 {
                     caseNumber,
@@ -466,7 +466,7 @@ export async function fetchCaseIdFromPortal(
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'Case search results request failed',
+                '',
                 new Error(errorMessage),
                 {
                     caseNumber,
@@ -494,7 +494,7 @@ export async function fetchCaseIdFromPortal(
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'Smart Search processing error',
+                '',
                 new Error(errorMessage),
                 {
                     caseNumber,
@@ -538,7 +538,7 @@ export async function fetchCaseIdFromPortal(
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'No case ID found in search results',
+                '',
                 new Error(errorMessage),
                 {
                     caseNumber,
@@ -557,12 +557,10 @@ export async function fetchCaseIdFromPortal(
         console.log(`Found case ID ${caseId} for case number ${caseNumber}`);
         return { caseId };
     } catch (error) {
-        const errorMessage = `Error fetching case ID from portal: ${(error as Error).message}`;
-
         await AlertService.logError(
             Severity.ERROR,
             AlertCategory.PORTAL,
-            'Failed to fetch case ID from portal',
+            '',
             error as Error,
             {
                 caseNumber,
@@ -573,7 +571,7 @@ export async function fetchCaseIdFromPortal(
         return {
             caseId: null,
             error: {
-                message: errorMessage,
+                message: `Error fetching case ID from portal: ${(error as Error).message}`,
                 isSystemError: true,
             },
         };
