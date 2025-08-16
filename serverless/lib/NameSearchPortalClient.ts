@@ -43,7 +43,7 @@ export async function fetchCasesByName(
         const userAgent = await UserAgentClient.getUserAgent('system');
 
         const client = wrapper(axios).create({
-            timeout: 20000,
+            timeout: 60000,
             maxRedirects: 10,
             validateStatus: status => status < 500, // Only reject on 5xx errors
             jar: cookieJar,
