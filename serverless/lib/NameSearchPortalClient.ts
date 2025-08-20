@@ -29,21 +29,21 @@ export async function fetchCasesByName(
             await AlertService.logError(
                 Severity.CRITICAL,
                 AlertCategory.SYSTEM,
-                'Missing required environment variable: PORTAL_URL',
+                '',
                 new Error(errorMsg),
                 { resource: 'name-search' }
             );
 
             return {
                 cases: [] as { caseId: string; caseNumber: string }[],
-                error: 'Portal URL environment variable is not set',
+                error: errorMsg,
             };
         }
 
         const userAgent = await UserAgentClient.getUserAgent('system');
 
         const client = wrapper(axios).create({
-            timeout: 20000,
+            timeout: 60000,
             maxRedirects: 10,
             validateStatus: status => status < 500, // Only reject on 5xx errors
             jar: cookieJar,
@@ -98,7 +98,7 @@ export async function fetchCasesByName(
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'Missing required cookie for name search',
+                '',
                 new Error(errorMessage),
                 {
                     name,
@@ -129,7 +129,7 @@ export async function fetchCasesByName(
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'Name search results request failed',
+                '',
                 new Error(errorMessage),
                 {
                     name,
@@ -150,7 +150,7 @@ export async function fetchCasesByName(
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'Smart Search processing error',
+                '',
                 new Error(errorString),
                 {
                     name,
@@ -199,14 +199,13 @@ export async function fetchCasesByName(
 
                     console.log(`Found ${gridJson.data.Data.length} data entries in grid`);
                 } catch (error) {
-                    console.error('Error parsing grid data:', error);
-
-                    const errorMessage = `Error parsing search results: ${error instanceof Error ? error.message : String(error)}`;
                     await AlertService.logError(
                         Severity.ERROR,
                         AlertCategory.PORTAL,
-                        'Failed to parse search results data',
-                        error instanceof Error ? error : new Error(errorMessage),
+                        '',
+                        error instanceof Error
+                            ? error
+                            : new Error(`Error parsing search results: ${String(error)}`),
                         {
                             name,
                             resource: 'portal-search-results-json',
@@ -215,7 +214,7 @@ export async function fetchCasesByName(
 
                     return {
                         cases: [],
-                        error: errorMessage,
+                        error: `Error parsing search results: ${error instanceof Error ? error.message : String(error)}`,
                     };
                 }
 
@@ -250,8 +249,6 @@ export async function fetchCasesByName(
                 error: undefined,
             };
         } catch (jsonError) {
-            console.error('Error parsing kendoGrid JSON data:', jsonError);
-
             // Log the HTML content for debugging when kendoGrid JSON is not found
             console.log('HTML Response Content Preview:');
             // Log just the first 500 characters to avoid excessive logging
@@ -278,7 +275,7 @@ export async function fetchCasesByName(
             await AlertService.logError(
                 Severity.ERROR,
                 AlertCategory.PORTAL,
-                'JSON parsing failure in name search',
+                '',
                 jsonError instanceof Error ? jsonError : new Error(errorMessage),
                 {
                     name,
@@ -292,22 +289,16 @@ export async function fetchCasesByName(
             };
         }
     } catch (error) {
-        const errorMessage = `Error searching by name: ${(error as Error).message}`;
+        const err = error as Error;
 
-        await AlertService.logError(
-            Severity.ERROR,
-            AlertCategory.PORTAL,
-            'Failed to search by name',
-            error as Error,
-            {
-                name,
-                resource: 'name-search',
-            }
-        );
+        await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', err, {
+            name,
+            resource: 'name-search',
+        });
 
         return {
             cases: [],
-            error: errorMessage,
+            error: `Error searching by name: ${err.message}`,
         };
     }
 }
