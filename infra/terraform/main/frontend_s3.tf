@@ -38,9 +38,7 @@ resource "aws_s3_bucket_cors_configuration" "frontend" {
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET", "HEAD"]
-    allowed_origins = concat(
-      [for domain in local.all_frontend_domains : "https://${domain}"]
-    )
+    allowed_origins = ["https://${local.frontend_domain_name}"]
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }
