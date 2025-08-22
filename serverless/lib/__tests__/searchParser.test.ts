@@ -29,6 +29,9 @@ describe('SearchParser', () => {
             // Example: 5902022CR 714844 => 22CR714844-590
             expect(SearchParser.parseSearchInput('5902022CR 714844')).toEqual(['22CR714844-590']);
             expect(SearchParser.parseSearchInput('5902022CR714844')).toEqual(['22CR714844-590']);
+            expect(SearchParser.parseSearchInput('5902022CR\r\n714844')).toEqual(['22CR714844-590']);
+            expect(SearchParser.parseSearchInput('5902022CR\n714844')).toEqual(['22CR714844-590']);
+            expect(SearchParser.parseSearchInput('5902022CR\t714844')).toEqual(['22CR714844-590']);
             expect(SearchParser.parseSearchInput('1232023CV 123456')).toEqual(['23CV123456-123']);
             expect(SearchParser.parseSearchInput('1232023CRS987654')).toEqual(['23CR987654-123']);
             expect(SearchParser.parseSearchInput('3302021S000986')).toEqual(['21CR000986-330']);
@@ -37,9 +40,12 @@ describe('SearchParser', () => {
         it('should handle multiple Lexis Nexis case numbers', () => {
             expect(
                 SearchParser.parseSearchInput(
-                    '5902022CR 714844 5902022CR714844 3302021S000986 1232023CV 123456 1232023CRS987654'
+                    '5902022CR 714844 5902022CR714844 5902022CR\r\n714844 5902022CR\n714844 5902022CR\t714844 3302021S000986 1232023CV 123456 1232023CRS987654'
                 )
             ).toEqual([
+                '22CR714844-590',
+                '22CR714844-590',
+                '22CR714844-590',
                 '22CR714844-590',
                 '22CR714844-590',
                 '21CR000986-330',
