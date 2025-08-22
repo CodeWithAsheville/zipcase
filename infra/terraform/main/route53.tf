@@ -1,5 +1,5 @@
 locals {
-  # Define API domains according to the new structure
+  # Define API domains
   api_domains = {
     "api" = var.environment == "prod" ? "api.${var.domain}" : "api-dev.${var.domain}",
     "app-api" = var.environment == "prod" ? "app-api.${var.domain}" : "app-api-dev.${var.domain}"

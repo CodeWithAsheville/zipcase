@@ -7,7 +7,7 @@ const SearchParser = {
         // Convert any Lexis Nexis formatted case numbers to standard format
         // Example: 5902022CR 714844 => 22CR714844-590
         const normalized = input.replace(
-            /(?<county_code>\d{3})\d{2}(?<year>\d{2})(?<case_type>[A-Za-z]{2})?[ S]?(?<case_no>\d{6})/g,
+            /(?<county_code>\d{3})(?:19|20)(?<year>\d{2})(?<case_type>[A-Za-z]{2})?(?:S|\s\n?)?(?<case_no>\d{6})/g,
             (_match, ...args) => {
                 const groups = args[args.length - 1];
                 const caseType = groups.case_type || 'CR';

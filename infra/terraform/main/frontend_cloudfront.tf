@@ -1,12 +1,6 @@
 locals {
-  # Primary domain for the frontend application
+  # Primary domain for the frontend application (we used to have a separate, legacy dev domain)
   frontend_domain_name = var.environment == "prod" ? "app.${var.domain}" : "app-dev.${var.domain}"
-
-  # For backward compatibility in dev environment
-  frontend_additional_domains = var.environment == "prod" ? [] : ["dev.${var.domain}"]
-
-  # All frontend domains (primary + additional)
-  all_frontend_domains = concat([local.frontend_domain_name], local.frontend_additional_domains)
 }
 
 # Provider specifically for us-east-1 resources (required for CloudFront certificates)
@@ -19,7 +13,7 @@ provider "aws" {
 resource "aws_acm_certificate" "cloudfront_cert" {
   provider                  = aws.us-east-1
   domain_name               = local.frontend_domain_name
-  subject_alternative_names = local.frontend_additional_domains
+  subject_alternative_names = []
   validation_method         = "DNS"
 
   lifecycle {
@@ -37,9 +31,7 @@ resource "aws_route53_record" "cloudfront_cert_validation" {
     }
   }
 
-  # Select the appropriate zone based on the domain name
-  zone_id = each.key == local.frontend_domain_name ? aws_route53_zone.frontend_primary.zone_id : aws_route53_zone.frontend_legacy[0].zone_id
-
+  zone_id = aws_route53_zone.frontend_primary.zone_id
   name    = each.value.name
   type    = each.value.type
   records = [each.value.record]
@@ -66,7 +58,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # US, Canada, Europe
-  aliases             = local.all_frontend_domains
+  aliases             = [local.frontend_domain_name]
   wait_for_deployment = false
 
   origin {
@@ -149,30 +141,10 @@ resource "aws_route53_zone" "frontend_primary" {
   name = local.frontend_domain_name
 }
 
-# Create Route53 zone for the legacy dev domain (if applicable)
-resource "aws_route53_zone" "frontend_legacy" {
-  count = var.environment == "prod" ? 0 : 1
-  name  = "dev.${var.domain}"
-}
-
 # Update Route53 record for the primary domain to point to CloudFront
 resource "aws_route53_record" "frontend_primary" {
   zone_id = aws_route53_zone.frontend_primary.zone_id
   name    = local.frontend_domain_name
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.frontend.domain_name
-    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-# Create Route53 record for the legacy dev domain
-resource "aws_route53_record" "frontend_legacy" {
-  count   = var.environment == "prod" ? 0 : 1
-  zone_id = aws_route53_zone.frontend_legacy[0].zone_id
-  name    = "dev.${var.domain}"
   type    = "A"
 
   alias {
