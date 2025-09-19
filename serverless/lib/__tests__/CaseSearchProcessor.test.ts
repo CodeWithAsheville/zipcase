@@ -196,7 +196,7 @@ describe('CaseSearchProcessor', () => {
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
         });
 
-        it('should handle cases with processing status (preserve status, do not re-queue)', async () => {
+        it('should handle cases with processing status (should re-queue for processing)', async () => {
             const processingCase: SearchResult = {
                 zipCase: {
                     caseNumber: '22CR123456-789',
@@ -213,8 +213,8 @@ describe('CaseSearchProcessor', () => {
 
             const result = await processCaseSearchRequest(baseRequest);
 
-            // Should NOT queue for search (processing cases are left alone)
-            expect(mockQueueClient.queueCasesForSearch).not.toHaveBeenCalled();
+            // Should queue for search (processing cases get re-queued in case they're stuck)
+            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
             expect(mockStorageClient.saveCase).not.toHaveBeenCalled();
         });

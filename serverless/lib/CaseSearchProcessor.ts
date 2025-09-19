@@ -53,10 +53,6 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                 const caseSummary = results[caseNumber].caseSummary;
 
                 switch (status) {
-                    case 'processing':
-                        // Processing cases should be left alone - don't re-queue
-                        console.log(`Case ${caseNumber} already has status ${status}, preserving`);
-                        continue;
                     case 'complete':
                         if (caseSummary) {
                             // Truly complete - has both ID and summary
@@ -114,6 +110,9 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                     case 'notFound':
                     case 'failed':
                     case 'queued':
+                    case 'processing':
+                        // We requeue 'queued' and 'processing' because they might be stuck.
+                        // When they get picked up from the queue, we'll see whether they became 'complete' in the mean time and exit early.
                         casesToQueue.push(caseNumber);
                 }
             } else {
