@@ -4,6 +4,7 @@ import {
     DynamoDBDocumentClient,
     GetCommand,
     PutCommand,
+    DeleteCommand as DynamoDBDeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
 import {
@@ -228,6 +229,225 @@ async function encryptValue(value: string): Promise<string> {
 async function decryptValue(encryptedValue: string): Promise<string> {
     const result = await kms.send(new DecryptCommand({ CiphertextBlob: Buffer.from(encryptedValue, 'base64') }));
     return Buffer.from(result.Plaintext!).toString();
+}
+
+/**
+ * Validates and processes a case summary, handling corruption detection and cleanup
+ * @param caseNumber - The case number being processed
+ * @param caseData - The case data from DynamoDB
+ * @param summaryItem - The raw summary item from DynamoDB (may be undefined)
+ * @returns The validated summary or undefined if corrupted/invalid
+ */
+export async function validateAndProcessCaseSummary(
+    caseNumber: string,
+    caseData: ZipCase,
+    summaryItem: Record<string, unknown> | undefined
+): Promise<CaseSummary | undefined> {
+    let summary: CaseSummary | undefined = undefined;
+
+    try {
+        // Attempt to parse the summary data
+        if (summaryItem) {
+            summary = summaryItem as unknown as CaseSummary;
+
+            // Validate that the summary has the required structure
+            if (summary && typeof summary === 'object') {
+                if (!summary.caseName || !summary.court || !Array.isArray(summary.charges)) {
+                    console.warn(`Corrupted summary detected for case ${caseNumber}, will be cleaned up`);
+                    summary = undefined;
+
+                    // Mark this case for cleanup in the background with single retry
+                    setImmediate(async () => {
+                        try {
+                            // Check if this is already a reprocessing attempt
+                            const isReprocessing = caseData.fetchStatus.status === 'reprocessing';
+                            const tryCount = isReprocessing && 'tryCount' in caseData.fetchStatus ? caseData.fetchStatus.tryCount : 0;
+
+                            if (tryCount >= 1) {
+                                // Already tried reprocessing once, mark as permanently failed
+                                console.error(
+                                    `Case ${caseNumber} still corrupted after reprocessing attempt, marking as permanently failed`
+                                );
+
+                                // Raise alert for persistent corruption
+                                const AlertService = await import('./AlertService');
+                                await AlertService.default.logError(
+                                    AlertService.Severity.ERROR,
+                                    AlertService.AlertCategory.DATABASE,
+                                    'Persistent case summary corruption detected',
+                                    new Error(
+                                        `Case ${caseNumber} has corrupted summary data that persists after reprocessing. Summary validation failed: missing required fields (caseName: ${!!summary?.caseName}, court: ${!!summary?.court}, charges array: ${Array.isArray(summary?.charges)})`
+                                    ),
+                                    {
+                                        caseNumber,
+                                        caseId: caseData.caseId,
+                                        tryCount,
+                                        summaryFields: {
+                                            hasCaseName: !!summary?.caseName,
+                                            hasCourt: !!summary?.court,
+                                            hasChargesArray: Array.isArray(summary?.charges),
+                                            chargesLength: Array.isArray(summary?.charges) ? summary.charges.length : 'N/A',
+                                        },
+                                    }
+                                );
+
+                                // Mark as permanently failed
+                                await StorageClient.saveCase({
+                                    ...caseData,
+                                    fetchStatus: {
+                                        status: 'failed',
+                                        message: 'Persistent data corruption detected after reprocessing attempt',
+                                    },
+                                    lastUpdated: new Date().toISOString(),
+                                });
+                                return;
+                            }
+
+                            console.log(`Cleaning up corrupted summary for ${caseNumber} and marking for reprocessing`);
+
+                            // Raise alert for initial corruption detection
+                            const AlertService = await import('./AlertService');
+                            await AlertService.default.logError(
+                                AlertService.Severity.WARNING,
+                                AlertService.AlertCategory.DATABASE,
+                                'Case summary corruption detected, attempting reprocessing',
+                                new Error(
+                                    `Case ${caseNumber} has corrupted summary data. Summary validation failed: missing required fields (caseName: ${!!summary?.caseName}, court: ${!!summary?.court}, charges array: ${Array.isArray(summary?.charges)})`
+                                ),
+                                {
+                                    caseNumber,
+                                    caseId: caseData.caseId,
+                                    action: 'reprocessing',
+                                    summaryFields: {
+                                        hasCaseName: !!summary?.caseName,
+                                        hasCourt: !!summary?.court,
+                                        hasChargesArray: Array.isArray(summary?.charges),
+                                        chargesLength: Array.isArray(summary?.charges) ? summary.charges.length : 'N/A',
+                                    },
+                                }
+                            );
+
+                            // Delete the corrupted summary
+                            await StorageClient.deleteCaseSummary(caseNumber);
+
+                            // Update case status to 'reprocessing' to trigger immediate reprocessing
+                            if (caseData.caseId) {
+                                await StorageClient.saveCase({
+                                    ...caseData,
+                                    fetchStatus: { status: 'reprocessing', tryCount: tryCount + 1 },
+                                    lastUpdated: new Date().toISOString(),
+                                });
+
+                                console.log(`Case ${caseNumber} marked for reprocessing due to corrupted summary`);
+                            }
+                        } catch (cleanupError) {
+                            console.error(`Failed to cleanup corrupted summary for case ${caseNumber}:`, cleanupError);
+
+                            // Alert on cleanup failure too
+                            try {
+                                const AlertService = await import('./AlertService');
+                                await AlertService.default.logError(
+                                    AlertService.Severity.ERROR,
+                                    AlertService.AlertCategory.SYSTEM,
+                                    'Failed to cleanup corrupted case summary',
+                                    cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)),
+                                    { caseNumber, caseId: caseData.caseId }
+                                );
+                            } catch (alertError) {
+                                console.error('Failed to send cleanup failure alert:', alertError);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        console.error(`Error processing summary for case ${caseNumber}:`, error);
+        summary = undefined;
+
+        // Also trigger cleanup for parsing errors with single retry
+        setImmediate(async () => {
+            try {
+                // Check if this is already a reprocessing attempt
+                const isReprocessing = caseData.fetchStatus.status === 'reprocessing';
+                const tryCount = isReprocessing && 'tryCount' in caseData.fetchStatus ? caseData.fetchStatus.tryCount : 0;
+
+                if (tryCount >= 1) {
+                    console.error(`Case ${caseNumber} parsing errors persist after reprocessing, marking as permanently failed`);
+
+                    // Raise alert for persistent parsing failure
+                    const AlertService = await import('./AlertService');
+                    await AlertService.default.logError(
+                        AlertService.Severity.ERROR,
+                        AlertService.AlertCategory.DATABASE,
+                        'Persistent case summary parsing failure',
+                        error instanceof Error ? error : new Error(String(error)),
+                        {
+                            caseNumber,
+                            caseId: caseData.caseId,
+                            tryCount,
+                            originalError: error instanceof Error ? error.message : String(error),
+                        }
+                    );
+
+                    await StorageClient.saveCase({
+                        ...caseData,
+                        fetchStatus: {
+                            status: 'failed',
+                            message: 'Persistent summary parsing failure after reprocessing attempt',
+                        },
+                        lastUpdated: new Date().toISOString(),
+                    });
+                    return;
+                }
+
+                // Alert for initial parsing error
+                const AlertService = await import('./AlertService');
+                await AlertService.default.logError(
+                    AlertService.Severity.WARNING,
+                    AlertService.AlertCategory.DATABASE,
+                    'Case summary parsing error detected, attempting reprocessing',
+                    error instanceof Error ? error : new Error(String(error)),
+                    {
+                        caseNumber,
+                        caseId: caseData.caseId,
+                        action: 'reprocessing',
+                        originalError: error instanceof Error ? error.message : String(error),
+                    }
+                );
+
+                await StorageClient.deleteCaseSummary(caseNumber);
+
+                if (caseData.caseId) {
+                    await StorageClient.saveCase({
+                        ...caseData,
+                        fetchStatus: { status: 'reprocessing', tryCount: tryCount + 1 },
+                        lastUpdated: new Date().toISOString(),
+                    });
+
+                    console.log(`Case ${caseNumber} marked for reprocessing due to summary parsing error`);
+                }
+            } catch (cleanupError) {
+                console.error(`Failed to cleanup corrupted summary for case ${caseNumber}:`, cleanupError);
+
+                // Alert on cleanup failure
+                try {
+                    const AlertService = await import('./AlertService');
+                    await AlertService.default.logError(
+                        AlertService.Severity.ERROR,
+                        AlertService.AlertCategory.SYSTEM,
+                        'Failed to cleanup case summary after parsing error',
+                        cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)),
+                        { caseNumber, caseId: caseData.caseId }
+                    );
+                } catch (alertError) {
+                    console.error('Failed to send cleanup failure alert:', alertError);
+                }
+            }
+        });
+    }
+
+    return summary;
 }
 
 const StorageClient = {
@@ -488,26 +708,50 @@ const StorageClient = {
 
         const results: Record<string, SearchResult> = {};
 
-        caseNumbers.forEach(caseNumber => {
-            const { caseKey, summaryKey } = keyMapping[caseNumber];
-            const caseItem = resultMap.get(caseKey);
+        // Process all cases in parallel, allowing individual failures
+        const caseResults = await Promise.allSettled(
+            caseNumbers.map(async caseNumber => {
+                try {
+                    const { caseKey, summaryKey } = keyMapping[caseNumber];
+                    const caseItem = resultMap.get(caseKey);
 
-            if (!caseItem) {
-                return;
+                    if (!caseItem) {
+                        return null;
+                    }
+
+                    const caseData = caseItem as unknown as ZipCase;
+                    if (!caseData) {
+                        return null;
+                    }
+
+                    const summaryItem = resultMap.get(summaryKey);
+
+                    // Use the dedicated validation function to process the summary
+                    const summary = await validateAndProcessCaseSummary(caseNumber, caseData, summaryItem);
+
+                    return {
+                        caseNumber,
+                        result: {
+                            zipCase: caseData,
+                            caseSummary: summary,
+                        },
+                    };
+                } catch (error) {
+                    console.error(`Error processing case ${caseNumber} in getSearchResults:`, error);
+                    // Return null so this case is excluded from results rather than failing the entire operation
+                    return null;
+                }
+            })
+        );
+
+        // Process the settled results
+        caseResults.forEach(settledResult => {
+            if (settledResult.status === 'fulfilled' && settledResult.value) {
+                const { caseNumber, result } = settledResult.value;
+                results[caseNumber] = result;
+            } else if (settledResult.status === 'rejected') {
+                console.error('Case processing failed:', settledResult.reason);
             }
-
-            const caseData = caseItem as unknown as ZipCase;
-            if (!caseData) {
-                return;
-            }
-
-            const summaryItem = resultMap.get(summaryKey);
-            const summary = summaryItem as unknown as CaseSummary;
-
-            results[caseNumber] = {
-                zipCase: caseData,
-                caseSummary: summary ?? undefined,
-            };
         });
 
         return results;
@@ -520,6 +764,25 @@ const StorageClient = {
 
     async saveCaseSummary(caseNumber: string, caseSummary: CaseSummary): Promise<void> {
         await save(Key.Case(caseNumber).SUMMARY, caseSummary);
+    },
+
+    async deleteCaseSummary(caseNumber: string): Promise<void> {
+        const dynamoClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-2' }));
+
+        const key = Key.Case(caseNumber).SUMMARY;
+
+        try {
+            await dynamoClient.send(
+                new DynamoDBDeleteCommand({
+                    TableName: process.env.DYNAMODB_TABLE_NAME,
+                    Key: key,
+                })
+            );
+            console.log(`Deleted corrupted summary for case ${caseNumber}`);
+        } catch (error) {
+            console.error(`Failed to delete summary for case ${caseNumber}:`, error);
+            throw error;
+        }
     },
 };
 

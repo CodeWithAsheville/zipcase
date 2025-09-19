@@ -148,6 +148,30 @@ describe('CaseSearchProcessor', () => {
             expect(mockQueueClient.queueCasesForSearch).not.toHaveBeenCalled();
         });
 
+        it('should handle cases with reprocessing status and caseId (should queue for data retrieval)', async () => {
+            const reprocessingCase: SearchResult = {
+                zipCase: {
+                    caseNumber: '22CR123456-789',
+                    caseId: 'test-case-id',
+                    fetchStatus: { status: 'reprocessing', tryCount: 1 },
+                    lastUpdated: new Date().toISOString(),
+                } as ZipCase,
+                caseSummary: undefined,
+            };
+
+            mockStorageClient.getSearchResults.mockResolvedValue({
+                '22CR123456-789': reprocessingCase,
+            });
+
+            const result = await processCaseSearchRequest(baseRequest);
+
+            // Should queue for data retrieval like 'found' status
+            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith('22CR123456-789', 'test-case-id', 'test-user-id');
+
+            // Should not queue for search
+            expect(mockQueueClient.queueCasesForSearch).not.toHaveBeenCalled();
+        });
+
         it('should handle cases with found status but missing caseId', async () => {
             const foundCaseNoCaseId: SearchResult = {
                 zipCase: {
