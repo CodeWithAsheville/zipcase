@@ -172,7 +172,7 @@ describe('CaseSearchProcessor', () => {
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
         });
 
-        it('should handle cases with processing status (should queue for search)', async () => {
+        it('should handle cases with processing status (preserve status, do not re-queue)', async () => {
             const processingCase: SearchResult = {
                 zipCase: {
                     caseNumber: '22CR123456-789',
@@ -189,17 +189,13 @@ describe('CaseSearchProcessor', () => {
 
             const result = await processCaseSearchRequest(baseRequest);
 
-            // Should queue for search (processing status gets re-queued)
-            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(
-                ['22CR123456-789'],
-                'test-user-id',
-                'Test Agent'
-            );
+            // Should NOT queue for search (processing cases are left alone)
+            expect(mockQueueClient.queueCasesForSearch).not.toHaveBeenCalled();
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
             expect(mockStorageClient.saveCase).not.toHaveBeenCalled();
         });
 
-        it('should handle cases with notFound status (preserve status)', async () => {
+        it('should handle cases with notFound status (should queue for search retry)', async () => {
             const notFoundCase: SearchResult = {
                 zipCase: {
                     caseNumber: '22CR123456-789',
@@ -216,9 +212,9 @@ describe('CaseSearchProcessor', () => {
 
             const result = await processCaseSearchRequest(baseRequest);
 
-            // Should preserve status and not queue anything
+            // Should queue for search retry, in case the record is not actually in-queue
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
-            expect(mockQueueClient.queueCasesForSearch).not.toHaveBeenCalled();
+            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
             expect(mockStorageClient.saveCase).not.toHaveBeenCalled();
         });
 

@@ -111,7 +111,7 @@ export function useConsolidatedPolling() {
             return [];
         }
 
-        const terminalStates = ['complete', 'notFound', 'failed'];
+        const terminalStates = ['complete', 'failed'];
 
         return Object.values(state.results)
             .filter(result => {
