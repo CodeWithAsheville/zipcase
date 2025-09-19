@@ -4,6 +4,7 @@ export type FetchStatus =
     | { status: 'found' } // New status - caseId exists but case data not yet fetched
     | { status: 'notFound' }
     | { status: 'processing' }
+    | { status: 'reprocessing'; tryCount: number }
     | { status: 'queued' };
 
 export interface ChargeDegree {

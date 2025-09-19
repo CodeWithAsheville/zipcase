@@ -18,6 +18,7 @@ const renderStatusIcon = (icon: React.ReactNode) => {
 const renderSearchStatus = (status: FetchStatus) => {
     switch (status.status) {
         case 'processing':
+        case 'reprocessing':
             return renderStatusIcon(
                 <div title="processing" aria-label="processing">
                     <Puff height="100%" width="100%" color="#4fa94d" ariaLabel="puff-loading" />

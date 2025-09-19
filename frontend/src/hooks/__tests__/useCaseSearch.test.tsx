@@ -78,6 +78,40 @@ describe('useSearchResults', () => {
         // Should return the data we put in the cache
         expect(result.current.data).toEqual(testData);
     });
+
+    it('should handle cases with reprocessing status in cached data', () => {
+        const testData = {
+            results: {
+                case123: {
+                    zipCase: {
+                        caseNumber: 'case123',
+                        fetchStatus: { status: 'reprocessing', tryCount: 1 },
+                    },
+                },
+                case456: {
+                    zipCase: {
+                        caseNumber: 'case456',
+                        fetchStatus: { status: 'complete' },
+                    },
+                },
+            },
+            searchBatches: [['case123', 'case456']],
+        };
+
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(['searchResults'], testData);
+        const wrapper = createWrapper(queryClient);
+
+        const { result } = renderHook(() => useSearchResults(), { wrapper });
+
+        // Should return the data including reprocessing status
+        expect(result.current.data).toEqual(testData);
+        expect(result.current.data.results.case123.zipCase.fetchStatus.status).toBe('reprocessing');
+        const reprocessingStatus = result.current.data.results.case123.zipCase.fetchStatus;
+        if (reprocessingStatus.status === 'reprocessing') {
+            expect(reprocessingStatus.tryCount).toBe(1);
+        }
+    });
 });
 
 // Instead of mocking ZipCaseClient directly, we'll test the hook behavior

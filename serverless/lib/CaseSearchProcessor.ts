@@ -93,6 +93,7 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                         }
                         break;
                     case 'found':
+                    case 'reprocessing':
                         console.log(`Case ${caseNumber} already has status ${status}, preserving`);
 
                         // Queue for data retrieval if we have caseId
@@ -105,7 +106,7 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                             }
                             continue;
                         } else {
-                            // 'found' cases without caseId should be re-queued for search
+                            // 'found' or 'reprocessing' cases without caseId should be re-queued for search
                             console.log(`Case ${caseNumber} has '${status}' status but missing caseId, re-queueing for search`);
                             casesToQueue.push(caseNumber);
                         }
