@@ -100,10 +100,7 @@ describe('AwsWafChallengeSolver', () => {
                 send: jest.fn().mockRejectedValue(new Error('SSM error')),
             }));
 
-            const result = await AwsWafChallengeSolver.solveChallenge(
-                'https://example.com',
-                '<html>challenge content</html>'
-            );
+            const result = await AwsWafChallengeSolver.solveChallenge('https://example.com', '<html>challenge content</html>');
 
             expect(result.success).toBe(false);
             expect(result.error).toBeDefined();

@@ -93,9 +93,7 @@ describe('webhook handler', () => {
             expect(response).toBeDefined();
             if (response) {
                 expect(response.statusCode).toBe(400);
-                expect(JSON.parse(response.body).error).toBe(
-                    'Webhook shared secret must not exceed 128 characters'
-                );
+                expect(JSON.parse(response.body).error).toBe('Webhook shared secret must not exceed 128 characters');
             }
         });
 
@@ -113,9 +111,7 @@ describe('webhook handler', () => {
             expect(response).toBeDefined();
             if (response) {
                 expect(response.statusCode).toBe(404);
-                expect(JSON.parse(response.body).error).toBe(
-                    'API key not found. Please create an API key first.'
-                );
+                expect(JSON.parse(response.body).error).toBe('API key not found. Please create an API key first.');
             }
         });
 
@@ -161,11 +157,7 @@ describe('webhook handler', () => {
             expect(response).toBeDefined();
             if (response) {
                 expect(response.statusCode).toBe(201); // Created
-                expect(mockSaveWebhook).toHaveBeenCalledWith(
-                    'test-user-id',
-                    'https://example.com/webhook',
-                    'secret123'
-                );
+                expect(mockSaveWebhook).toHaveBeenCalledWith('test-user-id', 'https://example.com/webhook', 'secret123');
             }
         });
 
@@ -190,11 +182,7 @@ describe('webhook handler', () => {
             expect(response).toBeDefined();
             if (response) {
                 expect(response.statusCode).toBe(200); // OK
-                expect(mockSaveWebhook).toHaveBeenCalledWith(
-                    'test-user-id',
-                    'https://example.com/new-webhook',
-                    'new-secret'
-                );
+                expect(mockSaveWebhook).toHaveBeenCalledWith('test-user-id', 'https://example.com/new-webhook', 'new-secret');
             }
         });
 

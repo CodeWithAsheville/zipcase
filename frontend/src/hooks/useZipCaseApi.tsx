@@ -9,10 +9,7 @@ const client = new ZipCaseClient();
  * @param endpointFn Function that takes a client and returns a promise with ZipCaseResponse
  * @param executeOnMount Whether to execute the API call when component mounts (defaults to false)
  */
-export function useZipCaseApi<T>(
-    endpointFn: (client: ZipCaseClient) => Promise<ZipCaseResponse<T>>,
-    executeOnMount?: boolean
-) {
+export function useZipCaseApi<T>(endpointFn: (client: ZipCaseClient) => Promise<ZipCaseResponse<T>>, executeOnMount?: boolean) {
     // Default executeOnMount to false for safety
     const shouldExecuteOnMount = executeOnMount ?? false;
 

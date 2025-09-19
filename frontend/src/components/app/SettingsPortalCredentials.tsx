@@ -54,8 +54,7 @@ function reducer(state: State, action: Action): State {
                 ...state,
                 username: action.payload,
                 validationState:
-                    state.validationState.status !== 'idle' &&
-                    state.validationState.status !== 'invalid'
+                    state.validationState.status !== 'idle' && state.validationState.status !== 'invalid'
                         ? { status: 'idle' }
                         : state.validationState,
             };
@@ -64,8 +63,7 @@ function reducer(state: State, action: Action): State {
                 ...state,
                 password: action.payload,
                 validationState:
-                    state.validationState.status !== 'idle' &&
-                    state.validationState.status !== 'invalid'
+                    state.validationState.status !== 'idle' && state.validationState.status !== 'invalid'
                         ? { status: 'idle' }
                         : state.validationState,
             };
@@ -131,15 +129,11 @@ const renderCredentialsValidationState = (validationState: CredentialValidationS
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4 w-full">
                     <div className="flex">
                         <div className="flex-shrink-0">
-                            <ExclamationCircleIcon
-                                className="h-5 w-5 text-yellow-400"
-                                aria-hidden="true"
-                            />
+                            <ExclamationCircleIcon className="h-5 w-5 text-yellow-400" aria-hidden="true" />
                         </div>
                         <div className="ml-3">
                             <p className="text-sm text-yellow-700">
-                                Your credentials appear to be invalid. Please update them to
-                                continue accessing court portal data.
+                                Your credentials appear to be invalid. Please update them to continue accessing court portal data.
                             </p>
                         </div>
                     </div>
@@ -151,9 +145,7 @@ const renderCredentialsValidationState = (validationState: CredentialValidationS
     }
 };
 
-const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
-    portalCredentials: credentialsQuery,
-}) => {
+const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({ portalCredentials: credentialsQuery }) => {
     const { data, isLoading, error, status } = credentialsQuery;
     const originalCredentialsRef = useRef<{ username: string; isBad: boolean } | null>(null);
     const [state, dispatch] = useReducer(reducer, initialState());
@@ -192,15 +184,17 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
         client.credentials.set({
             username: state.username,
             password: state.password,
-        })
-    ).callApi;
+        })).callApi;
 
     // Create a mutation for saving credentials
     const saveCredentialsMutation = useMutation({
         mutationFn: async () => {
             const response = await savePortalCredentials();
             if (!response.success) {
-                throw new Error(response.error || 'Failed to validate credentials. If your portal username and password are correct, please contact support.');
+                throw new Error(
+                    response.error ||
+                        'Failed to validate credentials. If your portal username and password are correct, please contact support.'
+                );
             }
             return response;
         },
@@ -243,9 +237,7 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
     if (isLoading) {
         return (
             <div className="space-y-12 border-b border-gray-200 pb-12">
-                <h2 className="text-base/7 font-semibold text-gray-900">
-                    Court Portal Credentials
-                </h2>
+                <h2 className="text-base/7 font-semibold text-gray-900">Court Portal Credentials</h2>
                 <div className="ml-6 flex items-center">
                     <div className="w-8 h-8">
                         <Puff height="100%" width="100%" color="#4fa94d" ariaLabel="puff-loading" />
@@ -260,16 +252,11 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
         <>
             <form onSubmit={handleSubmit}>
                 <div className="space-y-12 border-b border-gray-200 pb-12">
-                    <h2 className="text-base/7 font-semibold text-gray-900">
-                        Court Portal Credentials
-                    </h2>
+                    <h2 className="text-base/7 font-semibold text-gray-900">Court Portal Credentials</h2>
                     <div className="ml-6">
                         <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-6">
                             <div className="sm:col-span-3 xl:col-span-2">
-                                <label
-                                    htmlFor="username"
-                                    className="block text-sm/6 font-medium text-gray-700"
-                                >
+                                <label htmlFor="username" className="block text-sm/6 font-medium text-gray-700">
                                     Username
                                 </label>
                                 <div className="mt-2">
@@ -293,10 +280,7 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
                             </div>
 
                             <div className="sm:col-span-3 xl:col-span-2">
-                                <label
-                                    htmlFor="password"
-                                    className="block text-sm/6 font-medium text-gray-700"
-                                >
+                                <label htmlFor="password" className="block text-sm/6 font-medium text-gray-700">
                                     Password
                                 </label>
                                 <div className="mt-2">
@@ -318,13 +302,8 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
                                         />
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                dispatch({ type: 'TOGGLE_SHOW_PASSWORD' })
-                                            }
-                                            disabled={
-                                                state.password.trim() === '' ||
-                                                state.validationState.status === 'validating'
-                                            }
+                                            onClick={() => dispatch({ type: 'TOGGLE_SHOW_PASSWORD' })}
+                                            disabled={state.password.trim() === '' || state.validationState.status === 'validating'}
                                             title={
                                                 state.password.trim() === ''
                                                     ? ''
@@ -334,11 +313,7 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
                                             }
                                             className={`ml-2 mr-3 ${state.password ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300'} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400`}
                                         >
-                                            {state.showPassword ? (
-                                                <EyeIcon className="w-5 h-5" />
-                                            ) : (
-                                                <EyeSlashIcon className="w-5 h-5" />
-                                            )}
+                                            {state.showPassword ? <EyeIcon className="w-5 h-5" /> : <EyeSlashIcon className="w-5 h-5" />}
                                         </button>
                                     </div>
                                 </div>
@@ -351,15 +326,12 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
                                 title="reset"
                                 disabled={
                                     state.validationState.status === 'validating' ||
-                                    (state.password.trim() === '' &&
-                                        originalCredentialsRef.current?.username === state.username)
+                                    (state.password.trim() === '' && originalCredentialsRef.current?.username === state.username)
                                 }
                                 className={`rounded-md py-2 px-2 shadow-xs text-white focus-visible:outline-2 focus-visible:outline-offset-2 flex items-center justify-center
                                     ${
                                         state.validationState.status === 'validating' ||
-                                        (state.password.trim() === '' &&
-                                            originalCredentialsRef.current?.username ===
-                                                state.username)
+                                        (state.password.trim() === '' && originalCredentialsRef.current?.username === state.username)
                                             ? 'bg-gray-400'
                                             : 'bg-primary hover:bg-primary-light active:bg-primary-dark'
                                     }`}
@@ -367,9 +339,7 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
                                 onClick={() =>
                                     dispatch({
                                         type: 'RESET_STATE',
-                                        payload:
-                                            originalCredentialsRef.current?.username ||
-                                            initialUsername,
+                                        payload: originalCredentialsRef.current?.username || initialUsername,
                                     })
                                 }
                             >
@@ -392,8 +362,7 @@ const SettingsPortalCredentials: React.FC<SettingsPortalCredentialsProps> = ({
                                 renderCredentialsValidationState(state.validationState)}
                         </div>
 
-                        {state.validationState.status === 'invalid' &&
-                            renderCredentialsValidationState(state.validationState)}
+                        {state.validationState.status === 'invalid' && renderCredentialsValidationState(state.validationState)}
                     </div>
                 </div>
             </form>

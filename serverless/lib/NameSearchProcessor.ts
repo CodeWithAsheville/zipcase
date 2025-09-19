@@ -57,9 +57,7 @@ export async function processNameSearchRequest(
         await StorageClient.saveNameSearch(searchId, nameSearchData, expiresAt);
 
         if (!success) {
-            console.log(
-                `Could not process name search with input [${req.name}] (ID [${searchId}]) for user [${userId}]: ${error}`
-            );
+            console.log(`Could not process name search with input [${req.name}] (ID [${searchId}]) for user [${userId}]: ${error}`);
 
             return {
                 searchId,
@@ -71,15 +69,7 @@ export async function processNameSearchRequest(
 
         // Queue the name search for processing
         console.log(`Queueing name search ${searchId} for processing with existing session`);
-        await QueueClient.queueNameSearch(
-            searchId,
-            normalizedName,
-            userId,
-            req.dateOfBirth,
-            req.soundsLike,
-            criminalOnly,
-            req.userAgent
-        );
+        await QueueClient.queueNameSearch(searchId, normalizedName, userId, req.dateOfBirth, req.soundsLike, criminalOnly, req.userAgent);
 
         return {
             searchId,
@@ -87,13 +77,10 @@ export async function processNameSearchRequest(
             success: true,
         };
     } catch (error) {
-        await AlertService.logError(
-            Severity.ERROR,
-            AlertCategory.PORTAL,
-            '',
-            error instanceof Error ? error : new Error(String(error)),
-            { userId, searchId }
-        );
+        await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', error instanceof Error ? error : new Error(String(error)), {
+            userId,
+            searchId,
+        });
 
         const existingSearch = await StorageClient.getNameSearch(searchId);
         if (existingSearch) {
@@ -101,10 +88,7 @@ export async function processNameSearchRequest(
                 ...existingSearch,
                 status: 'failed',
                 message: `Error: ${error instanceof Error ? error.message : String(error)}`,
-                criminalOnly:
-                    typeof existingSearch.criminalOnly === 'boolean'
-                        ? existingSearch.criminalOnly
-                        : true,
+                criminalOnly: typeof existingSearch.criminalOnly === 'boolean' ? existingSearch.criminalOnly : true,
             });
         }
 
@@ -189,23 +173,15 @@ export async function processNameSearchRecord(
                 : `No session CookieJar found for user ${userId}`;
 
             if (message.includes('Invalid Email or password')) {
-                await logger.error(
-                    'Portal authentication failed during name search: ' + message,
-                    undefined,
-                    {
-                        userId,
-                        searchId,
-                    }
-                );
+                await logger.error('Portal authentication failed during name search: ' + message, undefined, {
+                    userId,
+                    searchId,
+                });
             } else {
-                await logger.critical(
-                    'Portal authentication failed during name search: ' + message,
-                    undefined,
-                    {
-                        userId,
-                        searchId,
-                    }
-                );
+                await logger.critical('Portal authentication failed during name search: ' + message, undefined, {
+                    userId,
+                    searchId,
+                });
             }
 
             await StorageClient.saveNameSearch(searchId, {

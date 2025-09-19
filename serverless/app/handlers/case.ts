@@ -58,19 +58,11 @@ export const get: APIGatewayProxyHandler = async event => {
 
         if (portalCredentials) {
             try {
-                const authResult = await PortalAuthenticator.authenticateWithPortal(
-                    portalCredentials.username,
-                    portalCredentials.password
-                );
+                const authResult = await PortalAuthenticator.authenticateWithPortal(portalCredentials.username, portalCredentials.password);
 
                 if (!authResult.success || !authResult.cookieJar) {
-                    console.error(
-                        `Failed to authenticate with portal for user ${userId}`,
-                        authResult.message
-                    );
-                    throw new Error(
-                        `Authentication failed: ${authResult.message || 'Unknown error'}`
-                    );
+                    console.error(`Failed to authenticate with portal for user ${userId}`, authResult.message);
+                    throw new Error(`Authentication failed: ${authResult.message || 'Unknown error'}`);
                 }
 
                 // Store the session token (cookie jar)

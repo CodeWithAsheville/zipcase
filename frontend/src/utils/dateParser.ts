@@ -128,7 +128,7 @@ export function parseDate(dateStr: string): Date | null {
                 for (const [monthName, monthIndex] of Object.entries(monthNames)) {
                     if (part.includes(monthName)) {
                         month = monthIndex;
-                        const otherParts = [parts[(i+1)%3], parts[(i+2)%3]];
+                        const otherParts = [parts[(i + 1) % 3], parts[(i + 2) % 3]];
                         // Determine which of the other parts is day and which is year
                         const yearPart = otherParts.find(p => parseInt(p) > 31);
                         const dayPart = otherParts.find(p => p !== yearPart);
@@ -222,8 +222,18 @@ export function formatDate(date: Date): string {
     }
 
     const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
     ];
 
     const month = monthNames[date.getMonth()];

@@ -1,13 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SettingsPortalCredentials, SettingsApiKeys, TextLink } from '../components';
-import {
-    Dialog,
-    DialogTitle,
-    DialogDescription,
-    DialogBody,
-    DialogActions,
-} from '../components/tailwind/dialog';
+import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '../components/tailwind/dialog';
 import { useZipCaseApi } from '../hooks';
 import { AppContext } from '../components/app/AppContext';
 
@@ -63,13 +57,11 @@ const Settings: React.FC = () => {
                     <span role="img" aria-label="wave">
                         👋
                     </span>{' '}
-                    Before you can start looking up cases, you'll need to add your court portal
-                    credentials here.
+                    Before you can start looking up cases, you'll need to add your court portal credentials here.
                 </DialogDescription>
                 <DialogBody>
                     <p className="mb-2">
-                        If you have questions about why we need your credentials or how your data is
-                        protected, check out our{' '}
+                        If you have questions about why we need your credentials or how your data is protected, check out our{' '}
                         <TextLink href="/help" onClick={handleClose}>
                             FAQ
                         </TextLink>

@@ -157,12 +157,10 @@ describe('PortalAuthenticator', () => {
 
             // Mock the authenticateWithPortal method
             const mockCookieJar = new CookieJar();
-            const authenticateSpy = jest
-                .spyOn(PortalAuthenticator, 'authenticateWithPortal')
-                .mockResolvedValue({
-                    success: true,
-                    cookieJar: mockCookieJar,
-                });
+            const authenticateSpy = jest.spyOn(PortalAuthenticator, 'authenticateWithPortal').mockResolvedValue({
+                success: true,
+                cookieJar: mockCookieJar,
+            });
 
             const result = await PortalAuthenticator.getOrCreateUserSession('test-user');
 
@@ -223,10 +221,7 @@ describe('PortalAuthenticator', () => {
 
             const result = await PortalAuthenticator.verifySession(mockJar);
 
-            expect(mockGet).toHaveBeenCalledWith(
-                expect.stringContaining('/Portal'),
-                expect.any(Object)
-            );
+            expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/Portal'), expect.any(Object));
             expect(result).toBe(true);
         });
 

@@ -51,7 +51,7 @@ const createTestCase = (override = {}): SearchResultType => ({
                     },
                 ],
             },
-        ]
+        ],
     },
     ...override,
 });
@@ -82,10 +82,7 @@ describe('SearchResult component', () => {
 
         // Check that case number is rendered as a link
         const link = screen.getByRole('link', { name: /22CR123456-789/ });
-        expect(link).toHaveAttribute(
-            'href',
-            'https://portal.example.com/search-results/#/case-id-123'
-        );
+        expect(link).toHaveAttribute('href', 'https://portal.example.com/search-results/#/case-id-123');
         expect(link).toHaveAttribute('target', '_blank');
         expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     });

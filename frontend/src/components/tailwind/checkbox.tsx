@@ -18,10 +18,7 @@ export function CheckboxGroup({ className, ...props }: React.ComponentPropsWitho
     );
 }
 
-export function CheckboxField({
-    className,
-    ...props
-}: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
+export function CheckboxField({ className, ...props }: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
     return (
         <Headless.Field
             data-slot="field"
@@ -117,11 +114,7 @@ export function Checkbox({
     className?: string;
 } & Omit<Headless.CheckboxProps, 'as' | 'className'>) {
     return (
-        <Headless.Checkbox
-            data-slot="control"
-            {...props}
-            className={clsx(className, 'group inline-flex focus:outline-hidden')}
-        >
+        <Headless.Checkbox data-slot="control" {...props} className={clsx(className, 'group inline-flex focus:outline-hidden')}>
             <span className={clsx([base, colors[color]])}>
                 <svg
                     className="size-4 stroke-(--checkbox-check) opacity-0 group-data-checked:opacity-100 sm:h-3.5 sm:w-3.5"

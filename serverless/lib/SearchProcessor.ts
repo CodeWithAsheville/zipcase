@@ -61,11 +61,10 @@ export const processSearch: SQSHandler = async (event: SQSEvent) => {
                 );
             } else {
                 // Unknown message type
-                await searchLogger.error(
-                    'Invalid message format, cannot determine search type',
-                    undefined,
-                    { messageId: record.messageId, payload: JSON.stringify(messageBody) }
-                );
+                await searchLogger.error('Invalid message format, cannot determine search type', undefined, {
+                    messageId: record.messageId,
+                    payload: JSON.stringify(messageBody),
+                });
             }
         } catch (error) {
             await searchLogger.error('Failed to process search record', error as Error, {

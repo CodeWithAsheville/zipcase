@@ -11,10 +11,7 @@ const TestConsumer = () => {
     return (
         <div>
             <div data-testid="token-value">{token}</div>
-            <button
-                onClick={() => dispatch({ type: 'SET_TOKEN', payload: 'test-token' })}
-                data-testid="set-token-button"
-            >
+            <button onClick={() => dispatch({ type: 'SET_TOKEN', payload: 'test-token' })} data-testid="set-token-button">
                 Set Token
             </button>
         </div>

@@ -14,10 +14,7 @@ describe('Name Search Handler', () => {
     });
 
     // Helper function to create API Gateway event for name search
-    const createEvent = (
-        body: any,
-        userId: string | null = 'test-user-id'
-    ): Partial<APIGatewayProxyEvent> => {
+    const createEvent = (body: any, userId: string | null = 'test-user-id'): Partial<APIGatewayProxyEvent> => {
         return {
             body: JSON.stringify(body),
             headers: {
@@ -36,10 +33,7 @@ describe('Name Search Handler', () => {
     };
 
     // Helper function to create API Gateway event for status check
-    const createStatusEvent = (
-        searchId: string | null,
-        userId: string | null = 'test-user-id'
-    ): Partial<APIGatewayProxyEvent> => {
+    const createStatusEvent = (searchId: string | null, userId: string | null = 'test-user-id'): Partial<APIGatewayProxyEvent> => {
         return {
             pathParameters: searchId ? { searchId } : {},
             requestContext: {
@@ -58,11 +52,7 @@ describe('Name Search Handler', () => {
         it('should return 401 if no user ID is present', async () => {
             const event = createEvent({ name: 'John Doe' }, null);
 
-            const response = (await handler(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(401);
             expect(JSON.parse(response.body).error).toBe('Unauthorized');
@@ -71,11 +61,7 @@ describe('Name Search Handler', () => {
         it('should return 400 if name parameter is missing', async () => {
             const event = createEvent({});
 
-            const response = (await handler(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(400);
             expect(JSON.parse(response.body).error).toBe('Missing name parameter');
@@ -101,11 +87,7 @@ describe('Name Search Handler', () => {
             // Mock the processor to return our results
             (processNameSearchRequest as jest.Mock).mockResolvedValue(mockResults);
 
-            const response = (await handler(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(processNameSearchRequest).toHaveBeenCalledWith(
                 {
@@ -129,11 +111,7 @@ describe('Name Search Handler', () => {
                 throw new Error('Test error');
             });
 
-            const response = (await handler(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(500);
             expect(JSON.parse(response.body).error).toBe('Internal server error');
@@ -145,11 +123,7 @@ describe('Name Search Handler', () => {
         it('should return 401 if no user ID is present', async () => {
             const event = createStatusEvent('test-search-id', null);
 
-            const response = (await statusHandler(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await statusHandler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(401);
             expect(JSON.parse(response.body).error).toBe('Unauthorized');
@@ -158,11 +132,7 @@ describe('Name Search Handler', () => {
         it('should return 400 if searchId parameter is missing', async () => {
             const event = createStatusEvent(null);
 
-            const response = (await statusHandler(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await statusHandler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(400);
             expect(JSON.parse(response.body).error).toBe('Missing search ID parameter');
@@ -187,11 +157,7 @@ describe('Name Search Handler', () => {
             // Mock the processor to return our results
             (getNameSearchResults as jest.Mock).mockResolvedValue(mockResults);
 
-            const response = (await statusHandler(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await statusHandler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(getNameSearchResults).toHaveBeenCalledWith(searchId);
             expect(response.statusCode).toBe(200);
@@ -207,11 +173,7 @@ describe('Name Search Handler', () => {
                 throw new Error('Test error');
             });
 
-            const response = (await statusHandler(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await statusHandler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(500);
             expect(JSON.parse(response.body).error).toBe('Internal server error');

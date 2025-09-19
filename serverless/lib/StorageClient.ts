@@ -123,9 +123,7 @@ export const BatchHelper = {
      * @param keys Array of composite keys to get
      * @returns Map of composite keys to their corresponding items
      */
-    async getMany<T extends Record<string, unknown>>(
-        keys: DynamoCompositeKey[]
-    ): Promise<Map<DynamoCompositeKey, T>> {
+    async getMany<T extends Record<string, unknown>>(keys: DynamoCompositeKey[]): Promise<Map<DynamoCompositeKey, T>> {
         if (keys.length === 0) {
             return new Map();
         }
@@ -198,7 +196,7 @@ async function save<T>(key: DynamoCompositeKey, item: T): Promise<void> {
             Item: {
                 ...key,
                 ...item,
-            }
+            },
         })
     );
 }
@@ -228,9 +226,7 @@ async function encryptValue(value: string): Promise<string> {
 }
 
 async function decryptValue(encryptedValue: string): Promise<string> {
-    const result = await kms.send(
-        new DecryptCommand({ CiphertextBlob: Buffer.from(encryptedValue, 'base64') })
-    );
+    const result = await kms.send(new DecryptCommand({ CiphertextBlob: Buffer.from(encryptedValue, 'base64') }));
     return Buffer.from(result.Plaintext!).toString();
 }
 
@@ -280,9 +276,7 @@ const StorageClient = {
         username: string;
         isBad: boolean;
     } | null> {
-        const credentials = await get<PortalCredentialsResponse>(
-            Key.User(userId).PORTAL_CREDENTIALS
-        );
+        const credentials = await get<PortalCredentialsResponse>(Key.User(userId).PORTAL_CREDENTIALS);
 
         if (!credentials) {
             return null;
@@ -317,11 +311,7 @@ const StorageClient = {
         };
     },
 
-    async saveUserSession(
-        userId: string,
-        sessionToken: string,
-        expiresAtIso: string
-    ): Promise<void> {
+    async saveUserSession(userId: string, sessionToken: string, expiresAtIso: string): Promise<void> {
         await save(Key.User(userId).SESSION, {
             sessionToken,
             expiresAtIso,
@@ -344,9 +334,7 @@ const StorageClient = {
         const expiresAt = new Date(session.expiresAt * 1000);
         const nowPlusOneHour = new Date(Date.now() + 60 * 60 * 1000);
         if (expiresAt < nowPlusOneHour) {
-            console.log(
-                `Saved portal session is considered expired for userId ${userId} as of ${session.expiresAtIso}`
-            );
+            console.log(`Saved portal session is considered expired for userId ${userId} as of ${session.expiresAtIso}`);
             return null;
         }
 
@@ -370,10 +358,7 @@ const StorageClient = {
         webhookUrl: string;
         sharedSecret: string;
     } | null> {
-        const keys: DynamoCompositeKey[] = [
-            Key.User(userId).API_KEY,
-            Key.User(userId).WEBHOOK_SETTINGS,
-        ];
+        const keys: DynamoCompositeKey[] = [Key.User(userId).API_KEY, Key.User(userId).WEBHOOK_SETTINGS];
 
         const resultMap = await getMany(keys);
 
@@ -454,11 +439,7 @@ const StorageClient = {
         await save(Key.Case(zipCase.caseNumber).ID, zipCase);
     },
 
-    async saveNameSearch(
-        searchId: string,
-        nameSearchData: NameSearchData,
-        expiresAt?: number
-    ): Promise<void> {
+    async saveNameSearch(searchId: string, nameSearchData: NameSearchData, expiresAt?: number): Promise<void> {
         await save(Key.NameSearch(searchId).ID, {
             ...nameSearchData,
             ...(expiresAt ? { ttl: expiresAt } : {}),
@@ -493,10 +474,7 @@ const StorageClient = {
 
         // Create all the keys we need to fetch (case + summary for each case)
         const allKeys: DynamoCompositeKey[] = [];
-        const keyMapping: Record<
-            string,
-            { caseKey: DynamoCompositeKey; summaryKey: DynamoCompositeKey }
-        > = {};
+        const keyMapping: Record<string, { caseKey: DynamoCompositeKey; summaryKey: DynamoCompositeKey }> = {};
 
         caseNumbers.forEach(caseNumber => {
             const caseKey = Key.Case(caseNumber).ID;

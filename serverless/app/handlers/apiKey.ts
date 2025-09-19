@@ -94,10 +94,7 @@ export const create: APIGatewayProxyHandler = async event => {
                 if (requestBody.webhookSharedSecret !== undefined) {
                     const secretValidation = validateSharedSecret(requestBody.webhookSharedSecret);
                     if (!secretValidation.valid) {
-                        return errorResponse(
-                            secretValidation.error || 'Invalid webhook shared secret',
-                            400
-                        );
+                        return errorResponse(secretValidation.error || 'Invalid webhook shared secret', 400);
                     }
                     webhookSharedSecret = secretValidation.trimmed || '';
                 }

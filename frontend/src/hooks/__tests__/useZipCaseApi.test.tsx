@@ -4,7 +4,7 @@ import useZipCaseApi from '../useZipCaseApi';
 import { ZipCaseClient } from '../../services';
 
 vi.mock('../../aws-exports', () => ({
-  API_URL: 'http://test-api.example.com'
+    API_URL: 'http://test-api.example.com',
 }));
 
 // Since the module itself uses a singleton instance, we need to manually mock
@@ -16,17 +16,17 @@ vi.mock('../../services', () => {
         put: vi.fn(),
         delete: vi.fn(),
     };
-    
+
     return {
-        ZipCaseClient: function() {
+        ZipCaseClient: function () {
             return mockClient;
-        }
+        },
     };
 });
 
 describe('useZipCaseApi', () => {
     let mockClient: any;
-    
+
     beforeEach(() => {
         vi.clearAllMocks();
         // Get a reference to the mocked client for each test
@@ -35,12 +35,14 @@ describe('useZipCaseApi', () => {
 
     it('initializes with correct default state', () => {
         const { result } = renderHook(() =>
-            useZipCaseApi(() => Promise.resolve({
-                success: true,
-                status: 200,
-                data: null,
-                error: null
-            }))
+            useZipCaseApi(() =>
+                Promise.resolve({
+                    success: true,
+                    status: 200,
+                    data: null,
+                    error: null,
+                })
+            )
         );
 
         // Default state
@@ -51,11 +53,11 @@ describe('useZipCaseApi', () => {
 
     it('executes API call on mount when onMount is true', async () => {
         // Setup the mock to return a successful response
-        const mockResponse = { 
-            success: true, 
-            status: 200, 
-            data: { testData: 'value' }, 
-            error: null 
+        const mockResponse = {
+            success: true,
+            status: 200,
+            data: { testData: 'value' },
+            error: null,
         };
         const mockFn = vi.fn().mockResolvedValue(mockResponse);
 
@@ -75,11 +77,11 @@ describe('useZipCaseApi', () => {
     it('updates state correctly on successful API call', async () => {
         // Setup the mock to return a successful response
         const mockData = { testData: 'success' };
-        const mockResponse = { 
-            success: true, 
-            status: 200, 
-            data: mockData, 
-            error: null 
+        const mockResponse = {
+            success: true,
+            status: 200,
+            data: mockData,
+            error: null,
         };
         const mockFn = vi.fn().mockResolvedValue(mockResponse);
 
@@ -103,11 +105,11 @@ describe('useZipCaseApi', () => {
     it('handles API errors correctly', async () => {
         // Setup the mock to return an error response
         const errorMessage = 'API error';
-        const mockResponse = { 
-            success: false, 
-            status: 400, 
-            data: null, 
-            error: errorMessage 
+        const mockResponse = {
+            success: false,
+            status: 400,
+            data: null,
+            error: errorMessage,
         };
         const mockFn = vi.fn().mockResolvedValue(mockResponse);
 
@@ -146,29 +148,28 @@ describe('useZipCaseApi', () => {
 
     it('updates endpoint reference when it changes', async () => {
         // Setup mock for initial and updated calls
-        mockClient.get.mockImplementationOnce(() => 
-            Promise.resolve({
-                success: true,
-                status: 200,
-                data: { test: 'initial' },
-                error: null
-            })
-        ).mockImplementationOnce(() => 
-            Promise.resolve({
-                success: true,
-                status: 200,
-                data: { test: 'updated' },
-                error: null
-            })
-        );
+        mockClient.get
+            .mockImplementationOnce(() =>
+                Promise.resolve({
+                    success: true,
+                    status: 200,
+                    data: { test: 'initial' },
+                    error: null,
+                })
+            )
+            .mockImplementationOnce(() =>
+                Promise.resolve({
+                    success: true,
+                    status: 200,
+                    data: { test: 'updated' },
+                    error: null,
+                })
+            );
 
         // Create a hook that uses the client's get method with the endpoint
-        const { result, rerender } = renderHook(
-            (props) => useZipCaseApi(() => mockClient.get(props.endpoint)),
-            {
-                initialProps: { endpoint: '/initial' }
-            }
-        );
+        const { result, rerender } = renderHook(props => useZipCaseApi(() => mockClient.get(props.endpoint)), {
+            initialProps: { endpoint: '/initial' },
+        });
 
         // Call with initial endpoint
         await act(async () => {

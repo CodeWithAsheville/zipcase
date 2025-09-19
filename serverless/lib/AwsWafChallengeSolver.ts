@@ -57,8 +57,7 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
         }
 
         try {
-            const parameterName =
-                process.env.WAF_SOLVER_API_KEY_PARAMETER || '/zipcase/waf-solver/api-key';
+            const parameterName = process.env.WAF_SOLVER_API_KEY_PARAMETER || '/zipcase/waf-solver/api-key';
             const command = new GetParameterCommand({
                 Name: parameterName,
                 WithDecryption: true,
@@ -119,19 +118,13 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
             };
 
             console.log('Creating WAF challenge solver task...');
-            const createResponse = await axios.post(
-                `${CapSolverProvider.baseUrl}/createTask`,
-                createTaskPayload,
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 10000,
-                }
-            );
+            const createResponse = await axios.post(`${CapSolverProvider.baseUrl}/createTask`, createTaskPayload, {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 10000,
+            });
 
             if (createResponse.data.errorId !== 0 || !createResponse.data.taskId) {
-                throw new Error(
-                    `WAF solver task creation failed: ${createResponse.data.errorDescription || 'Unknown error'}`
-                );
+                throw new Error(`WAF solver task creation failed: ${createResponse.data.errorDescription || 'Unknown error'}`);
             }
 
             const taskId = createResponse.data.taskId;
@@ -145,13 +138,10 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                 cookie: cookie || undefined,
             };
         } catch (error) {
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                'Failed to solve AWS WAF challenge',
-                error as Error,
-                { websiteURL, resource: 'waf-challenge-solver' }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, 'Failed to solve AWS WAF challenge', error as Error, {
+                websiteURL,
+                resource: 'waf-challenge-solver',
+            });
 
             return {
                 success: false,
@@ -177,14 +167,10 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                     taskId,
                 };
 
-                const resultResponse = await axios.post(
-                    `${CapSolverProvider.baseUrl}/getTaskResult`,
-                    getResultPayload,
-                    {
-                        headers: { 'Content-Type': 'application/json' },
-                        timeout: options.timeout || 10000,
-                    }
-                );
+                const resultResponse = await axios.post(`${CapSolverProvider.baseUrl}/getTaskResult`, getResultPayload, {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: options.timeout || 10000,
+                });
 
                 const result = resultResponse.data;
 
@@ -192,14 +178,10 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                     console.log('WAF challenge solved successfully');
                     return result.solution.cookie;
                 } else if (result.status === 'failed' || result.errorId !== 0) {
-                    throw new Error(
-                        `WAF solver task failed: ${result.errorDescription || 'Unknown error'}`
-                    );
+                    throw new Error(`WAF solver task failed: ${result.errorDescription || 'Unknown error'}`);
                 }
 
-                console.log(
-                    `WAF solver task still processing... (attempt ${attempt}/${maxAttempts})`
-                );
+                console.log(`WAF solver task still processing... (attempt ${attempt}/${maxAttempts})`);
             } catch (error) {
                 if (attempt === maxAttempts) {
                     throw error;
@@ -233,9 +215,7 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
             // Look for problem URL with visualSolutionsRequired (Situation 4)
             const visualSolutionsMatch = htmlContent.match(/visualSolutionsRequired/);
             if (visualSolutionsMatch) {
-                const problemUrlMatch = htmlContent.match(
-                    /https?:\/\/[^"'\s]*problem[^"'\s]*num_solutions_required[^"'\s]*/
-                );
+                const problemUrlMatch = htmlContent.match(/https?:\/\/[^"'\s]*problem[^"'\s]*num_solutions_required[^"'\s]*/);
                 if (problemUrlMatch) {
                     challengeData.awsProblemUrl = problemUrlMatch[0];
                 }

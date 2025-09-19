@@ -18,10 +18,7 @@ export function SwitchGroup({ className, ...props }: React.ComponentPropsWithout
     );
 }
 
-export function SwitchField({
-    className,
-    ...props
-}: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
+export function SwitchField({ className, ...props }: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
     return (
         <Headless.Field
             data-slot="field"

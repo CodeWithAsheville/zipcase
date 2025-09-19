@@ -1,11 +1,8 @@
 /**
  * Tests for the helper functions in StorageClient
  */
-import {
-    Key,
-    BatchHelper,
-    DynamoCompositeKey,
-} from '../StorageClient';
+import { Key, BatchHelper, DynamoCompositeKey } from '../StorageClient';
+import StorageClient from '../StorageClient';
 
 // Mock AWS SDK clients
 jest.mock('@aws-sdk/client-dynamodb', () => ({

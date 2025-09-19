@@ -84,23 +84,13 @@ function extractWsFedToken(html: string): string | null {
 const PortalAuthenticator = {
     getDefaultRequestHeaders,
 
-    async authenticateWithPortal(
-        username: string,
-        password: string,
-        options: PortalAuthOptions = {}
-    ): Promise<PortalAuthResult> {
+    async authenticateWithPortal(username: string, password: string, options: PortalAuthOptions = {}): Promise<PortalAuthResult> {
         const portalBaseUrl = process.env.PORTAL_URL;
 
         if (!portalBaseUrl) {
             const errorMsg = 'PORTAL_URL environment variable is not set';
 
-            await AlertService.logError(
-                Severity.CRITICAL,
-                AlertCategory.SYSTEM,
-                '',
-                new Error(errorMsg),
-                { resource: 'portal-auth' }
-            );
+            await AlertService.logError(Severity.CRITICAL, AlertCategory.SYSTEM, '', new Error(errorMsg), { resource: 'portal-auth' });
 
             return {
                 success: false,
@@ -162,26 +152,18 @@ const PortalAuthenticator = {
                             jar.setCookieSync(`aws-waf-token=${wafResult.cookie}`, portalBase);
                         }
                         if (debug) {
-                            console.log(
-                                'AWS WAF challenge solved, cookie added to jar for domains:',
-                                loginUrlBase,
-                                portalBase
-                            );
+                            console.log('AWS WAF challenge solved, cookie added to jar for domains:', loginUrlBase, portalBase);
                         }
 
                         // Re-fetch the login page with the WAF cookie
-                        const retryLoginPageResponse = await client.get(
-                            portalBaseUrl + '/Portal/Account/Login'
-                        );
+                        const retryLoginPageResponse = await client.get(portalBaseUrl + '/Portal/Account/Login');
 
                         // Use the retry response for subsequent processing
                         Object.assign(loginPageResponse, retryLoginPageResponse);
 
                         if (debug) console.log('Re-fetched login page after solving WAF challenge');
                     } else {
-                        throw new Error(
-                            'Failed to solve AWS WAF challenge, aborting authentication process.'
-                        );
+                        throw new Error('Failed to solve AWS WAF challenge, aborting authentication process.');
                     }
                 } catch (error) {
                     console.warn('Error solving AWS WAF challenge:', error);
@@ -194,13 +176,10 @@ const PortalAuthenticator = {
             if (!verificationToken) {
                 const errorMsg = 'Failed to extract verification token from login page';
 
-                await AlertService.logError(
-                    Severity.ERROR,
-                    AlertCategory.PORTAL,
-                    errorMsg,
-                    undefined,
-                    { username, resource: 'login-page' }
-                );
+                await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, errorMsg, undefined, {
+                    username,
+                    resource: 'login-page',
+                });
 
                 return {
                     success: false,
@@ -234,8 +213,7 @@ const PortalAuthenticator = {
                 },
             });
 
-            if (debug)
-                console.log(`Login form submission response code: ${loginSubmitResponse.status}`);
+            if (debug) console.log(`Login form submission response code: ${loginSubmitResponse.status}`);
 
             if (debug) {
                 console.log('Cookie jar after login submission:', jar.toJSON());
@@ -246,10 +224,7 @@ const PortalAuthenticator = {
                 if (debug) {
                     console.log('Login form response indicates auth failure:');
                     console.log('Status code:', loginSubmitResponse.status);
-                    console.log(
-                        'Response URL:',
-                        loginSubmitResponse.request?.res?.responseUrl || 'No URL'
-                    );
+                    console.log('Response URL:', loginSubmitResponse.request?.res?.responseUrl || 'No URL');
 
                     // Log a snippet of the content
                     const contentSnippet = loginSubmitResponse.data.substring(0, 1000) + '...';
@@ -277,48 +252,32 @@ const PortalAuthenticator = {
 
             // Check for AWS WAF challenge after login form submission
             if (AwsWafChallengeSolver.detectChallenge(loginSubmitResponse)) {
-                if (debug)
-                    console.log(
-                        'AWS WAF challenge detected after login submission, attempting to solve...'
-                    );
+                if (debug) console.log('AWS WAF challenge detected after login submission, attempting to solve...');
 
                 try {
-                    const wafResult = await AwsWafChallengeSolver.solveChallenge(
-                        loginUrl,
-                        loginSubmitResponse.data
-                    );
+                    const wafResult = await AwsWafChallengeSolver.solveChallenge(loginUrl, loginSubmitResponse.data);
 
                     if (wafResult.success && wafResult.cookie) {
                         // Add the solved WAF cookie to our cookie jar
                         jar.setCookieSync(wafResult.cookie, portalBaseUrl);
-                        if (debug)
-                            console.log(
-                                'AWS WAF challenge solved after login, cookie added to jar'
-                            );
+                        if (debug) console.log('AWS WAF challenge solved after login, cookie added to jar');
 
                         // Re-submit the login form with the WAF cookie
-                        const retryLoginSubmitResponse = await client.post(
-                            loginUrl,
-                            loginFormData,
-                            {
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                    Origin: new URL(loginUrl).origin,
-                                    Referer: loginUrl,
-                                    'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
-                                },
-                            }
-                        );
+                        const retryLoginSubmitResponse = await client.post(loginUrl, loginFormData, {
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                Origin: new URL(loginUrl).origin,
+                                Referer: loginUrl,
+                                'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
+                            },
+                        });
 
                         // Use the retry response for subsequent processing
                         Object.assign(loginSubmitResponse, retryLoginSubmitResponse);
 
-                        if (debug)
-                            console.log('Re-submitted login form after solving WAF challenge');
+                        if (debug) console.log('Re-submitted login form after solving WAF challenge');
                     } else {
-                        console.warn(
-                            'Failed to solve AWS WAF challenge after login, continuing without WAF token'
-                        );
+                        console.warn('Failed to solve AWS WAF challenge after login, continuing without WAF token');
                     }
                 } catch (error) {
                     console.warn('Error solving AWS WAF challenge after login:', error);
@@ -350,26 +309,19 @@ const PortalAuthenticator = {
                 console.log('wresult (length):', completeWsFedData.get('wresult')?.length || 0);
             }
 
-            const completeWsFedResponse = await client.post(
-                portalBaseUrl + '/Portal',
-                completeWsFedData,
-                {
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        Origin: portalBaseUrl,
-                        Referer: loginSubmitResponse.request?.res?.responseUrl || loginUrl,
-                        'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
-                    },
-                    maxRedirects: 10,
-                }
-            );
+            const completeWsFedResponse = await client.post(portalBaseUrl + '/Portal', completeWsFedData, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    Origin: portalBaseUrl,
+                    Referer: loginSubmitResponse.request?.res?.responseUrl || loginUrl,
+                    'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
+                },
+                maxRedirects: 10,
+            });
 
             if (debug) {
                 console.log('Cookie jar after WS-Federation completion:', jar.toJSON());
-                console.log(
-                    'Response URL after redirects:',
-                    completeWsFedResponse.request?.res?.responseUrl || 'No redirect URL'
-                );
+                console.log('Response URL after redirects:', completeWsFedResponse.request?.res?.responseUrl || 'No redirect URL');
                 console.log('Response status code:', completeWsFedResponse.status);
                 console.log('Response headers:', completeWsFedResponse.headers);
             }
@@ -429,13 +381,9 @@ const PortalAuthenticator = {
             const errorMsg = `Authentication error: ${(error as Error).message}`;
 
             // Log this as a CRITICAL error since it's a system-level failure
-            await AlertService.logError(
-                Severity.CRITICAL,
-                AlertCategory.PORTAL,
-                'Portal authentication system failure',
-                error as Error,
-                { username }
-            );
+            await AlertService.logError(Severity.CRITICAL, AlertCategory.PORTAL, 'Portal authentication system failure', error as Error, {
+                username,
+            });
 
             return {
                 success: false,
@@ -511,10 +459,7 @@ const PortalAuthenticator = {
 
             if (debug) {
                 console.log('Response status:', response.status);
-                console.log(
-                    'Response URL (after redirects):',
-                    response.request?.res?.responseUrl || 'No redirect URL'
-                );
+                console.log('Response URL (after redirects):', response.request?.res?.responseUrl || 'No redirect URL');
 
                 // Check for login indicators
                 const hasSignIn = response.data.includes('Sign In');
@@ -525,10 +470,7 @@ const PortalAuthenticator = {
 
                 // If the response is too large, just log a snippet
                 if (response.data.length > 500) {
-                    console.log(
-                        'Response data (first 500 chars):',
-                        response.data.substring(0, 500) + '...'
-                    );
+                    console.log('Response data (first 500 chars):', response.data.substring(0, 500) + '...');
                 }
             }
 
@@ -539,12 +481,7 @@ const PortalAuthenticator = {
                 console.error('Error verifying session:', error);
             }
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                'Failed to verify portal session',
-                error as Error
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, 'Failed to verify portal session', error as Error);
 
             return false;
         }
@@ -578,15 +515,11 @@ const PortalAuthenticator = {
         // Get user agent using the tiered strategy
         const resolvedUserAgent = await UserAgentClient.getUserAgent(userId, userAgent);
 
-        console.log(
-            `Authenticating user ${userId} with portal using user agent ${resolvedUserAgent}.`
-        );
+        console.log(`Authenticating user ${userId} with portal using user agent ${resolvedUserAgent}.`);
 
-        const authResult = await this.authenticateWithPortal(
-            portalCredentials.username,
-            portalCredentials.password,
-            { userAgent: resolvedUserAgent }
-        );
+        const authResult = await this.authenticateWithPortal(portalCredentials.username, portalCredentials.password, {
+            userAgent: resolvedUserAgent,
+        });
 
         if (authResult.success && authResult.cookieJar) {
             await this.saveUserSession(userId, JSON.stringify(authResult.cookieJar.toJSON()));

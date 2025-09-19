@@ -14,10 +14,7 @@ describe('Status Handler', () => {
     });
 
     // Helper function to create API Gateway event
-    const createEvent = (
-        body: any,
-        userId: string | null = 'test-user-id'
-    ): Partial<APIGatewayProxyEvent> => {
+    const createEvent = (body: any, userId: string | null = 'test-user-id'): Partial<APIGatewayProxyEvent> => {
         return {
             body: JSON.stringify(body),
             requestContext: {
@@ -35,11 +32,7 @@ describe('Status Handler', () => {
     it('should return 401 if no user ID is present', async () => {
         const event = createEvent({ caseNumbers: ['22CR123456-789'] }, null);
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(response.statusCode).toBe(401);
         expect(JSON.parse(response.body).error).toBe('Unauthorized');
@@ -48,11 +41,7 @@ describe('Status Handler', () => {
     it('should return 400 if caseNumbers parameter is missing', async () => {
         const event = createEvent({});
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(response.statusCode).toBe(400);
         expect(JSON.parse(response.body).error).toContain('Missing or invalid caseNumbers');
@@ -61,11 +50,7 @@ describe('Status Handler', () => {
     it('should return 400 if caseNumbers is not an array', async () => {
         const event = createEvent({ caseNumbers: 'not-an-array' });
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(response.statusCode).toBe(400);
         expect(JSON.parse(response.body).error).toContain('Missing or invalid caseNumbers');
@@ -74,11 +59,7 @@ describe('Status Handler', () => {
     it('should return 400 if caseNumbers is an empty array', async () => {
         const event = createEvent({ caseNumbers: [] });
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(response.statusCode).toBe(400);
         expect(JSON.parse(response.body).error).toContain('Missing or invalid caseNumbers');
@@ -108,11 +89,7 @@ describe('Status Handler', () => {
         // Mock the processor to return our results
         (getStatusForCases as jest.Mock).mockResolvedValue(mockResults);
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(getStatusForCases).toHaveBeenCalledWith({ caseNumbers });
         expect(response.statusCode).toBe(200);
@@ -126,11 +103,7 @@ describe('Status Handler', () => {
         // Mock the processor to throw an error
         (getStatusForCases as jest.Mock).mockRejectedValue(new Error('Test error'));
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(response.statusCode).toBe(500);
         expect(JSON.parse(response.body).error).toBe('Internal server error');

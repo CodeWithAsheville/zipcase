@@ -28,11 +28,11 @@ const processCaseSearch: SQSHandler = async (event: SQSEvent) => {
             const { caseNumber, userId, userAgent } = messageBody;
 
             if (!caseNumber || !userId) {
-                await caseSearchLogger.error(
-                    'Invalid message format, missing required fields',
-                    undefined,
-                    { caseNumber, userId, messageId: record.messageId }
-                );
+                await caseSearchLogger.error('Invalid message format, missing required fields', undefined, {
+                    caseNumber,
+                    userId,
+                    messageId: record.messageId,
+                });
                 continue;
             }
 
@@ -59,11 +59,12 @@ const processCaseData: SQSHandler = async (event: SQSEvent) => {
             const { caseNumber, caseId, userId } = messageBody;
 
             if (!caseNumber || !caseId || !userId) {
-                await caseDataLogger.error(
-                    'Invalid message format, missing required fields',
-                    undefined,
-                    { caseNumber, caseId, userId, messageId: record.messageId }
-                );
+                await caseDataLogger.error('Invalid message format, missing required fields', undefined, {
+                    caseNumber,
+                    caseId,
+                    userId,
+                    messageId: record.messageId,
+                });
                 continue;
             }
 
@@ -120,15 +121,11 @@ async function processCaseSearchRecord(
                 const minutesDiff = (nowTime - lastUpdated.getTime()) / (1000 * 60);
 
                 if (minutesDiff < 5) {
-                    console.log(
-                        `Case ${caseNumber} is already being processed (${minutesDiff.toFixed(1)} mins), skipping`
-                    );
+                    console.log(`Case ${caseNumber} is already being processed (${minutesDiff.toFixed(1)} mins), skipping`);
                     return zipCase.fetchStatus;
                 }
 
-                console.log(
-                    `Reprocessing case ${caseNumber} after timeout in 'processing' state (${minutesDiff.toFixed(1)} mins)`
-                );
+                console.log(`Reprocessing case ${caseNumber} after timeout in 'processing' state (${minutesDiff.toFixed(1)} mins)`);
             }
         }
 
@@ -164,9 +161,7 @@ async function processCaseSearchRecord(
 
             // Delete the queue item since we've saved the failed status
             await QueueClient.deleteMessage(receiptHandle, 'search');
-            console.log(
-                `Authentication failed for user ${userId}; deleted search queue item for case ${caseNumber}`
-            );
+            console.log(`Authentication failed for user ${userId}; deleted search queue item for case ${caseNumber}`);
 
             return failedStatus;
         }
@@ -242,13 +237,10 @@ async function processCaseSearchRecord(
     } catch (error) {
         const message = `Unhandled error while searching case ${caseNumber}: ${(error as Error).message}`;
 
-        await AlertService.logError(
-            Severity.ERROR,
-            AlertCategory.SYSTEM,
-            'Unhandled error during case search',
-            error as Error,
-            { caseNumber, userId }
-        );
+        await AlertService.logError(Severity.ERROR, AlertCategory.SYSTEM, 'Unhandled error during case search', error as Error, {
+            caseNumber,
+            userId,
+        });
 
         return { status: 'failed', message };
     }
@@ -267,9 +259,7 @@ async function processCaseDataRecord(
         if (zipCase && zipCase.fetchStatus.status === 'complete') {
             // Always use the cached data for complete cases
             await QueueClient.deleteMessage(receiptHandle, 'data');
-            console.log(
-                `Case ${caseNumber} already complete; using cached data and deleted queue item`
-            );
+            console.log(`Case ${caseNumber} already complete; using cached data and deleted queue item`);
             return zipCase.fetchStatus;
         }
 
@@ -298,13 +288,11 @@ async function processCaseDataRecord(
     } catch (error) {
         const message = `Unhandled error while retrieving data for case ${caseNumber}: ${(error as Error).message}`;
 
-        await AlertService.logError(
-            Severity.ERROR,
-            AlertCategory.SYSTEM,
-            'Unhandled error during case data retrieval',
-            error as Error,
-            { caseNumber, caseId, userId }
-        );
+        await AlertService.logError(Severity.ERROR, AlertCategory.SYSTEM, 'Unhandled error during case data retrieval', error as Error, {
+            caseNumber,
+            caseId,
+            userId,
+        });
 
         return { status: 'failed', message };
     }
@@ -369,25 +357,16 @@ async function fetchCaseIdFromPortal(
         searchFormData.append('caseCriteria.SearchCriteria', caseNumber);
         searchFormData.append('caseCriteria.SearchCases', 'true');
 
-        const searchResponse = await client.post(
-            `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
-            searchFormData
-        );
+        const searchResponse = await client.post(`${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`, searchFormData);
 
         if (searchResponse.status !== 200) {
             const errorMessage = `Search request failed with status ${searchResponse.status}`;
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                'Case search request failed',
-                new Error(errorMessage),
-                {
-                    caseNumber,
-                    statusCode: searchResponse.status,
-                    resource: 'portal-search',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, 'Case search request failed', new Error(errorMessage), {
+                caseNumber,
+                statusCode: searchResponse.status,
+                resource: 'portal-search',
+            });
 
             return {
                 caseId: null,
@@ -399,9 +378,7 @@ async function fetchCaseIdFromPortal(
         }
 
         // Step 2: Get the search results page
-        const resultsResponse = await client.get(
-            `${portalUrl}/Portal/SmartSearch/SmartSearchResults`
-        );
+        const resultsResponse = await client.get(`${portalUrl}/Portal/SmartSearch/SmartSearchResults`);
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;
@@ -428,22 +405,13 @@ async function fetchCaseIdFromPortal(
         }
 
         // Check for the specific error message
-        if (
-            resultsResponse.data.includes('Smart Search is having trouble processing your search')
-        ) {
-            const errorMessage =
-                'Smart Search is having trouble processing your search. Please try again later.';
+        if (resultsResponse.data.includes('Smart Search is having trouble processing your search')) {
+            const errorMessage = 'Smart Search is having trouble processing your search. Please try again later.';
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                'Smart Search processing error',
-                new Error(errorMessage),
-                {
-                    caseNumber,
-                    resource: 'smart-search',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, 'Smart Search processing error', new Error(errorMessage), {
+                caseNumber,
+                resource: 'smart-search',
+            });
 
             return {
                 caseId: null,
@@ -502,16 +470,10 @@ async function fetchCaseIdFromPortal(
     } catch (error) {
         const errorMessage = `Error fetching case ID from portal: ${(error as Error).message}`;
 
-        await AlertService.logError(
-            Severity.ERROR,
-            AlertCategory.PORTAL,
-            'Failed to fetch case ID from portal',
-            error as Error,
-            {
-                caseNumber,
-                resource: 'case-id-fetch',
-            }
-        );
+        await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, 'Failed to fetch case ID from portal', error as Error, {
+            caseNumber,
+            resource: 'case-id-fetch',
+        });
 
         return {
             caseId: null,
@@ -588,17 +550,11 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
                 if (response.status !== 200) {
                     const errorMessage = `${key} request failed with status ${response.status}`;
 
-                    await AlertService.logError(
-                        Severity.ERROR,
-                        AlertCategory.PORTAL,
-                        `Failed to fetch ${key}`,
-                        new Error(errorMessage),
-                        {
-                            caseId,
-                            statusCode: response.status,
-                            resource: key,
-                        }
-                    );
+                    await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, `Failed to fetch ${key}`, new Error(errorMessage), {
+                        caseId,
+                        statusCode: response.status,
+                        resource: key,
+                    });
 
                     return { key, success: false, error: errorMessage };
                 }
@@ -606,16 +562,10 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
                 // Just store the raw response data
                 return { key, success: true, data: response.data };
             } catch (error) {
-                await AlertService.logError(
-                    Severity.ERROR,
-                    AlertCategory.PORTAL,
-                    `Error fetching ${key}`,
-                    error as Error,
-                    {
-                        caseId,
-                        resource: key,
-                    }
-                );
+                await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, `Error fetching ${key}`, error as Error, {
+                    caseId,
+                    resource: key,
+                });
 
                 return {
                     key,
@@ -646,16 +596,10 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
         // Now that we have all raw data, build the CaseSummary object
         return buildCaseSummary(rawData);
     } catch (error) {
-        await AlertService.logError(
-            Severity.ERROR,
-            AlertCategory.PORTAL,
-            'Error fetching case summary',
-            error as Error,
-            {
-                caseId,
-                resource: 'case-summary',
-            }
-        );
+        await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, 'Error fetching case summary', error as Error, {
+            caseId,
+            resource: 'case-summary',
+        });
         return null;
     }
 }
@@ -670,7 +614,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
         const caseSummary: CaseSummary = {
             caseName: rawData['summary']['CaseSummaryHeader']['Style'] || '',
             court: rawData['summary']['CaseSummaryHeader']['Heading'] || '',
-            charges: []
+            charges: [],
         };
 
         const chargeMap = new Map<number, Charge>();
@@ -691,10 +635,10 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                 statute: chargeOffense['Statute'] || '',
                 degree: {
                     code: chargeOffense['Degree'] || '',
-                    description: chargeOffense['DegreeDescription'] || ''
+                    description: chargeOffense['DegreeDescription'] || '',
                 },
                 fine: typeof chargeOffense['FineAmount'] === 'number' ? chargeOffense['FineAmount'] : 0,
-                dispositions: []
+                dispositions: [],
             };
 
             // Add to charges array
@@ -721,9 +665,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
 
                 // CriminalDispositions are inside the Event property
                 const dispositions = eventData['Event']['CriminalDispositions'] || [];
-                console.log(
-                    `🔍 Processing disposition event with ${dispositions.length} dispositions`
-                );
+                console.log(`🔍 Processing disposition event with ${dispositions.length} dispositions`);
 
                 // Alert if more than one disposition
                 if (dispositions && dispositions.length > 1) {
@@ -734,7 +676,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                         new Error('Unexpected multiple dispositions'),
                         {
                             caseId: rawData['summary']['CaseSummaryHeader']['CaseId'] || 'unknown',
-                            eventId: eventData['EventId'] || 'unknown'
+                            eventId: eventData['EventId'] || 'unknown',
                         }
                     ).catch(err => console.error('Failed to log alert:', err));
                 }
@@ -753,7 +695,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                     const disposition: Disposition = {
                         date: eventDate,
                         code: dispTypeId['Word'] || '',
-                        description: dispTypeId['Description'] || ''
+                        description: dispTypeId['Description'] || '',
                     };
                     console.log(`📝 Created disposition:`, disposition);
 
@@ -774,25 +716,16 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                             );
                         }
                     } else {
-                        console.log(
-                            `⚠️ Missing ChargeID for disposition "${disposition.description}". ChargeID value:`,
-                            chargeId
-                        );
+                        console.log(`⚠️ Missing ChargeID for disposition "${disposition.description}". ChargeID value:`, chargeId);
                     }
                 });
             });
 
         return caseSummary;
     } catch (error) {
-        AlertService.logError(
-            Severity.ERROR,
-            AlertCategory.SYSTEM,
-            'Error building case summary from raw data',
-            error as Error,
-            {
-                caseId: rawData['summary']['CaseSummaryHeader']['CaseId'] || 'unknown',
-            }
-        );
+        AlertService.logError(Severity.ERROR, AlertCategory.SYSTEM, 'Error building case summary from raw data', error as Error, {
+            caseId: rawData['summary']['CaseSummaryHeader']['CaseId'] || 'unknown',
+        });
 
         return null;
     }

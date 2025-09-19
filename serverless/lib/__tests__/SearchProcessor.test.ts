@@ -39,11 +39,10 @@ describe('SearchProcessor', () => {
             error: jest.fn().mockResolvedValue(undefined),
             warn: jest.fn().mockResolvedValue(undefined),
             info: jest.fn().mockResolvedValue(undefined),
-            critical: jest.fn().mockResolvedValue(undefined)
+            critical: jest.fn().mockResolvedValue(undefined),
         };
         (AlertService.forCategory as jest.Mock).mockReturnValue(mockAlertServiceInstance);
     });
-
 
     describe('processSearch SQS handler', () => {
         // Mock SQS event creation helper
@@ -61,21 +60,21 @@ describe('SearchProcessor', () => {
                         caseNumber,
                         userId,
                         userAgent,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
                     }),
                     attributes: {
                         ApproximateReceiveCount: '1',
                         SentTimestamp: '123456789',
                         SenderId: 'sender-id',
-                        ApproximateFirstReceiveTimestamp: '123456789'
+                        ApproximateFirstReceiveTimestamp: '123456789',
                     },
                     messageAttributes: {},
                     md5OfBody: 'test-md5',
                     eventSource: 'aws:sqs',
                     eventSourceARN: 'arn:aws:sqs:region:account:queue',
-                    awsRegion: 'us-east-1'
-                } as SQSRecord
-            ]
+                    awsRegion: 'us-east-1',
+                } as SQSRecord,
+            ],
         });
 
         const createSQSNameSearchEvent = (
@@ -98,21 +97,21 @@ describe('SearchProcessor', () => {
                         dateOfBirth,
                         soundsLike,
                         userAgent,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
                     }),
                     attributes: {
                         ApproximateReceiveCount: '1',
                         SentTimestamp: '123456789',
                         SenderId: 'sender-id',
-                        ApproximateFirstReceiveTimestamp: '123456789'
+                        ApproximateFirstReceiveTimestamp: '123456789',
                     },
                     messageAttributes: {},
                     md5OfBody: 'test-md5',
                     eventSource: 'aws:sqs',
                     eventSourceARN: 'arn:aws:sqs:region:account:queue',
-                    awsRegion: 'us-east-1'
-                } as SQSRecord
-            ]
+                    awsRegion: 'us-east-1',
+                } as SQSRecord,
+            ],
         });
 
         beforeEach(() => {
@@ -123,9 +122,9 @@ describe('SearchProcessor', () => {
 
         it('should process a case search message through the appropriate processor', async () => {
             const event = createSQSCaseSearchEvent('123', 'user1');
-            
+
             await processSearch(event, mockContext, () => {});
-            
+
             expect(CaseSearchProcessor.processCaseSearchRecord).toHaveBeenCalledWith(
                 '123',
                 'user1',
@@ -137,9 +136,9 @@ describe('SearchProcessor', () => {
 
         it('should process a name search message through the appropriate processor', async () => {
             const event = createSQSNameSearchEvent('search1', 'John Doe', 'user1');
-            
+
             await processSearch(event, mockContext, () => {});
-            
+
             expect(NameSearchProcessor.processNameSearchRecord).toHaveBeenCalledWith(
                 'search1',
                 'John Doe',
@@ -160,25 +159,25 @@ describe('SearchProcessor', () => {
                         receiptHandle: 'test-receipt-handle',
                         body: JSON.stringify({
                             unknownField: 'test',
-                            userId: 'user1'
+                            userId: 'user1',
                         }),
                         attributes: {
                             ApproximateReceiveCount: '1',
                             SentTimestamp: '123456789',
                             SenderId: 'sender-id',
-                            ApproximateFirstReceiveTimestamp: '123456789'
+                            ApproximateFirstReceiveTimestamp: '123456789',
                         },
                         messageAttributes: {},
                         md5OfBody: 'test-md5',
                         eventSource: 'aws:sqs',
                         eventSourceARN: 'arn:aws:sqs:region:account:queue',
-                        awsRegion: 'us-east-1'
-                    } as SQSRecord
-                ]
+                        awsRegion: 'us-east-1',
+                    } as SQSRecord,
+                ],
             };
-            
+
             await processSearch(event, mockContext, () => {});
-            
+
             // Verify logger error was called
             const mockAlertServiceInstance = (AlertService.forCategory as jest.Mock).mock.results[0].value;
             expect(mockAlertServiceInstance.error).toHaveBeenCalled();

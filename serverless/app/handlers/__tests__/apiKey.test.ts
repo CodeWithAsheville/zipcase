@@ -146,9 +146,7 @@ describe('apiKey handler', () => {
             expect(response).toBeDefined();
             if (response) {
                 expect(response.statusCode).toBe(400);
-                expect(JSON.parse(response.body).error).toBe(
-                    'Webhook shared secret must not exceed 128 characters'
-                );
+                expect(JSON.parse(response.body).error).toBe('Webhook shared secret must not exceed 128 characters');
             }
         });
     });
