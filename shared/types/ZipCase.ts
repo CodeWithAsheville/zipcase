@@ -13,7 +13,7 @@ export interface ChargeDegree {
 
 export interface Disposition {
     date: string;
-    code: string
+    code: string;
     description: string;
 }
 
