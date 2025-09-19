@@ -43,7 +43,7 @@ export default function SearchResultsList() {
     useEffect(() => {
         if (searchResults.length > 0) {
             // Check if we have any non-terminal cases to poll
-            const terminalStates = ['complete', 'notFound', 'failed'];
+            const terminalStates = ['complete', 'failed'];
             const hasNonTerminalCases = searchResults.some(result => {
                 const status = result.zipCase.fetchStatus.status;
                 return !terminalStates.includes(status);
