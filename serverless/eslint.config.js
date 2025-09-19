@@ -24,6 +24,28 @@ module.exports = tseslint.config(
                 ...globals.jest
             },
         },
+        rules: {
+            'max-len': [
+                'error',
+                {
+                    code: 140,
+                    ignoreUrls: true,
+                    ignoreStrings: true,
+                    ignoreTemplateLiterals: true,
+                    ignoreRegExpLiterals: true,
+                    ignoreComments: true,
+                },
+            ],
+            'object-curly-newline': [
+                'error',
+                {
+                    multiline: true,
+                    consistent: true,
+                },
+            ],
+            'array-element-newline': ['error', 'consistent'],
+            'function-paren-newline': ['error', 'consistent'],
+        },
     },
     // Specific configuration for test files
     {

@@ -9,4 +9,5 @@
   "bracketSameLine": false,
   "arrowParens": "avoid",
   "endOfLine": "lf"
+  "proseWrap": "preserve"
 }
