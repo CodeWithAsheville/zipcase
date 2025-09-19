@@ -160,10 +160,7 @@ export function useConsolidatedPolling() {
 
             Object.entries(results).forEach(([caseNumber, result]: [string, SearchResult]) => {
                 const existingResult = currentState.results[caseNumber];
-                if (
-                    !existingResult ||
-                    existingResult.zipCase.fetchStatus.status !== result.zipCase.fetchStatus.status
-                ) {
+                if (!existingResult || existingResult.zipCase.fetchStatus.status !== result.zipCase.fetchStatus.status) {
                     hasStateChanges = true;
                 }
             });

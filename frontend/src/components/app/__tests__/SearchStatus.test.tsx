@@ -53,9 +53,7 @@ describe('SearchStatus component', () => {
     });
 
     it('returns null for unknown status', () => {
-        const { container } = render(
-            <SearchStatus status={createStatus('unknown-status' as any)} />
-        );
+        const { container } = render(<SearchStatus status={createStatus('unknown-status' as any)} />);
 
         // Container should be empty as unknown status renders null
         expect(container).toBeEmptyDOMElement();

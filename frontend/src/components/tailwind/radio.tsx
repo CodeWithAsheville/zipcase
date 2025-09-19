@@ -1,10 +1,7 @@
 import * as Headless from '@headlessui/react';
 import clsx from 'clsx';
 
-export function RadioGroup({
-    className,
-    ...props
-}: { className?: string } & Omit<Headless.RadioGroupProps, 'as' | 'className'>) {
+export function RadioGroup({ className, ...props }: { className?: string } & Omit<Headless.RadioGroupProps, 'as' | 'className'>) {
     return (
         <Headless.RadioGroup
             data-slot="control"
@@ -20,10 +17,7 @@ export function RadioGroup({
     );
 }
 
-export function RadioField({
-    className,
-    ...props
-}: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
+export function RadioField({ className, ...props }: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
     return (
         <Headless.Field
             data-slot="field"
@@ -113,16 +107,9 @@ export function Radio({
     color = 'dark/zinc',
     className,
     ...props
-}: { color?: Color; className?: string } & Omit<
-    Headless.RadioProps,
-    'as' | 'className' | 'children'
->) {
+}: { color?: Color; className?: string } & Omit<Headless.RadioProps, 'as' | 'className' | 'children'>) {
     return (
-        <Headless.Radio
-            data-slot="control"
-            {...props}
-            className={clsx(className, 'group inline-flex focus:outline-hidden')}
-        >
+        <Headless.Radio data-slot="control" {...props} className={clsx(className, 'group inline-flex focus:outline-hidden')}>
             <span className={clsx([base, colors[color]])}>
                 <span
                     className={clsx(

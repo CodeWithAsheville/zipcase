@@ -50,12 +50,7 @@ const reducer = (state: State, action: Action): State => {
 };
 
 interface NameSearchPanelProps {
-    onSearch?: (
-        name: string,
-        dateOfBirth?: string,
-        soundsLike?: boolean,
-        criminalOnly?: boolean
-    ) => void;
+    onSearch?: (name: string, dateOfBirth?: string, soundsLike?: boolean, criminalOnly?: boolean) => void;
 }
 
 const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
@@ -68,10 +63,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
     // Close tooltip when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
-            if (
-                soundsLikeTooltipRef.current &&
-                !soundsLikeTooltipRef.current.contains(event.target as Node)
-            ) {
+            if (soundsLikeTooltipRef.current && !soundsLikeTooltipRef.current.contains(event.target as Node)) {
                 if (soundsLikeTooltipVisible) {
                     setSoundsLikeTooltipVisible(false);
                 }
@@ -211,10 +203,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                             <div className="w-full space-y-4">
                                 {/* Name input */}
                                 <div>
-                                    <label
-                                        htmlFor="name_input"
-                                        className="block text-sm font-medium text-gray-700 mb-1"
-                                    >
+                                    <label htmlFor="name_input" className="block text-sm font-medium text-gray-700 mb-1">
                                         Name
                                     </label>
                                     <input
@@ -275,10 +264,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                         }
                                         disabled={nameSearch.isPending}
                                     />
-                                    <label
-                                        htmlFor="sounds_like"
-                                        className="ml-2 block text-sm text-gray-700"
-                                    >
+                                    <label htmlFor="sounds_like" className="ml-2 block text-sm text-gray-700">
                                         Sounds like
                                     </label>
 
@@ -297,8 +283,8 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                                 ref={soundsLikeTooltipRef}
                                                 className="absolute z-30 w-80 p-2 mt-2 text-sm text-left text-gray-700 bg-white border border-gray-200 rounded-lg shadow-lg -left-28 top-6"
                                             >
-                                                Use phonetic matching to find names that sound similar but may be
-                                                spelled differently (e.g., "Smith" will match "Smyth").
+                                                Use phonetic matching to find names that sound similar but may be spelled differently (e.g.,
+                                                "Smith" will match "Smyth").
                                             </div>
                                         )}
                                     </div>
@@ -320,20 +306,14 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                         }
                                         disabled={nameSearch.isPending}
                                     />
-                                    <label
-                                        htmlFor="criminal_only"
-                                        className="ml-2 block text-sm text-gray-700"
-                                    >
+                                    <label htmlFor="criminal_only" className="ml-2 block text-sm text-gray-700">
                                         Criminal cases only
                                     </label>
                                 </div>
 
                                 {/* Date of Birth input */}
                                 <div>
-                                    <label
-                                        htmlFor="dob_input"
-                                        className="block text-sm font-medium text-gray-700 mb-1"
-                                    >
+                                    <label htmlFor="dob_input" className="block text-sm font-medium text-gray-700 mb-1">
                                         Date of Birth (optional)
                                     </label>
                                     <input
@@ -372,13 +352,9 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                         disabled={nameSearch.isPending}
                                     />
                                     {localState.formattedDate ? (
-                                        <div className="mt-1 text-sm text-gray-600 pl-3">
-                                            {localState.formattedDate}
-                                        </div>
+                                        <div className="mt-1 text-sm text-gray-600 pl-3">{localState.formattedDate}</div>
                                     ) : localState.error ? (
-                                        <div className="mt-1 text-sm text-red-600 pl-3">
-                                            {localState.error}
-                                        </div>
+                                        <div className="mt-1 text-sm text-red-600 pl-3">{localState.error}</div>
                                     ) : null}
                                 </div>
                             </div>
@@ -389,7 +365,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                     disabled={
                                         nameSearch.isPending ||
                                         !localState.name.trim() ||
-                                        (localState.dateOfBirth.trim() !== "" && !localState.formattedDate)
+                                        (localState.dateOfBirth.trim() !== '' && !localState.formattedDate)
                                     }
                                     className="inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1F7ABC]
                                     disabled:bg-gray-400 disabled:cursor-not-allowed
@@ -421,10 +397,7 @@ const NameSearchPanel: React.FC<NameSearchPanelProps> = ({ onSearch }) => {
                                         </>
                                     ) : (
                                         <>
-                                            <MagnifyingGlassIcon
-                                                className="h-5 w-5 mr-2 text-white"
-                                                aria-hidden="true"
-                                            />
+                                            <MagnifyingGlassIcon className="h-5 w-5 mr-2 text-white" aria-hidden="true" />
                                             Search
                                         </>
                                     )}

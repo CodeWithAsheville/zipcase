@@ -13,14 +13,7 @@ export { Input } from './input';
 export { Link } from './link';
 export { Listbox, ListboxOption } from './listbox';
 export { Navbar, NavbarItem } from './navbar';
-export {
-    Pagination,
-    PaginationGap,
-    PaginationList,
-    PaginationNext,
-    PaginationPage,
-    PaginationPrevious,
-} from './pagination';
+export { Pagination, PaginationGap, PaginationList, PaginationNext, PaginationPage, PaginationPrevious } from './pagination';
 export { Radio, RadioGroup } from './radio';
 export { Select } from './select';
 export { SidebarLayout } from './sidebar-layout';

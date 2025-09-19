@@ -69,9 +69,7 @@ describe('CaseProcessor', () => {
                 expect.stringContaining('/Portal/SmartSearch/SmartSearch/SmartSearch'),
                 expect.any(URLSearchParams)
             );
-            expect(mockGet).toHaveBeenCalledWith(
-                expect.stringContaining('/Portal/SmartSearch/SmartSearchResults')
-            );
+            expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/Portal/SmartSearch/SmartSearchResults'));
             expect(result.caseId).toBe(mockCaseId);
             expect(result.error).toBeUndefined();
         });

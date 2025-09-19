@@ -52,9 +52,7 @@ const createWrapper = () => {
         },
     });
 
-    return ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+    return ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 };
 
 describe('SearchResultsList', () => {

@@ -1,9 +1,4 @@
-import {
-    CaseSearchRequest,
-    CaseSearchResponse,
-    SearchResult,
-    FetchStatus,
-} from '../../shared/types';
+import { CaseSearchRequest, CaseSearchResponse, SearchResult, FetchStatus } from '../../shared/types';
 import QueueClient from './QueueClient';
 import SearchParser from './SearchParser';
 import StorageClient from './StorageClient';
@@ -16,9 +11,7 @@ import * as cheerio from 'cheerio';
 import UserAgentClient from './UserAgentClient';
 
 // Process API case search requests
-export async function processCaseSearchRequest(
-    req: CaseSearchRequest
-): Promise<CaseSearchResponse> {
+export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<CaseSearchResponse> {
     let caseNumbers = SearchParser.parseSearchInput(req.input);
     caseNumbers = Array.from(new Set(caseNumbers));
 
@@ -84,23 +77,14 @@ export async function processCaseSearchRequest(
                         results[caseNumber].zipCase.lastUpdated = new Date().toISOString();
 
                         try {
-                            await QueueClient.queueCaseForDataRetrieval(
-                                caseNumber,
-                                caseId,
-                                req.userId
-                            );
+                            await QueueClient.queueCaseForDataRetrieval(caseNumber, caseId, req.userId);
                         } catch (error) {
-                            console.error(
-                                `Error queueing case ${caseNumber} for data retrieval:`,
-                                error
-                            );
+                            console.error(`Error queueing case ${caseNumber} for data retrieval:`, error);
                         }
                         continue;
                     } else {
                         // Complete status but no caseId - this shouldn't happen but fall through to re-queue
-                        console.warn(
-                            `Case ${caseNumber} has 'complete' status but missing caseId, will re-queue for search`
-                        );
+                        console.warn(`Case ${caseNumber} has 'complete' status but missing caseId, will re-queue for search`);
                     }
                 }
 
@@ -126,10 +110,7 @@ export async function processCaseSearchRequest(
                                 );
                             }
                         } catch (error) {
-                            console.error(
-                                `Error queueing case ${caseNumber} for data retrieval:`,
-                                error
-                            );
+                            console.error(`Error queueing case ${caseNumber} for data retrieval:`, error);
                         }
                         continue;
                     }
@@ -223,21 +204,15 @@ export async function processCaseSearchRecord(
                 });
             } else if (fetchStatus === 'processing') {
                 // Handle processing timeout (5 minutes)
-                const lastUpdated = zipCase.lastUpdated
-                    ? new Date(zipCase.lastUpdated)
-                    : new Date(0);
+                const lastUpdated = zipCase.lastUpdated ? new Date(zipCase.lastUpdated) : new Date(0);
                 const minutesDiff = (now.getTime() - lastUpdated.getTime()) / (1000 * 60);
 
                 if (minutesDiff < 5) {
-                    console.log(
-                        `Case ${caseNumber} is already being processed (${minutesDiff.toFixed(1)} mins), skipping`
-                    );
+                    console.log(`Case ${caseNumber} is already being processed (${minutesDiff.toFixed(1)} mins), skipping`);
                     return;
                 }
 
-                console.log(
-                    `Reprocessing case ${caseNumber} after timeout in 'processing' state (${minutesDiff.toFixed(1)} mins)`
-                );
+                console.log(`Reprocessing case ${caseNumber} after timeout in 'processing' state (${minutesDiff.toFixed(1)} mins)`);
             }
         }
 
@@ -250,23 +225,15 @@ export async function processCaseSearchRecord(
                 : `No session CookieJar found for user ${userId}`;
 
             if (message.includes('Invalid Email or password')) {
-                await logger.error(
-                    'Portal authentication failed during case search: ' + message,
-                    undefined,
-                    {
-                        userId,
-                        caseNumber,
-                    }
-                );
+                await logger.error('Portal authentication failed during case search: ' + message, undefined, {
+                    userId,
+                    caseNumber,
+                });
             } else {
-                await logger.critical(
-                    'Portal authentication failed during case search: ' + message,
-                    undefined,
-                    {
-                        userId,
-                        caseNumber,
-                    }
-                );
+                await logger.critical('Portal authentication failed during case search: ' + message, undefined, {
+                    userId,
+                    caseNumber,
+                });
             }
 
             const failedStatus: FetchStatus = { status: 'failed', message };
@@ -280,9 +247,7 @@ export async function processCaseSearchRecord(
 
             // Delete the queue item since we've saved the failed status
             await QueueClient.deleteMessage(receiptHandle, 'search');
-            console.log(
-                `Authentication failed for user ${userId}; deleted search queue item for case ${caseNumber}`
-            );
+            console.log(`Authentication failed for user ${userId}; deleted search queue item for case ${caseNumber}`);
 
             return;
         }
@@ -376,10 +341,7 @@ export async function processCaseSearchRecord(
 }
 
 // Fetch case ID from the portal
-export async function fetchCaseIdFromPortal(
-    caseNumber: string,
-    cookieJar: CookieJar
-): Promise<CaseSearchResult> {
+export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: CookieJar): Promise<CaseSearchResult> {
     try {
         // Get the portal URL from environment variable
         const portalUrl = process.env.PORTAL_URL;
@@ -387,13 +349,7 @@ export async function fetchCaseIdFromPortal(
         if (!portalUrl) {
             const errorMsg = 'PORTAL_URL environment variable is not set';
 
-            await AlertService.logError(
-                Severity.CRITICAL,
-                AlertCategory.SYSTEM,
-                '',
-                new Error(errorMsg),
-                { resource: 'case-search' }
-            );
+            await AlertService.logError(Severity.CRITICAL, AlertCategory.SYSTEM, '', new Error(errorMsg), { resource: 'case-search' });
 
             return {
                 caseId: null,
@@ -426,25 +382,16 @@ export async function fetchCaseIdFromPortal(
         searchFormData.append('caseCriteria.SearchCriteria', caseNumber);
         searchFormData.append('caseCriteria.SearchCases', 'true');
 
-        const searchResponse = await client.post(
-            `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
-            searchFormData
-        );
+        const searchResponse = await client.post(`${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`, searchFormData);
 
         if (searchResponse.status !== 200) {
             const errorMessage = `Search request failed with status ${searchResponse.status}`;
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                '',
-                new Error(errorMessage),
-                {
-                    caseNumber,
-                    statusCode: searchResponse.status,
-                    resource: 'portal-search',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
+                caseNumber,
+                statusCode: searchResponse.status,
+                resource: 'portal-search',
+            });
 
             return {
                 caseId: null,
@@ -456,24 +403,16 @@ export async function fetchCaseIdFromPortal(
         }
 
         // Step 2: Get the search results page
-        const resultsResponse = await client.get(
-            `${portalUrl}/Portal/SmartSearch/SmartSearchResults`
-        );
+        const resultsResponse = await client.get(`${portalUrl}/Portal/SmartSearch/SmartSearchResults`);
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                '',
-                new Error(errorMessage),
-                {
-                    caseNumber,
-                    statusCode: resultsResponse.status,
-                    resource: 'portal-search-results',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
+                caseNumber,
+                statusCode: resultsResponse.status,
+                resource: 'portal-search-results',
+            });
 
             return {
                 caseId: null,
@@ -485,22 +424,13 @@ export async function fetchCaseIdFromPortal(
         }
 
         // Check for the specific error message
-        if (
-            resultsResponse.data.includes('Smart Search is having trouble processing your search')
-        ) {
-            const errorMessage =
-                'Smart Search is having trouble processing your search. Please try again later.';
+        if (resultsResponse.data.includes('Smart Search is having trouble processing your search')) {
+            const errorMessage = 'Smart Search is having trouble processing your search. Please try again later.';
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                '',
-                new Error(errorMessage),
-                {
-                    caseNumber,
-                    resource: 'smart-search',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
+                caseNumber,
+                resource: 'smart-search',
+            });
 
             return {
                 caseId: null,
@@ -535,16 +465,10 @@ export async function fetchCaseIdFromPortal(
         if (!caseId) {
             const errorMessage = `No case ID found in search results for ${caseNumber}`;
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                '',
-                new Error(errorMessage),
-                {
-                    caseNumber,
-                    resource: 'case-search-results',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
+                caseNumber,
+                resource: 'case-search-results',
+            });
             return {
                 caseId: null,
                 error: {
@@ -557,16 +481,10 @@ export async function fetchCaseIdFromPortal(
         console.log(`Found case ID ${caseId} for case number ${caseNumber}`);
         return { caseId };
     } catch (error) {
-        await AlertService.logError(
-            Severity.ERROR,
-            AlertCategory.PORTAL,
-            '',
-            error as Error,
-            {
-                caseNumber,
-                resource: 'case-id-fetch',
-            }
-        );
+        await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', error as Error, {
+            caseNumber,
+            resource: 'case-id-fetch',
+        });
 
         return {
             caseId: null,

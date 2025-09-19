@@ -16,10 +16,7 @@ describe('Portal Credentials Handlers', () => {
     });
 
     // Helper function to create API Gateway event
-    const createEvent = (
-        body: any = null,
-        userId: string | null = 'test-user-id'
-    ): Partial<APIGatewayProxyEvent> => {
+    const createEvent = (body: any = null, userId: string | null = 'test-user-id'): Partial<APIGatewayProxyEvent> => {
         return {
             body: body ? JSON.stringify(body) : null,
             requestContext: {
@@ -38,11 +35,7 @@ describe('Portal Credentials Handlers', () => {
         it('should return 401 if no user ID is present', async () => {
             const event = createEvent(null, null);
 
-            const response = (await get(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await get(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(401);
             expect(JSON.parse(response.body).error).toBe('Unauthorized');
@@ -54,11 +47,7 @@ describe('Portal Credentials Handlers', () => {
             // Mock StorageClient to return null (no credentials found)
             (StorageClient.getPortalCredentials as jest.Mock).mockResolvedValue(null);
 
-            const response = (await get(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await get(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(StorageClient.getPortalCredentials).toHaveBeenCalledWith('test-user-id');
             expect(response.statusCode).toBe(204);
@@ -75,11 +64,7 @@ describe('Portal Credentials Handlers', () => {
             // Mock StorageClient to return credentials
             (StorageClient.getPortalCredentials as jest.Mock).mockResolvedValue(mockCredentials);
 
-            const response = (await get(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await get(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(StorageClient.getPortalCredentials).toHaveBeenCalledWith('test-user-id');
             expect(response.statusCode).toBe(200);
@@ -90,15 +75,9 @@ describe('Portal Credentials Handlers', () => {
             const event = createEvent();
 
             // Mock StorageClient to throw an error
-            (StorageClient.getPortalCredentials as jest.Mock).mockRejectedValue(
-                new Error('Test error')
-            );
+            (StorageClient.getPortalCredentials as jest.Mock).mockRejectedValue(new Error('Test error'));
 
-            const response = (await get(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await get(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(500);
             expect(JSON.parse(response.body).error).toBe('Internal server error');
@@ -108,16 +87,9 @@ describe('Portal Credentials Handlers', () => {
 
     describe('set', () => {
         it('should return 401 if no user ID is present', async () => {
-            const event = createEvent(
-                { username: 'test@example.com', password: 'password123' },
-                null
-            );
+            const event = createEvent({ username: 'test@example.com', password: 'password123' }, null);
 
-            const response = (await set(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await set(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(response.statusCode).toBe(401);
             expect(JSON.parse(response.body).error).toBe('Unauthorized');
@@ -155,11 +127,7 @@ describe('Portal Credentials Handlers', () => {
                 message: 'Invalid credentials',
             });
 
-            const response = (await set(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await set(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             expect(PortalAuthenticator.authenticateWithPortal).toHaveBeenCalledWith(
                 'test@example.com',
@@ -196,31 +164,16 @@ describe('Portal Credentials Handlers', () => {
             (StorageClient.savePortalCredentials as jest.Mock).mockResolvedValue(undefined);
             (PortalAuthenticator.saveUserSession as jest.Mock).mockResolvedValue(undefined);
 
-            const response = (await set(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await set(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             // Verify authentication was attempted
-            expect(PortalAuthenticator.authenticateWithPortal).toHaveBeenCalledWith(
-                'test@example.com',
-                'password123',
-                expect.any(Object)
-            );
+            expect(PortalAuthenticator.authenticateWithPortal).toHaveBeenCalledWith('test@example.com', 'password123', expect.any(Object));
 
             // Verify credentials were stored
-            expect(StorageClient.savePortalCredentials).toHaveBeenCalledWith(
-                'test-user-id',
-                'test@example.com',
-                'password123'
-            );
+            expect(StorageClient.savePortalCredentials).toHaveBeenCalledWith('test-user-id', 'test@example.com', 'password123');
 
             // Verify session was stored
-            expect(PortalAuthenticator.saveUserSession).toHaveBeenCalledWith(
-                'test-user-id',
-                JSON.stringify(mockCookieJar.toJSON())
-            );
+            expect(PortalAuthenticator.saveUserSession).toHaveBeenCalledWith('test-user-id', JSON.stringify(mockCookieJar.toJSON()));
 
             // Verify response
             expect(response.statusCode).toBe(201);
@@ -232,15 +185,9 @@ describe('Portal Credentials Handlers', () => {
             const event = createEvent({ username: 'test@example.com', password: 'password123' });
 
             // Mock PortalAuthenticator to throw an error
-            (PortalAuthenticator.authenticateWithPortal as jest.Mock).mockRejectedValue(
-                new Error('Network error')
-            );
+            (PortalAuthenticator.authenticateWithPortal as jest.Mock).mockRejectedValue(new Error('Network error'));
 
-            const response = (await set(
-                event as any,
-                {} as any,
-                () => {}
-            )) as APIGatewayProxyResult;
+            const response = (await set(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
             // Check for 401 status because authentication errors are handled by the authenticatePortal function
             expect(response.statusCode).toBe(401);

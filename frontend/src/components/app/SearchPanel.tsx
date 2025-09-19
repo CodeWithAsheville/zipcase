@@ -74,7 +74,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch }) => {
                     localDispatch({ type: 'SET_CASE_NUMBER', payload: '' });
 
                     const message = caseCount === 1 ? 'Found 1 case number' : `Found ${caseCount} case numbers`;
-                    localDispatch({ type: 'SET_FEEDBACK', payload: { message, type: 'success' }});
+                    localDispatch({ type: 'SET_FEEDBACK', payload: { message, type: 'success' } });
                 }
 
                 caseNumberInput.focus();
@@ -106,8 +106,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch }) => {
                             <p>
                                 Enter case numbers or paste text containing case numbers.
                                 <br />
-                                Standard (25CR123456-789) and LexisNexis (7892025CR 123456) case
-                                numbers are supported.
+                                Standard (25CR123456-789) and LexisNexis (7892025CR 123456) case numbers are supported.
                             </p>
                         </div>
                         <form className="mt-5 sm:flex sm:flex-col" onSubmit={submitSearch}>
@@ -141,10 +140,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch }) => {
                                     onKeyDown={e => {
                                         if (e.key === 'Enter' && e.ctrlKey) {
                                             e.preventDefault();
-                                            if (
-                                                localState.caseNumber.trim() &&
-                                                !caseSearch.isPending
-                                            ) {
+                                            if (localState.caseNumber.trim() && !caseSearch.isPending) {
                                                 const form = e.currentTarget.form;
                                                 if (form)
                                                     form.dispatchEvent(
@@ -220,9 +216,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch }) => {
                                 )}
                             </div>
                         </form>
-                        {localState.error && (
-                            <div className="mt-2 text-sm text-red-600">{localState.error}</div>
-                        )}
+                        {localState.error && <div className="mt-2 text-sm text-red-600">{localState.error}</div>}
                     </div>
                 </div>
             </div>

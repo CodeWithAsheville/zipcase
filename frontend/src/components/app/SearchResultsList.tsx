@@ -83,15 +83,10 @@ export default function SearchResultsList() {
                     <>
                         {searchResults.length > 0 ? (
                             <div className="mt-8">
-                                <h3 className="text-base font-semibold text-gray-900">
-                                    Search Results
-                                </h3>
+                                <h3 className="text-base font-semibold text-gray-900">Search Results</h3>
                                 <div className="mt-4 space-y-4">
                                     {searchResults.map(result => (
-                                        <CaseResultItem
-                                            key={`${result.zipCase.caseNumber}`}
-                                            searchResult={result}
-                                        />
+                                        <CaseResultItem key={`${result.zipCase.caseNumber}`} searchResult={result} />
                                     ))}
                                 </div>
                             </div>

@@ -37,9 +37,7 @@ export class ZipCaseClient {
             });
         },
 
-        set: async (
-            credentials: PortalCredentialsRequest
-        ): Promise<ZipCaseResponse<PortalCredentialsResponse>> => {
+        set: async (credentials: PortalCredentialsRequest): Promise<ZipCaseResponse<PortalCredentialsResponse>> => {
             return this.request<PortalCredentialsResponse>('/portal-credentials', {
                 method: 'POST',
                 data: credentials,
@@ -61,9 +59,7 @@ export class ZipCaseClient {
     };
 
     webhooks = {
-        set: async (
-            webhookSettings: WebhookSettings
-        ): Promise<ZipCaseResponse<WebhookSettings>> => {
+        set: async (webhookSettings: WebhookSettings): Promise<ZipCaseResponse<WebhookSettings>> => {
             return this.request<WebhookSettings>('/webhook', {
                 method: 'POST',
                 data: webhookSettings,
@@ -99,9 +95,7 @@ export class ZipCaseClient {
             });
         },
 
-        nameSearchStatus: async (
-            searchId: string
-        ): Promise<ZipCaseResponse<NameSearchResponse>> => {
+        nameSearchStatus: async (searchId: string): Promise<ZipCaseResponse<NameSearchResponse>> => {
             return await this.request<NameSearchResponse>(`/name-search/${searchId}`, {
                 method: 'GET',
             });
@@ -122,10 +116,7 @@ export class ZipCaseClient {
     /**
      * Core request method that handles all API interactions
      */
-    private async request<T>(
-        endpoint: string,
-        options: { method?: string; data?: unknown } = {}
-    ): Promise<ZipCaseResponse<T>> {
+    private async request<T>(endpoint: string, options: { method?: string; data?: unknown } = {}): Promise<ZipCaseResponse<T>> {
         const { method = 'GET', data } = options;
 
         // Make sure endpoint doesn't start with a slash when combined with baseUrl
@@ -188,10 +179,7 @@ export class ZipCaseClient {
                 success: false,
                 status,
                 data: null,
-                error:
-                    typeof responseBody === 'object' && responseBody.error
-                        ? responseBody.error
-                        : `Request failed with status ${status}`,
+                error: typeof responseBody === 'object' && responseBody.error ? responseBody.error : `Request failed with status ${status}`,
             };
         } catch (error) {
             // Handle network or other errors

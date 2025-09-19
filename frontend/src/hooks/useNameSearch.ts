@@ -62,10 +62,7 @@ export function useNameSearch() {
 
                 const results = response.data?.results || {};
                 const statusCounts = getStatusCounts(results);
-                const hasStatusChange = !statusCountsEqual(
-                    statusCounts,
-                    pollingState.prevStatusCounts
-                );
+                const hasStatusChange = !statusCountsEqual(statusCounts, pollingState.prevStatusCounts);
 
                 // Get existing state
                 const existingState = queryClient.getQueryData<ResultsState>(['searchResults']) || {
@@ -96,9 +93,7 @@ export function useNameSearch() {
 
                     // Check if we already have a batch containing these case numbers
                     const existingBatchIndex = existingState.searchBatches.findIndex(
-                        batch =>
-                            newCaseNumbers.length > 0 &&
-                            newCaseNumbers.every(caseNumber => batch.includes(caseNumber))
+                        batch => newCaseNumbers.length > 0 && newCaseNumbers.every(caseNumber => batch.includes(caseNumber))
                     );
 
                     // Only add a new batch if we don't already have one with these case numbers
@@ -237,9 +232,7 @@ export function useNameSearch() {
             const newBatch = Object.keys(processedResults);
 
             // Only create a batch if there are any results
-            const updatedBatches = newBatch.length > 0
-                ? [newBatch, ...existingState.searchBatches]
-                : existingState.searchBatches;
+            const updatedBatches = newBatch.length > 0 ? [newBatch, ...existingState.searchBatches] : existingState.searchBatches;
 
             // Store the search ID in our nameSearches map
             const updatedNameSearches = {

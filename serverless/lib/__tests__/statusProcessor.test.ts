@@ -49,9 +49,7 @@ describe('StatusProcessor', () => {
             const caseNumbers = ['22CR123456-789'];
 
             // Set up mocks to throw an error
-            (StorageClient.getSearchResults as jest.Mock).mockRejectedValue(
-                new Error('Test error')
-            );
+            (StorageClient.getSearchResults as jest.Mock).mockRejectedValue(new Error('Test error'));
 
             // Call the function
             const result = await getStatusForCases({

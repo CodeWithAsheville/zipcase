@@ -17,7 +17,7 @@ export async function fetchCasesByName(
     cookieJar: CookieJar,
     dateOfBirth?: string,
     soundsLike = false,
-    criminalOnly = true,
+    criminalOnly = true
 ): Promise<NameSearchResult> {
     try {
         // Get the portal URL from environment variable
@@ -26,13 +26,7 @@ export async function fetchCasesByName(
         if (!portalUrl) {
             const errorMsg = 'PORTAL_URL environment variable is not set';
 
-            await AlertService.logError(
-                Severity.CRITICAL,
-                AlertCategory.SYSTEM,
-                '',
-                new Error(errorMsg),
-                { resource: 'name-search' }
-            );
+            await AlertService.logError(Severity.CRITICAL, AlertCategory.SYSTEM, '', new Error(errorMsg), { resource: 'name-search' });
 
             return {
                 cases: [] as { caseId: string; caseNumber: string }[],
@@ -78,10 +72,7 @@ export async function fetchCasesByName(
             searchFormData.append('caseCriteria.UseSoundex', 'true');
         }
 
-        const searchResponse = await client.post(
-            `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
-            searchFormData
-        );
+        const searchResponse = await client.post(`${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`, searchFormData);
 
         console.log(`Search response status: ${searchResponse.status}`);
 
@@ -95,16 +86,10 @@ export async function fetchCasesByName(
 
             // If the essential SmartSearchCriteria cookie is missing, we cannot proceed
             const errorMessage = 'Missing SmartSearchCriteria cookie required for search results';
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                '',
-                new Error(errorMessage),
-                {
-                    name,
-                    resource: 'portal-search',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
+                name,
+                resource: 'portal-search',
+            });
 
             return {
                 cases: [],
@@ -116,27 +101,18 @@ export async function fetchCasesByName(
         const resultsRequestHeaders: Record<string, string> = {
             Referer: `${portalUrl}/Portal/Home/WorkspaceMode?p=0`,
         };
-        const resultsResponse = await client.get(
-            `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
-            { headers: resultsRequestHeaders }
-        );
+        const resultsResponse = await client.get(`${portalUrl}/Portal/SmartSearch/SmartSearchResults`, { headers: resultsRequestHeaders });
 
         console.log(`SmartSearchResults response status: ${resultsResponse.status}`);
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;
 
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                '',
-                new Error(errorMessage),
-                {
-                    name,
-                    statusCode: resultsResponse.status,
-                    resource: 'portal-search-results',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
+                name,
+                statusCode: resultsResponse.status,
+                resource: 'portal-search-results',
+            });
 
             return {
                 cases: [],
@@ -147,16 +123,10 @@ export async function fetchCasesByName(
         // Check for specific error messages
         const errorString = 'Smart Search is having trouble processing your search';
         if (resultsResponse.data.includes(errorString)) {
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.PORTAL,
-                '',
-                new Error(errorString),
-                {
-                    name,
-                    resource: 'smart-search',
-                }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorString), {
+                name,
+                resource: 'smart-search',
+            });
 
             return {
                 cases: [],
@@ -232,9 +202,7 @@ export async function fetchCasesByName(
                                         caseNumber: caseResult.CaseNumber,
                                     });
                                     caseNumberSet.add(caseResult.CaseNumber);
-                                    console.log(
-                                        `Found case: ${caseResult.CaseNumber}, ID: ${caseResult.EncryptedCaseId}`
-                                    );
+                                    console.log(`Found case: ${caseResult.CaseNumber}, ID: ${caseResult.EncryptedCaseId}`);
                                 }
                             }
                         }

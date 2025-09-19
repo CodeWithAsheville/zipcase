@@ -30,9 +30,7 @@ const createTestQueryClient = (initialData = null) => {
 
 const createWrapper = (queryClient?: QueryClient) => {
     const testQueryClient = queryClient || createTestQueryClient();
-    return ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={testQueryClient}>{children}</QueryClientProvider>
-    );
+    return ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={testQueryClient}>{children}</QueryClientProvider>;
 };
 
 // Basic tests for the hooks

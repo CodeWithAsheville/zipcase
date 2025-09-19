@@ -9,11 +9,7 @@ interface SearchProps {
 const Search: React.FC<SearchProps> = ({ type = 'case' }) => {
     return (
         <>
-            {type === 'case' ? (
-                <SearchPanel />
-            ) : (
-                <NameSearchPanel />
-            )}
+            {type === 'case' ? <SearchPanel /> : <NameSearchPanel />}
             <SearchResultsList />
         </>
     );

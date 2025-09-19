@@ -115,10 +115,7 @@ describe('QueueClient', () => {
 
         it('should handle batches of more than 10 items', async () => {
             // Create an array of 15 case numbers
-            const cases = Array.from(
-                { length: 15 },
-                (_, i) => `22CR${(100000 + i).toString()}-789`
-            );
+            const cases = Array.from({ length: 15 }, (_, i) => `22CR${(100000 + i).toString()}-789`);
             const userId = 'test-user';
 
             await QueueClient.queueCasesForSearch(cases, userId);

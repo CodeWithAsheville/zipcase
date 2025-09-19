@@ -85,12 +85,7 @@ export const set: APIGatewayProxyHandler = async event => {
         const body = JSON.parse(event.body || '{}');
 
         // Validate input
-        if (
-            !body.username ||
-            !body.password ||
-            body.username.trim() === '' ||
-            body.password.trim() === ''
-        ) {
+        if (!body.username || !body.password || body.username.trim() === '' || body.password.trim() === '') {
             return errorResponse('Username and password are required', 400);
         }
 

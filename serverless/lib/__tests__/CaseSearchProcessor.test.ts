@@ -90,11 +90,7 @@ describe('CaseSearchProcessor', () => {
             });
 
             // Should queue for data retrieval
-            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith(
-                '22CR123456-789',
-                'test-case-id',
-                'test-user-id'
-            );
+            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith('22CR123456-789', 'test-case-id', 'test-user-id');
 
             // Should not queue for search
             expect(mockQueueClient.queueCasesForSearch).not.toHaveBeenCalled();
@@ -122,11 +118,7 @@ describe('CaseSearchProcessor', () => {
             const result = await processCaseSearchRequest(baseRequest);
 
             // Should queue for search since caseId is missing
-            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(
-                ['22CR123456-789'],
-                'test-user-id',
-                'Test Agent'
-            );
+            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
 
             // Should not queue for data retrieval
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
@@ -150,11 +142,7 @@ describe('CaseSearchProcessor', () => {
             const result = await processCaseSearchRequest(baseRequest);
 
             // Should queue for data retrieval
-            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith(
-                '22CR123456-789',
-                'test-case-id',
-                'test-user-id'
-            );
+            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith('22CR123456-789', 'test-case-id', 'test-user-id');
 
             // Should not queue for search
             expect(mockQueueClient.queueCasesForSearch).not.toHaveBeenCalled();
@@ -178,11 +166,7 @@ describe('CaseSearchProcessor', () => {
             const result = await processCaseSearchRequest(baseRequest);
 
             // Should queue for search since caseId is missing
-            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(
-                ['22CR123456-789'],
-                'test-user-id',
-                'Test Agent'
-            );
+            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
 
             // Should not queue for data retrieval
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
@@ -256,11 +240,7 @@ describe('CaseSearchProcessor', () => {
             const result = await processCaseSearchRequest(baseRequest);
 
             // Should queue for search (failed status gets re-queued)
-            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(
-                ['22CR123456-789'],
-                'test-user-id',
-                'Test Agent'
-            );
+            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
             expect(mockStorageClient.saveCase).not.toHaveBeenCalled();
         });
@@ -276,11 +256,7 @@ describe('CaseSearchProcessor', () => {
                 fetchStatus: { status: 'queued' },
             });
 
-            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(
-                ['22CR123456-789'],
-                'test-user-id',
-                'Test Agent'
-            );
+            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
         });
 
         it('should handle mixed case scenarios', async () => {
@@ -329,9 +305,7 @@ describe('CaseSearchProcessor', () => {
             const result = await processCaseSearchRequest(multiCaseRequest);
 
             // First case (complete with summary) - no action
-            expect(mockStorageClient.saveCase).not.toHaveBeenCalledWith(
-                expect.objectContaining({ caseNumber: '22CR123456-789' })
-            );
+            expect(mockStorageClient.saveCase).not.toHaveBeenCalledWith(expect.objectContaining({ caseNumber: '22CR123456-789' }));
 
             // Second case (complete without summary) - should update to found
             expect(mockStorageClient.saveCase).toHaveBeenCalledWith({
@@ -342,18 +316,10 @@ describe('CaseSearchProcessor', () => {
             });
 
             // Third case (already found) - queue for data retrieval
-            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith(
-                '24CV789012-345',
-                'case-id-3',
-                'test-user-id'
-            );
+            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith('24CV789012-345', 'case-id-3', 'test-user-id');
 
             // Second case (now found) - queue for data retrieval
-            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith(
-                '23CV654321-456',
-                'case-id-2',
-                'test-user-id'
-            );
+            expect(mockQueueClient.queueCaseForDataRetrieval).toHaveBeenCalledWith('23CV654321-456', 'case-id-2', 'test-user-id');
 
             // Fourth case (new) - should be created and queued for search
             expect(mockStorageClient.saveCase).toHaveBeenCalledWith({
@@ -361,11 +327,7 @@ describe('CaseSearchProcessor', () => {
                 fetchStatus: { status: 'queued' },
             });
 
-            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(
-                ['25CR555666-777'],
-                'test-user-id',
-                'Test Agent'
-            );
+            expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['25CR555666-777'], 'test-user-id', 'Test Agent');
 
             // Verify returned statuses in the results object
             expect(result.results['22CR123456-789'].zipCase.fetchStatus.status).toBe('complete');

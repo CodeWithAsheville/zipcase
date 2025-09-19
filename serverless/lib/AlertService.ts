@@ -339,12 +339,7 @@ const AlertService = {
         } else if (severity === Severity.WARNING) {
             console.warn(`[${category}] ${message}`, error?.message || '', context);
         } else {
-            console.error(
-                `[${category}] ${message}`,
-                error?.message || '',
-                error?.stack || '',
-                context
-            );
+            console.error(`[${category}] ${message}`, error?.message || '', error?.stack || '', context);
         }
 
         // Generate error key for deduplication
@@ -387,8 +382,7 @@ const AlertService = {
      */
     forCategory(category: AlertCategory) {
         return {
-            info: (message: string, context?: ErrorContext) =>
-                this.logError(Severity.INFO, category, message, undefined, context),
+            info: (message: string, context?: ErrorContext) => this.logError(Severity.INFO, category, message, undefined, context),
 
             warn: (message: string, error?: Error, context?: ErrorContext) =>
                 this.logError(Severity.WARNING, category, message, error, context),

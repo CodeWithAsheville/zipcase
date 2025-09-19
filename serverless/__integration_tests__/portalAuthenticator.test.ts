@@ -30,8 +30,7 @@ describe('Portal Authentication Integration', () => {
     beforeAll(() => {
         if (!runTests) {
             console.warn(
-                'Skipping Portal auth tests. ' +
-                    'Set PORTAL_URL, USERNAME and PASSWORD environment variables to run these tests.'
+                'Skipping Portal auth tests. ' + 'Set PORTAL_URL, USERNAME and PASSWORD environment variables to run these tests.'
             );
         }
     });
@@ -110,10 +109,7 @@ describe('Portal Authentication Integration', () => {
             return;
         }
 
-        const result = await PortalAuthenticator.authenticateWithPortal(
-            'invalid_user',
-            'invalid_password'
-        );
+        const result = await PortalAuthenticator.authenticateWithPortal('invalid_user', 'invalid_password');
 
         expect(result.success).toBe(false);
         expect(result.message).toBeDefined();
