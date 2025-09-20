@@ -14,10 +14,7 @@ describe('Search Handler', () => {
     });
 
     // Helper function to create API Gateway event
-    const createEvent = (
-        body: any,
-        userId: string | null = 'test-user-id'
-    ): Partial<APIGatewayProxyEvent> => {
+    const createEvent = (body: any, userId: string | null = 'test-user-id'): Partial<APIGatewayProxyEvent> => {
         return {
             body: JSON.stringify(body),
             headers: {
@@ -38,11 +35,7 @@ describe('Search Handler', () => {
     it('should return 401 if no user ID is present', async () => {
         const event = createEvent({ search: '22CR123456-789' }, null);
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(response.statusCode).toBe(401);
         expect(JSON.parse(response.body).error).toBe('Unauthorized');
@@ -51,11 +44,7 @@ describe('Search Handler', () => {
     it('should return 400 if search parameter is missing', async () => {
         const event = createEvent({});
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(response.statusCode).toBe(400);
         expect(JSON.parse(response.body).error).toBe('Missing search parameter');
@@ -85,11 +74,7 @@ describe('Search Handler', () => {
         // Mock the processor to return our results
         (processCaseSearchRequest as jest.Mock).mockResolvedValue(mockResults);
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(processCaseSearchRequest).toHaveBeenCalledWith({
             input: searchQuery,
@@ -106,11 +91,7 @@ describe('Search Handler', () => {
         // Mock the processor to throw an error
         (processCaseSearchRequest as jest.Mock).mockRejectedValue(new Error('Test error'));
 
-        const response = (await handler(
-            event as any,
-            {} as any,
-            () => {}
-        )) as APIGatewayProxyResult;
+        const response = (await handler(event as any, {} as any, () => {})) as APIGatewayProxyResult;
 
         expect(response.statusCode).toBe(500);
         expect(JSON.parse(response.body).error).toBe('Internal server error');

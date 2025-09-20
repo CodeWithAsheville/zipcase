@@ -1,10 +1,6 @@
 import clsx from 'clsx';
 
-export function Divider({
-    soft = false,
-    className,
-    ...props
-}: { soft?: boolean } & React.ComponentPropsWithoutRef<'hr'>) {
+export function Divider({ soft = false, className, ...props }: { soft?: boolean } & React.ComponentPropsWithoutRef<'hr'>) {
     return (
         <hr
             role="presentation"

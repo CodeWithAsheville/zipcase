@@ -129,10 +129,7 @@ describe('case handler', () => {
                 expect(responseBody.zipCase.caseNumber).toBe('22CR123456-789');
                 expect(responseBody.zipCase.fetchStatus.status).toBe('queued');
 
-                expect(mockQueueCaseForSearch).toHaveBeenCalledWith(
-                    '22CR123456-789',
-                    'test-user-id'
-                );
+                expect(mockQueueCaseForSearch).toHaveBeenCalledWith('22CR123456-789', 'test-user-id');
             }
         });
 
@@ -146,16 +143,14 @@ describe('case handler', () => {
             mockGetUserSession.mockResolvedValue(null);
 
             // User has portal credentials
-            const mockGetPortalCredentials =
-                StorageClient.sensitiveGetPortalCredentials as jest.Mock;
+            const mockGetPortalCredentials = StorageClient.sensitiveGetPortalCredentials as jest.Mock;
             mockGetPortalCredentials.mockResolvedValue({
                 username: 'test-username',
                 password: 'test-password',
             });
 
             // Mock successful authentication
-            const mockAuthenticateWithPortal =
-                PortalAuthenticator.authenticateWithPortal as jest.Mock;
+            const mockAuthenticateWithPortal = PortalAuthenticator.authenticateWithPortal as jest.Mock;
             mockAuthenticateWithPortal.mockResolvedValue({
                 success: true,
                 cookieJar: {
@@ -184,16 +179,10 @@ describe('case handler', () => {
                 expect(responseBody.zipCase.caseNumber).toBe('22CR123456-789');
                 expect(responseBody.zipCase.fetchStatus.status).toBe('queued');
 
-                expect(mockAuthenticateWithPortal).toHaveBeenCalledWith(
-                    'test-username',
-                    'test-password'
-                );
+                expect(mockAuthenticateWithPortal).toHaveBeenCalledWith('test-username', 'test-password');
                 expect(mockSaveUserSession).toHaveBeenCalled();
                 expect(mockSaveCase).toHaveBeenCalled();
-                expect(mockQueueCaseForSearch).toHaveBeenCalledWith(
-                    '22CR123456-789',
-                    'test-user-id'
-                );
+                expect(mockQueueCaseForSearch).toHaveBeenCalledWith('22CR123456-789', 'test-user-id');
             }
         });
 
@@ -207,16 +196,14 @@ describe('case handler', () => {
             mockGetUserSession.mockResolvedValue(null);
 
             // User has portal credentials
-            const mockGetPortalCredentials =
-                StorageClient.sensitiveGetPortalCredentials as jest.Mock;
+            const mockGetPortalCredentials = StorageClient.sensitiveGetPortalCredentials as jest.Mock;
             mockGetPortalCredentials.mockResolvedValue({
                 username: 'test-username',
                 password: 'test-password',
             });
 
             // Mock failed authentication
-            const mockAuthenticateWithPortal =
-                PortalAuthenticator.authenticateWithPortal as jest.Mock;
+            const mockAuthenticateWithPortal = PortalAuthenticator.authenticateWithPortal as jest.Mock;
             mockAuthenticateWithPortal.mockResolvedValue({
                 success: false,
                 message: 'Invalid credentials',
@@ -248,8 +235,7 @@ describe('case handler', () => {
             mockGetUserSession.mockResolvedValue(null);
 
             // No portal credentials
-            const mockGetPortalCredentials =
-                StorageClient.sensitiveGetPortalCredentials as jest.Mock;
+            const mockGetPortalCredentials = StorageClient.sensitiveGetPortalCredentials as jest.Mock;
             mockGetPortalCredentials.mockResolvedValue(null);
 
             const event = createEvent({ caseNumber: '22CR123456-789' });
@@ -288,7 +274,6 @@ describe('case handler', () => {
             }
         });
     });
-
 
     describe('processCaseData function', () => {
         it('should delegate to CaseProcessor.processCaseData', async () => {

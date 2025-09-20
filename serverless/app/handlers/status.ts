@@ -14,11 +14,7 @@ export const handler: APIGatewayProxyHandler = async event => {
         }
 
         const body = JSON.parse(event.body || '{}');
-        if (
-            !body.caseNumbers ||
-            !Array.isArray(body.caseNumbers) ||
-            body.caseNumbers.length === 0
-        ) {
+        if (!body.caseNumbers || !Array.isArray(body.caseNumbers) || body.caseNumbers.length === 0) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({ error: 'Missing or invalid caseNumbers array parameter' }),

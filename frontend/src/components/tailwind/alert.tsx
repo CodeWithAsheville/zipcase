@@ -20,10 +20,7 @@ export function Alert({
     className,
     children,
     ...props
-}: { size?: keyof typeof sizes; className?: string; children: React.ReactNode } & Omit<
-    Headless.DialogProps,
-    'as' | 'className'
->) {
+}: { size?: keyof typeof sizes; className?: string; children: React.ReactNode } & Omit<Headless.DialogProps, 'as' | 'className'>) {
     return (
         <Headless.Dialog {...props}>
             <Headless.DialogBackdrop
@@ -50,10 +47,7 @@ export function Alert({
     );
 }
 
-export function AlertTitle({
-    className,
-    ...props
-}: { className?: string } & Omit<Headless.DialogTitleProps, 'as' | 'className'>) {
+export function AlertTitle({ className, ...props }: { className?: string } & Omit<Headless.DialogTitleProps, 'as' | 'className'>) {
     return (
         <Headless.DialogTitle
             {...props}
@@ -69,13 +63,7 @@ export function AlertDescription({
     className,
     ...props
 }: { className?: string } & Omit<Headless.DescriptionProps<typeof Text>, 'as' | 'className'>) {
-    return (
-        <Headless.Description
-            as={Text}
-            {...props}
-            className={clsx(className, 'mt-2 text-center text-pretty sm:text-left')}
-        />
-    );
+    return <Headless.Description as={Text} {...props} className={clsx(className, 'mt-2 text-center text-pretty sm:text-left')} />;
 }
 
 export function AlertBody({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {

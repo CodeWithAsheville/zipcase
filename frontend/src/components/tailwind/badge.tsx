@@ -29,11 +29,7 @@ const colors = {
 
 type BadgeProps = { color?: keyof typeof colors };
 
-export function Badge({
-    color = 'zinc',
-    className,
-    ...props
-}: BadgeProps & React.ComponentPropsWithoutRef<'span'>) {
+export function Badge({ color = 'zinc', className, ...props }: BadgeProps & React.ComponentPropsWithoutRef<'span'>) {
     return (
         <span
             {...props}

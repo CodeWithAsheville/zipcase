@@ -52,9 +52,7 @@ const createWrapper = () => {
         },
     });
 
-    return ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
+    return ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 };
 
 describe('SearchResultsList', () => {
@@ -165,13 +163,14 @@ describe('SearchResultsList', () => {
         const mockResults = {
             case1: createSearchResult('case1', 'complete'), // terminal
             case2: createSearchResult('case2', 'processing'), // non-terminal
+            case3: createSearchResult('case3', 'notFound'), // non-terminal (should retry)
         };
 
         // Mock the hook to return a mix of terminal and non-terminal cases
         vi.mocked(hooks.useSearchResults).mockReturnValue({
             data: {
                 results: mockResults,
-                searchBatches: [['case1', 'case2']],
+                searchBatches: [['case1', 'case2', 'case3']],
             },
             isLoading: false,
             isError: false,
@@ -194,15 +193,14 @@ describe('SearchResultsList', () => {
 
         const mockResults = {
             case1: createSearchResult('case1', 'complete'),
-            case2: createSearchResult('case2', 'notFound'),
-            case3: createSearchResult('case3', 'failed'),
+            case2: createSearchResult('case2', 'failed'),
         };
 
         // Mock the hook to return only terminal cases
         vi.mocked(hooks.useSearchResults).mockReturnValue({
             data: {
                 results: mockResults,
-                searchBatches: [['case1', 'case2', 'case3']],
+                searchBatches: [['case1', 'case2']],
             },
             isLoading: false,
             isError: false,

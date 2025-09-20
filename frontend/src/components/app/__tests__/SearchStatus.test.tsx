@@ -22,6 +22,13 @@ describe('SearchStatus component', () => {
         expect(screen.getByLabelText('processing')).toBeInTheDocument();
     });
 
+    it('renders reprocessing status with spinner like processing', () => {
+        render(<SearchStatus status={createStatus('reprocessing')} />);
+
+        expect(screen.getByTestId('loader-spinner')).toBeInTheDocument();
+        expect(screen.getByLabelText('processing')).toBeInTheDocument();
+    });
+
     it('renders queued status with clock icon', () => {
         render(<SearchStatus status={createStatus('queued')} />);
 
@@ -53,9 +60,7 @@ describe('SearchStatus component', () => {
     });
 
     it('returns null for unknown status', () => {
-        const { container } = render(
-            <SearchStatus status={createStatus('unknown-status' as any)} />
-        );
+        const { container } = render(<SearchStatus status={createStatus('unknown-status' as any)} />);
 
         // Container should be empty as unknown status renders null
         expect(container).toBeEmptyDOMElement();

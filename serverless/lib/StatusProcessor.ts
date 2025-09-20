@@ -10,9 +10,7 @@ export async function getStatusForCases(req: CaseSearchStatusRequest): Promise<C
         // Get results for the requested case numbers - never requeue anything
         const results = await StorageClient.getSearchResults(req.caseNumbers);
 
-        console.log(
-            `Status check for ${req.caseNumbers.length} cases: ${req.caseNumbers.join(', ')}`
-        );
+        console.log(`Status check for ${req.caseNumbers.length} cases: ${req.caseNumbers.join(', ')}`);
 
         // Return search results for all cases
         return { results };

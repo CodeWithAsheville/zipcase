@@ -27,10 +27,7 @@ export function SidebarBody({ className, ...props }: React.ComponentPropsWithout
     return (
         <div
             {...props}
-            className={clsx(
-                className,
-                'flex flex-1 flex-col overflow-y-auto p-4 [&>[data-slot=section]+[data-slot=section]]:mt-8'
-            )}
+            className={clsx(className, 'flex flex-1 flex-col overflow-y-auto p-4 [&>[data-slot=section]+[data-slot=section]]:mt-8')}
         />
     );
 }
@@ -52,25 +49,13 @@ export function SidebarSection({ className, ...props }: React.ComponentPropsWith
 
     return (
         <LayoutGroup id={id}>
-            <div
-                {...props}
-                data-slot="section"
-                className={clsx(className, 'flex flex-col gap-0.5')}
-            />
+            <div {...props} data-slot="section" className={clsx(className, 'flex flex-col gap-0.5')} />
         </LayoutGroup>
     );
 }
 
 export function SidebarDivider({ className, ...props }: React.ComponentPropsWithoutRef<'hr'>) {
-    return (
-        <hr
-            {...props}
-            className={clsx(
-                className,
-                'my-4 border-t border-zinc-950/5 lg:-mx-4 dark:border-white/5'
-            )}
-        />
-    );
+    return <hr {...props} className={clsx(className, 'my-4 border-t border-zinc-950/5 lg:-mx-4 dark:border-white/5')} />;
 }
 
 export function SidebarSpacer({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
@@ -78,15 +63,7 @@ export function SidebarSpacer({ className, ...props }: React.ComponentPropsWitho
 }
 
 export function SidebarHeading({ className, ...props }: React.ComponentPropsWithoutRef<'h3'>) {
-    return (
-        <h3
-            {...props}
-            className={clsx(
-                className,
-                'mb-1 px-2 text-xs/6 font-medium text-zinc-500 dark:text-zinc-400'
-            )}
-        />
-    );
+    return <h3 {...props} className={clsx(className, 'mb-1 px-2 text-xs/6 font-medium text-zinc-500 dark:text-zinc-400')} />;
 }
 
 export const SidebarItem = forwardRef(function SidebarItem(
@@ -132,13 +109,7 @@ export const SidebarItem = forwardRef(function SidebarItem(
                 />
             )}
             {'href' in props ? (
-                <Headless.CloseButton
-                    as={Link}
-                    {...props}
-                    className={classes}
-                    data-current={current ? 'true' : undefined}
-                    ref={ref}
-                >
+                <Headless.CloseButton as={Link} {...props} className={classes} data-current={current ? 'true' : undefined} ref={ref}>
                     <TouchTarget>{children}</TouchTarget>
                 </Headless.CloseButton>
             ) : (

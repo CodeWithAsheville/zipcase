@@ -33,13 +33,10 @@ const QueueClient = {
             const command = new SendMessageCommand(params);
             await sqsClient.send(command);
         } catch (error) {
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.QUEUE,
-                'Failed to queue case for search',
-                error as Error,
-                { caseNumber, userId }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.QUEUE, 'Failed to queue case for search', error as Error, {
+                caseNumber,
+                userId,
+            });
             throw error;
         }
     },
@@ -180,13 +177,11 @@ const QueueClient = {
             const command = new SendMessageCommand(params);
             await sqsClient.send(command);
         } catch (error) {
-            await AlertService.logError(
-                Severity.ERROR,
-                AlertCategory.QUEUE,
-                'Failed to queue case for data retrieval',
-                error as Error,
-                { caseNumber, caseId, userId }
-            );
+            await AlertService.logError(Severity.ERROR, AlertCategory.QUEUE, 'Failed to queue case for data retrieval', error as Error, {
+                caseNumber,
+                caseId,
+                userId,
+            });
             throw error;
         }
     },

@@ -20,10 +20,7 @@ export function Dialog({
     className,
     children,
     ...props
-}: { size?: keyof typeof sizes; className?: string; children: React.ReactNode } & Omit<
-    Headless.DialogProps,
-    'as' | 'className'
->) {
+}: { size?: keyof typeof sizes; className?: string; children: React.ReactNode } & Omit<Headless.DialogProps, 'as' | 'className'>) {
     return (
         <Headless.Dialog {...props}>
             <Headless.DialogBackdrop
@@ -50,17 +47,11 @@ export function Dialog({
     );
 }
 
-export function DialogTitle({
-    className,
-    ...props
-}: { className?: string } & Omit<Headless.DialogTitleProps, 'as' | 'className'>) {
+export function DialogTitle({ className, ...props }: { className?: string } & Omit<Headless.DialogTitleProps, 'as' | 'className'>) {
     return (
         <Headless.DialogTitle
             {...props}
-            className={clsx(
-                className,
-                'text-lg/6 font-semibold text-balance text-zinc-950 sm:text-base/6 dark:text-white'
-            )}
+            className={clsx(className, 'text-lg/6 font-semibold text-balance text-zinc-950 sm:text-base/6 dark:text-white')}
         />
     );
 }
@@ -69,13 +60,7 @@ export function DialogDescription({
     className,
     ...props
 }: { className?: string } & Omit<Headless.DescriptionProps<typeof Text>, 'as' | 'className'>) {
-    return (
-        <Headless.Description
-            as={Text}
-            {...props}
-            className={clsx(className, 'mt-2 text-pretty')}
-        />
-    );
+    return <Headless.Description as={Text} {...props} className={clsx(className, 'mt-2 text-pretty')} />;
 }
 
 export function DialogBody({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
@@ -86,10 +71,7 @@ export function DialogActions({ className, ...props }: React.ComponentPropsWitho
     return (
         <div
             {...props}
-            className={clsx(
-                className,
-                'mt-8 flex flex-col-reverse items-center justify-end gap-3 *:w-full sm:flex-row sm:*:w-auto'
-            )}
+            className={clsx(className, 'mt-8 flex flex-col-reverse items-center justify-end gap-3 *:w-full sm:flex-row sm:*:w-auto')}
         />
     );
 }

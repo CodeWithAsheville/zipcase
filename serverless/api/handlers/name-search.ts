@@ -1,7 +1,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 
 // Name search handler
-export const execute: APIGatewayProxyHandler = async (event) => {
+export const execute: APIGatewayProxyHandler = async event => {
     try {
         const body = JSON.parse(event.body || '{}');
 
@@ -9,7 +9,7 @@ export const execute: APIGatewayProxyHandler = async (event) => {
             statusCode: 202, // Accepted
             body: JSON.stringify({
                 message: 'Name search execute handler placeholder',
-                searchRequest: body
+                searchRequest: body,
             }),
         };
     } catch (error) {
@@ -25,7 +25,7 @@ export const execute: APIGatewayProxyHandler = async (event) => {
 };
 
 // Name search status handler
-export const status: APIGatewayProxyHandler = async (event) => {
+export const status: APIGatewayProxyHandler = async event => {
     try {
         const searchId = event.pathParameters?.searchId;
 
@@ -40,7 +40,7 @@ export const status: APIGatewayProxyHandler = async (event) => {
             statusCode: 200,
             body: JSON.stringify({
                 message: 'Name search status handler placeholder',
-                searchId
+                searchId,
             }),
         };
     } catch (error) {

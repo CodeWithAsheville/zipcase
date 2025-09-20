@@ -8,16 +8,10 @@ jest.mock('../NameSearchPortalClient');
 import * as NameSearchPortalClient from '../NameSearchPortalClient';
 
 // Convert to mocked type for better TypeScript support
-const mockedNameSearchPortalClient = NameSearchPortalClient as jest.Mocked<
-    typeof NameSearchPortalClient
->;
+const mockedNameSearchPortalClient = NameSearchPortalClient as jest.Mocked<typeof NameSearchPortalClient>;
 
 // Import the actual implementations for testing
-const {
-    processNameSearchRequest,
-    getNameSearchResults,
-    processNameSearchRecord
-} = jest.requireActual('../NameSearchProcessor');
+const { processNameSearchRequest, getNameSearchResults, processNameSearchRecord } = jest.requireActual('../NameSearchProcessor');
 
 // Import other dependencies
 import StorageClient from '../StorageClient';
@@ -90,10 +84,7 @@ describe('NameSearchProcessor', () => {
             );
         });
         it('should return failure when name parsing fails', async () => {
-            const result = await processNameSearchRequest(
-                { name: '', soundsLike: false },
-                'test-user-id'
-            );
+            const result = await processNameSearchRequest({ name: '', soundsLike: false }, 'test-user-id');
 
             expect(result).toMatchObject({
                 searchId: expect.any(String),
@@ -127,10 +118,7 @@ describe('NameSearchProcessor', () => {
                 message: 'Authentication error: Invalid credentials',
             });
 
-            const result = await processNameSearchRequest(
-                { name: 'John Smith', soundsLike: false },
-                'test-user-id'
-            );
+            const result = await processNameSearchRequest({ name: 'John Smith', soundsLike: false }, 'test-user-id');
 
             expect(result).toMatchObject({
                 searchId: expect.any(String),
@@ -157,10 +145,7 @@ describe('NameSearchProcessor', () => {
             );
 
             // Verify that PortalAuthenticator was called
-            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith(
-                'test-user-id',
-                undefined
-            );
+            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith('test-user-id', undefined);
         });
 
         it('should queue name search when everything succeeds', async () => {
@@ -221,10 +206,7 @@ describe('NameSearchProcessor', () => {
             );
 
             // Verify PortalAuthenticator was called
-            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith(
-                'test-user-id',
-                'test-user-agent'
-            );
+            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith('test-user-id', 'test-user-agent');
         });
     });
 
@@ -427,10 +409,7 @@ describe('NameSearchProcessor', () => {
             );
 
             // Verify PortalAuthenticator was called
-            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith(
-                userId,
-                'test-user-agent'
-            );
+            expect(PortalAuthenticator.getOrCreateUserSession).toHaveBeenCalledWith(userId, 'test-user-agent');
 
             // Verify logger.error was called
             expect(mockLogger.error).toHaveBeenCalledWith(
@@ -484,8 +463,7 @@ describe('NameSearchProcessor', () => {
                 expect.objectContaining({
                     ...mockNameSearch,
                     status: 'failed',
-                    message:
-                        'Authentication failed: No session CookieJar found for user test-user-id',
+                    message: 'Authentication failed: No session CookieJar found for user test-user-id',
                 })
             );
 
@@ -530,16 +508,7 @@ describe('NameSearchProcessor', () => {
             const userId = 'test-user-id';
             const receiptHandle = 'test-receipt-handle';
 
-            await processNameSearchRecord(
-                searchId,
-                name,
-                userId,
-                receiptHandle,
-                mockLogger,
-                undefined,
-                false,
-                'test-user-agent'
-            );
+            await processNameSearchRecord(searchId, name, userId, receiptHandle, mockLogger, undefined, false, 'test-user-agent');
 
             // Verify StorageClient.saveNameSearch was called with the failed status
             expect(StorageClient.saveNameSearch).toHaveBeenCalledWith(
@@ -582,16 +551,7 @@ describe('NameSearchProcessor', () => {
             const userId = 'test-user-id';
             const receiptHandle = 'test-receipt-handle';
 
-            await processNameSearchRecord(
-                searchId,
-                name,
-                userId,
-                receiptHandle,
-                mockLogger,
-                undefined,
-                false,
-                'test-user-agent'
-            );
+            await processNameSearchRecord(searchId, name, userId, receiptHandle, mockLogger, undefined, false, 'test-user-agent');
 
             // Verify StorageClient.saveNameSearch was called with 'complete' status
             expect(StorageClient.saveNameSearch).toHaveBeenCalledWith(
@@ -646,16 +606,7 @@ describe('NameSearchProcessor', () => {
             const userId = 'test-user-id';
             const receiptHandle = 'test-receipt-handle';
 
-            await processNameSearchRecord(
-                searchId,
-                name,
-                userId,
-                receiptHandle,
-                mockLogger,
-                undefined,
-                false,
-                'test-user-agent'
-            );
+            await processNameSearchRecord(searchId, name, userId, receiptHandle, mockLogger, undefined, false, 'test-user-agent');
 
             // Extract case numbers
             const caseNumbers = mockCases.map(caseItem => caseItem.caseNumber);

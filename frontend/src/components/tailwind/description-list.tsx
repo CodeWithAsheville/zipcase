@@ -4,10 +4,7 @@ export function DescriptionList({ className, ...props }: React.ComponentPropsWit
     return (
         <dl
             {...props}
-            className={clsx(
-                className,
-                'grid grid-cols-1 text-base/6 sm:grid-cols-[min(50%,--spacing(80))_auto] sm:text-sm/6'
-            )}
+            className={clsx(className, 'grid grid-cols-1 text-base/6 sm:grid-cols-[min(50%,--spacing(80))_auto] sm:text-sm/6')}
         />
     );
 }

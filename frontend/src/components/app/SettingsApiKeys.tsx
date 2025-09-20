@@ -112,19 +112,13 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
     // Close tooltips when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
-            if (
-                webhookTooltipRef.current &&
-                !webhookTooltipRef.current.contains(event.target as Node)
-            ) {
+            if (webhookTooltipRef.current && !webhookTooltipRef.current.contains(event.target as Node)) {
                 if (webhookTooltipVisible) {
                     setWebhookTooltipVisible(false);
                 }
             }
 
-            if (
-                secretTooltipRef.current &&
-                !secretTooltipRef.current.contains(event.target as Node)
-            ) {
+            if (secretTooltipRef.current && !secretTooltipRef.current.contains(event.target as Node)) {
                 if (secretTooltipVisible) {
                     setSecretTooltipVisible(false);
                 }
@@ -143,8 +137,7 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
         client.webhooks.set({
             webhookUrl: state.webhook,
             sharedSecret: state.webhookSecret,
-        })
-    ).callApi;
+        })).callApi;
 
     // Create API key mutation
     const createApiKeyMutation = useMutation({
@@ -306,10 +299,7 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
             <div className="ml-6">
                 <div className="mb-6">
                     <div className="flex items-center mb-2">
-                        <label
-                            htmlFor="apiKey"
-                            className="block text-sm/6 font-medium text-gray-700"
-                        >
+                        <label htmlFor="apiKey" className="block text-sm/6 font-medium text-gray-700">
                             API Key
                         </label>
                     </div>
@@ -320,11 +310,7 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                                 name="apiKey"
                                 type={state.showApiKey ? 'text' : 'password'}
                                 disabled={true}
-                                value={
-                                    state.showApiKey
-                                        ? state.apiKey
-                                        : '••••••••••••••••••••••••••••••••••••••••••'
-                                }
+                                value={state.showApiKey ? state.apiKey : '••••••••••••••••••••••••••••••••••••••••••'}
                                 className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
                             />
                             <button
@@ -341,11 +327,7 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                                 title="show API key"
                                 className={`ml-2 mr-2 ${state.apiKey ? 'text-gray-500 hover:text-gray-700' : 'text-gray-300'} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400`}
                             >
-                                {state.showApiKey ? (
-                                    <EyeIcon className="w-5 h-5" />
-                                ) : (
-                                    <EyeSlashIcon className="w-5 h-5" />
-                                )}
+                                {state.showApiKey ? <EyeIcon className="w-5 h-5" /> : <EyeSlashIcon className="w-5 h-5" />}
                             </button>
                         </div>
                     ) : (
@@ -365,9 +347,7 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                             ) : (
                                 <CheckCircleIcon className="w-5 h-5 text-green-700" />
                             )}
-                            <p
-                                className={`ml-2 ${state.apiKeyMessage.type === 'error' ? 'text-red' : 'text-green'}-700`}
-                            >
+                            <p className={`ml-2 ${state.apiKeyMessage.type === 'error' ? 'text-red' : 'text-green'}-700`}>
                                 {state.apiKeyMessage.msg}
                             </p>
                         </div>
@@ -379,18 +359,13 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                         <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-6">
                             <div className="sm:col-span-3 xl:col-span-2">
                                 <div className="flex items-center relative">
-                                    <label
-                                        htmlFor="webhook"
-                                        className="block text-sm/6 font-medium text-gray-700"
-                                    >
+                                    <label htmlFor="webhook" className="block text-sm/6 font-medium text-gray-700">
                                         Webhook
                                     </label>
                                     <div className="relative ml-2 flex items-center">
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                setWebhookTooltipVisible(!webhookTooltipVisible)
-                                            }
+                                            onClick={() => setWebhookTooltipVisible(!webhookTooltipVisible)}
                                             className="text-gray-500 hover:text-gray-700 flex items-center"
                                             aria-label="Webhook information"
                                         >
@@ -401,17 +376,14 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                                                 ref={webhookTooltipRef}
                                                 className="absolute z-30 w-80 p-2 mt-2 text-sm text-left text-gray-700 bg-white border border-gray-200 rounded-lg shadow-lg -left-28 top-6"
                                             >
-                                                This web address will be called with data for each
-                                                case requested through the API.
+                                                This web address will be called with data for each case requested through the API.
                                             </div>
                                         )}
                                     </div>
                                 </div>
                                 <div className="mt-2">
                                     <div className="relative flex-1">
-                                        {!state.apiKey && (
-                                            <div className="absolute inset-0 bg-gray-200 opacity-50 rounded-md z-20"></div>
-                                        )}
+                                        {!state.apiKey && <div className="absolute inset-0 bg-gray-200 opacity-50 rounded-md z-20"></div>}
                                         <div className="flex items-center rounded-md bg-white pl-3 outline-1 -outline-offset-1 outline-gray-300 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-primary">
                                             <input
                                                 id="webhook"
@@ -431,18 +403,13 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
 
                             <div className="sm:col-span-3 xl:col-span-2">
                                 <div className="flex items-center relative">
-                                    <label
-                                        htmlFor="webhookSecret"
-                                        className="block text-sm/6 font-medium text-gray-700"
-                                    >
+                                    <label htmlFor="webhookSecret" className="block text-sm/6 font-medium text-gray-700">
                                         Shared secret
                                     </label>
                                     <div className="relative ml-2 flex items-center">
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                setSecretTooltipVisible(!secretTooltipVisible)
-                                            }
+                                            onClick={() => setSecretTooltipVisible(!secretTooltipVisible)}
                                             className="text-gray-500 hover:text-gray-700 flex items-center"
                                             aria-label="Webhook Secret information"
                                         >
@@ -453,9 +420,8 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                                                 ref={secretTooltipRef}
                                                 className="absolute z-30 w-80 p-2 mt-2 text-sm text-left text-gray-700 bg-white border border-gray-200 rounded-lg shadow-lg -left-28 top-6"
                                             >
-                                                This secret will be sent with each call to your
-                                                webhook. Use this to verify that calls are coming
-                                                from ZipCase.
+                                                This secret will be sent with each call to your webhook. Use this to verify that calls are
+                                                coming from ZipCase.
                                             </div>
                                         )}
                                     </div>
@@ -490,11 +456,7 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                             <div className="sm:col-span-6 flex mt-4">
                                 <button
                                     type="submit"
-                                    disabled={
-                                        !state.webhookValid ||
-                                        !state.apiKey ||
-                                        saveWebhookMutation.isPending
-                                    }
+                                    disabled={!state.webhookValid || !state.apiKey || saveWebhookMutation.isPending}
                                     title={
                                         !state.apiKey
                                             ? 'Request an API key first'
@@ -503,9 +465,7 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                                               : ''
                                     }
                                     className={`rounded-md px-3 py-2 text-sm font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                                        state.webhookValid &&
-                                        state.apiKey &&
-                                        !saveWebhookMutation.isPending
+                                        state.webhookValid && state.apiKey && !saveWebhookMutation.isPending
                                             ? 'bg-primary hover:bg-primary-light active:bg-primary-dark focus-visible:outline-primary'
                                             : 'bg-gray-400'
                                     }`}
@@ -523,9 +483,7 @@ const SettingsApiKeys: React.FC<SettingsApiKeysProps> = ({ apiSettings: apiSetti
                             ) : (
                                 <CheckCircleIcon className="w-5 h-5 text-green-700" />
                             )}
-                            <p
-                                className={`ml-2 ${state.webhookMessage.type === 'error' ? 'text-red' : 'text-green'}-700`}
-                            >
+                            <p className={`ml-2 ${state.webhookMessage.type === 'error' ? 'text-red' : 'text-green'}-700`}>
                                 {state.webhookMessage.msg}
                             </p>
                         </div>

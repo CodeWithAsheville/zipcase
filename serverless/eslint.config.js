@@ -21,8 +21,30 @@ module.exports = tseslint.config(
             ecmaVersion: 2020,
             globals: {
                 ...globals.node,
-                ...globals.jest
+                ...globals.jest,
             },
+        },
+        rules: {
+            'max-len': [
+                'error',
+                {
+                    code: 140,
+                    ignoreUrls: true,
+                    ignoreStrings: true,
+                    ignoreTemplateLiterals: true,
+                    ignoreRegExpLiterals: true,
+                    ignoreComments: true,
+                },
+            ],
+            'object-curly-newline': [
+                'error',
+                {
+                    multiline: true,
+                    consistent: true,
+                },
+            ],
+            'array-element-newline': ['error', 'consistent'],
+            'function-paren-newline': ['error', 'consistent'],
         },
     },
     // Specific configuration for test files
@@ -30,14 +52,14 @@ module.exports = tseslint.config(
         files: ['**/__tests__/**/*.ts', '**/*.test.ts'],
         rules: {
             '@typescript-eslint/no-explicit-any': 'off',
-            '@typescript-eslint/ban-ts-comment': 'off'
-        }
+            '@typescript-eslint/ban-ts-comment': 'off',
+        },
     },
     // Exemption for eslint.config.js
     {
         files: ['eslint.config.js'],
         rules: {
-            '@typescript-eslint/no-require-imports': 'off'
-        }
+            '@typescript-eslint/no-require-imports': 'off',
+        },
     }
 );

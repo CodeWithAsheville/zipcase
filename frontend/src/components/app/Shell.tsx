@@ -55,27 +55,22 @@ const Shell: React.FC = () => {
         // Process subItems if they exist
         const subItems = item.subItems
             ? item.subItems.map(subItem => ({
-                ...subItem,
-                current: subItem.href === location.pathname,
-            }))
+                  ...subItem,
+                  current: subItem.href === location.pathname,
+              }))
             : undefined;
 
         return {
             ...item,
-            current: item.href === location.pathname ||
-                     (subItems?.some(subItem => subItem.current) ?? false),
-            subItems
+            current: item.href === location.pathname || (subItems?.some(subItem => subItem.current) ?? false),
+            subItems,
         };
     });
 
     return (
         <>
             <div>
-                <Dialog
-                    open={sidebarOpen}
-                    onClose={setSidebarOpen}
-                    className="relative z-50 lg:hidden"
-                >
+                <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
                     <DialogBackdrop
                         transition
                         className="fixed inset-0 bg-gray-900/80 transition-opacity duration-300 ease-linear data-closed:opacity-0"
@@ -88,27 +83,16 @@ const Shell: React.FC = () => {
                         >
                             <TransitionChild>
                                 <div className="absolute top-0 left-full flex w-16 justify-center pt-5 duration-300 ease-in-out data-closed:opacity-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => setSidebarOpen(false)}
-                                        className="-m-2.5 p-2.5"
-                                    >
+                                    <button type="button" onClick={() => setSidebarOpen(false)} className="-m-2.5 p-2.5">
                                         <span className="sr-only">Close sidebar</span>
-                                        <XMarkIcon
-                                            aria-hidden="true"
-                                            className="size-6 text-white"
-                                        />
+                                        <XMarkIcon aria-hidden="true" className="size-6 text-white" />
                                     </button>
                                 </div>
                             </TransitionChild>
                             {/* Sidebar component, swap this element with another sidebar if you like */}
                             <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-2">
                                 <div className="flex h-16 shrink-0 items-center">
-                                    <img
-                                        alt="ZipCase Logo"
-                                        src={ZipCaseLogo}
-                                        className="h-8 w-auto"
-                                    />
+                                    <img alt="ZipCase Logo" src={ZipCaseLogo} className="h-8 w-auto" />
                                 </div>
                                 <nav className="flex flex-1 flex-col">
                                     <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -120,18 +104,14 @@ const Shell: React.FC = () => {
                                                             <>
                                                                 <div
                                                                     className={classNames(
-                                                                        item.current
-                                                                            ? 'text-primary'
-                                                                            : 'text-gray-700',
+                                                                        item.current ? 'text-primary' : 'text-gray-700',
                                                                         'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold'
                                                                     )}
                                                                 >
                                                                     <item.icon
                                                                         aria-hidden="true"
                                                                         className={classNames(
-                                                                            item.current
-                                                                                ? 'text-primary'
-                                                                                : 'text-gray-400',
+                                                                            item.current ? 'text-primary' : 'text-gray-400',
                                                                             'size-6 shrink-0'
                                                                         )}
                                                                     />
@@ -192,10 +172,7 @@ const Shell: React.FC = () => {
                                     >
                                         <ArrowTopRightOnSquareIcon
                                             aria-hidden="true"
-                                            className={classNames(
-                                                'text-gray-400 group-hover:text-primary',
-                                                'size-6 shrink-0'
-                                            )}
+                                            className={classNames('text-gray-400 group-hover:text-primary', 'size-6 shrink-0')}
                                         />
                                         Sign out
                                     </button>
@@ -221,18 +198,14 @@ const Shell: React.FC = () => {
                                                     <>
                                                         <div
                                                             className={classNames(
-                                                                item.current
-                                                                    ? 'text-primary'
-                                                                    : 'text-gray-700',
+                                                                item.current ? 'text-primary' : 'text-gray-700',
                                                                 'group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold'
                                                             )}
                                                         >
                                                             <item.icon
                                                                 aria-hidden="true"
                                                                 className={classNames(
-                                                                    item.current
-                                                                        ? 'text-primary'
-                                                                        : 'text-gray-400',
+                                                                    item.current ? 'text-primary' : 'text-gray-400',
                                                                     'size-6 shrink-0'
                                                                 )}
                                                             />
@@ -269,9 +242,7 @@ const Shell: React.FC = () => {
                                                         <item.icon
                                                             aria-hidden="true"
                                                             className={classNames(
-                                                                item.current
-                                                                    ? 'text-primary'
-                                                                    : 'text-gray-400 group-hover:text-primary',
+                                                                item.current ? 'text-primary' : 'text-gray-400 group-hover:text-primary',
                                                                 'size-6 shrink-0'
                                                             )}
                                                         />
@@ -295,10 +266,7 @@ const Shell: React.FC = () => {
                         >
                             <ArrowTopRightOnSquareIcon
                                 aria-hidden="true"
-                                className={classNames(
-                                    'text-gray-400 group-hover:text-primary',
-                                    'size-6 shrink-0'
-                                )}
+                                className={classNames('text-gray-400 group-hover:text-primary', 'size-6 shrink-0')}
                             />
                             Sign out
                         </button>
@@ -306,11 +274,7 @@ const Shell: React.FC = () => {
                 </div>
 
                 <div className="sticky top-0 z-40 flex items-center gap-x-6 bg-white px-4 py-4 shadow-xs sm:px-6 lg:hidden">
-                    <button
-                        type="button"
-                        onClick={() => setSidebarOpen(true)}
-                        className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
-                    >
+                    <button type="button" onClick={() => setSidebarOpen(true)} className="-m-2.5 p-2.5 text-gray-700 lg:hidden">
                         <span className="sr-only">Open sidebar</span>
                         <Bars3Icon aria-hidden="true" className="size-6" />
                     </button>
