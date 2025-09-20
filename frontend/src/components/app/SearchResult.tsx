@@ -18,7 +18,7 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
     const { zipCase: c, caseSummary: summary } = sr;
 
     return (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden border-t border-gray-100">
             <div className="p-4 sm:p-6">
                 <div className="flex items-start">
                     <div className="flex-shrink-0 mr-4">
