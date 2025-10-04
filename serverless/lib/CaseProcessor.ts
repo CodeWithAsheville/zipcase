@@ -502,7 +502,31 @@ const caseEndpoints: Record<string, EndpointConfig> = {
     financialSummary: {
         path: "Service/FinancialSummary('{caseId}')",
     },
+    caseEvents: {
+        path: "Service/CaseEvents('{caseId}')?top=200",
+    },
 };
+
+function parseMMddyyyyToDate(dateStr: string): Date | null {
+    if (!dateStr || typeof dateStr !== 'string') {
+        return null;
+    }
+
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) {
+        return null;
+    }
+
+    const month = parseInt(parts[0], 10);
+    const day = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+
+    if (Number.isNaN(month) || Number.isNaN(day) || Number.isNaN(year)) {
+        return null;
+    }
+
+    return new Date(Date.UTC(year, month - 1, day));
+}
 
 async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
     try {
@@ -578,8 +602,8 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
         // Wait for all promises to resolve
         const results = await Promise.all(endpointPromises);
 
-        // Check if any endpoint failed
-        const requiredFailure = results.find(result => !result.success);
+        // Treat caseEvents as optional; if any other endpoint failed, consider it a required failure
+        const requiredFailure = results.find(result => !result.success && result.key !== 'caseEvents');
 
         if (requiredFailure) {
             console.error(`Required endpoint ${requiredFailure.key} failed: ${requiredFailure.error}`);
@@ -651,10 +675,10 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
         });
 
         // Process dispositions and link them to charges
-        const events = rawData['dispositionEvents']['Events'] || [];
-        console.log(`📋 Found ${events.length} disposition events`);
+        const dispositionEvents = rawData['dispositionEvents']['Events'] || [];
+        console.log(`📋 Found ${dispositionEvents.length} disposition events`);
 
-        events
+        dispositionEvents
             .filter(
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (eventData: any) => eventData && eventData['Type'] === 'CriminalDispositionEvent'
@@ -721,6 +745,34 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                 });
             });
 
+        // Process case-level events to determine arrest or citation date (LPSD events)
+        try {
+            const caseEvents = rawData['caseEvents']?.['Events'] || [];
+            console.log(`📋 Found ${caseEvents.length} case events`);
+
+            // Filter only events that have the LPSD TypeId and a valid EventDate
+            const lpsdEvents = caseEvents.filter(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (ev: any) =>
+                    ev && ev['Event'] && ev['Event']['TypeId'] && ev['Event']['TypeId']['Word'] === 'LPSD' && ev['Event']['EventDate']
+            );
+
+            if (lpsdEvents.length > 0) {
+                // Parse dates and find the earliest
+                const parsedDates: Date[] = lpsdEvents
+                    .map((ev: any) => parseMMddyyyyToDate(ev['Event']['EventDate']))
+                    .filter((d: Date | null): d is Date => d !== null);
+
+                if (parsedDates.length > 0) {
+                    const earliest = parsedDates.reduce((min, d) => (d.getTime() < min.getTime() ? d : min), parsedDates[0]);
+                    caseSummary.arrestOrCitationDate = earliest.toISOString();
+                    console.log(`🔔 Set arrestOrCitationDate to ${caseSummary.arrestOrCitationDate}`);
+                }
+            }
+        } catch (evtErr) {
+            console.error('Error processing caseEvents for arrest/citation date:', evtErr);
+        }
+
         return caseSummary;
     } catch (error) {
         AlertService.logError(Severity.ERROR, AlertCategory.SYSTEM, 'Error building case summary from raw data', error as Error, {
@@ -736,6 +788,7 @@ const CaseProcessor = {
     processCaseData,
     queueCasesForSearch,
     fetchCaseIdFromPortal,
+    buildCaseSummary,
 };
 
 export default CaseProcessor;

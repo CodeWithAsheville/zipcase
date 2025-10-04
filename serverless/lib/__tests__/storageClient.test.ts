@@ -421,5 +421,28 @@ describe('StorageClient.getSearchResults resilience', () => {
             // Verify cleanup was triggered for the corrupted case only
             expect(mockSetImmediate).toHaveBeenCalled();
         });
+
+        it('should preserve arrestOrCitationDate when present in summary', async () => {
+            const { validateAndProcessCaseSummary } = require('../StorageClient');
+
+            const caseNumber = 'ARRESTDATE001';
+            const caseData = {
+                caseNumber,
+                caseId: 'arrest-case-id',
+                fetchStatus: { status: 'complete' },
+                lastUpdated: '2025-09-19T12:00:00Z',
+            };
+
+            const validSummaryItem = {
+                caseName: 'State vs Arrested',
+                court: 'Test Court',
+                charges: [],
+                arrestOrCitationDate: '2021-02-10T00:00:00.000Z',
+            };
+
+            const result = await validateAndProcessCaseSummary(caseNumber, caseData, validSummaryItem);
+
+            expect(result).toEqual(validSummaryItem);
+        });
     });
 });

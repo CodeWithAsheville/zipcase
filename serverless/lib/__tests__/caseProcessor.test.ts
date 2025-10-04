@@ -140,4 +140,109 @@ describe('CaseProcessor', () => {
             expect(QueueClient.queueCasesForSearch).toHaveBeenCalledWith(cases, userId);
         });
     });
+
+    // Tests for buildCaseSummary (moved from separate test file)
+    describe('buildCaseSummary', () => {
+        const { buildCaseSummary } = CaseProcessor as any;
+
+        it('extracts the earliest LPSD Event.EventDate and sets arrestOrCitationDate as ISO string', () => {
+            const rawData = {
+                summary: {
+                    CaseSummaryHeader: {
+                        Style: 'State vs. Someone',
+                        Heading: 'Circuit Court',
+                        CaseId: 'case-123',
+                    },
+                },
+                charges: {
+                    Charges: [
+                        {
+                            ChargeId: 1,
+                            OffenseDate: '2020-01-01',
+                            FiledDate: '2020-01-02',
+                            ChargeOffense: {
+                                ChargeOffenseDescription: 'Theft',
+                                Statute: '123',
+                                Degree: 'M',
+                                DegreeDescription: 'Misdemeanor',
+                                FineAmount: 0,
+                            },
+                        },
+                    ],
+                },
+                dispositionEvents: {
+                    Events: [],
+                },
+                caseEvents: {
+                    Events: [
+                        { Event: { TypeId: { Word: 'LPSD' }, EventDate: '03/15/2021' } },
+                        { Event: { TypeId: { Word: 'LPSD' }, EventDate: '02/10/2021' } },
+                        { Event: { TypeId: { Word: 'OTHER' }, EventDate: '01/01/2020' } },
+                    ],
+                },
+            };
+
+            const summary = buildCaseSummary(rawData);
+
+            expect(summary).not.toBeNull();
+            expect(summary?.arrestOrCitationDate).toBeDefined();
+
+            // Expected earliest LPSD date is 02/10/2021 -> construct UTC Date and compare ISO
+            const expectedIso = new Date(Date.UTC(2021, 1, 10)).toISOString();
+            expect(summary?.arrestOrCitationDate).toBe(expectedIso);
+        });
+
+        it('does not set arrestOrCitationDate when no LPSD events present', () => {
+            const rawData = {
+                summary: {
+                    CaseSummaryHeader: {
+                        Style: 'State vs. Someone',
+                        Heading: 'Circuit Court',
+                        CaseId: 'case-456',
+                    },
+                },
+                charges: {
+                    Charges: [],
+                },
+                dispositionEvents: {
+                    Events: [],
+                },
+                caseEvents: {
+                    Events: [{ Event: { TypeId: { Word: 'OTHER' }, EventDate: '03/15/2021' } }],
+                },
+            };
+
+            const summary = buildCaseSummary(rawData);
+
+            expect(summary).not.toBeNull();
+            expect(summary?.arrestOrCitationDate).toBeUndefined();
+        });
+
+        it('ignores malformed LPSD Event.EventDate values', () => {
+            const { buildCaseSummary } = CaseProcessor as any;
+
+            const rawData = {
+                summary: {
+                    CaseSummaryHeader: {
+                        Style: 'State vs. Someone',
+                        Heading: 'Circuit Court',
+                        CaseId: 'case-789',
+                    },
+                },
+                charges: { Charges: [] },
+                dispositionEvents: { Events: [] },
+                caseEvents: {
+                    Events: [
+                        { Event: { TypeId: { Word: 'LPSD' }, EventDate: 'not-a-date' } },
+                        { Event: { TypeId: { Word: 'LPSD' }, EventDate: '' } },
+                        { Event: { TypeId: { Word: 'LPSD' }, EventDate: null } },
+                    ],
+                },
+            };
+
+            const summary = buildCaseSummary(rawData);
+            expect(summary).not.toBeNull();
+            expect(summary?.arrestOrCitationDate).toBeUndefined();
+        });
+    });
 });

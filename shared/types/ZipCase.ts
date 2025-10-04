@@ -32,6 +32,7 @@ export interface CaseSummary {
     caseName: string;
     court: string;
     charges: Charge[];
+    arrestOrCitationDate?: string;
 }
 
 export interface ZipCase {
