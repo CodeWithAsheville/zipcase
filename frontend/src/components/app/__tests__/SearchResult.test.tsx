@@ -169,4 +169,52 @@ describe('SearchResult component', () => {
         const errorMessage = screen.getByText('Error: Failed to fetch case data');
         expect(errorMessage).toHaveClass('text-sm', 'text-red-600');
     });
+
+    it('displays arrest/citation date when present', () => {
+        const testCase = createTestCase({
+            caseSummary: {
+                caseName: 'State vs. Doe',
+                court: 'Circuit Court',
+                arrestOrCitationDate: '2022-02-15T00:00:00Z',
+                charges: [],
+            },
+        });
+
+        render(<SearchResult searchResult={testCase} />);
+
+        // Label should be present
+        expect(screen.getByText(/Arrest\/Citation Date:/)).toBeInTheDocument();
+
+        // The displayed date should contain the year 2022 (locale independent check)
+        expect(screen.getByText(/2022/)).toBeInTheDocument();
+    });
+
+    it('handles malformed charge dates gracefully', () => {
+        const testCase = createTestCase({
+            caseSummary: {
+                caseName: 'State vs. Doe',
+                court: 'Circuit Court',
+                arrestOrCitationDate: 'not-a-date',
+                charges: [
+                    {
+                        offenseDate: 'also-not-a-date',
+                        filedDate: 'not-a-date',
+                        description: 'Weird Charge',
+                        statute: '000',
+                        degree: { code: 'X', description: 'Unknown' },
+                        fine: 0,
+                        dispositions: [{ date: 'bad-date', code: 'UNK', description: 'Disposition ' }],
+                    },
+                ],
+            },
+        });
+
+        render(<SearchResult searchResult={testCase} />);
+
+        // Should not render 'Invalid Date' anywhere
+        expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+
+        // Should still render the charge description
+        expect(screen.getByText('Weird Charge')).toBeInTheDocument();
+    });
 });
