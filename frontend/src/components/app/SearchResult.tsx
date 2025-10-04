@@ -88,11 +88,17 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
                                                         <div>
                                                             <span className="font-medium">Filed:</span>{' '}
-                                                            {new Date(charge.filedDate).toLocaleDateString()}
+                                                            {(() => {
+                                                                const d = new Date(charge.filedDate);
+                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                            })()}
                                                         </div>
                                                         <div>
                                                             <span className="font-medium">Offense:</span>{' '}
-                                                            {new Date(charge.offenseDate).toLocaleDateString()}
+                                                            {(() => {
+                                                                const d = new Date(charge.offenseDate);
+                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                            })()}
                                                         </div>
                                                         <div>
                                                             <span className="font-medium">Statute:</span> {charge.statute}
@@ -110,7 +116,11 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                         <div className="mt-2 text-xs text-gray-600">
                                                             <span className="font-medium">Disposition:</span>{' '}
                                                             {charge.dispositions[0].description} (
-                                                            {new Date(charge.dispositions[0].date).toLocaleDateString()})
+                                                            {(() => {
+                                                                const d = new Date(charge.dispositions[0].date);
+                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                            })()}
+                                                            )
                                                         </div>
                                                     )}
                                                 </div>
