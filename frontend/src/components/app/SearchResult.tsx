@@ -64,6 +64,18 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                 <div className="text-sm text-gray-700">
                                     <p className="font-medium">{summary.caseName}</p>
                                     <p>{summary.court}</p>
+                                    {summary.arrestOrCitationDate &&
+                                        (() => {
+                                            const d = new Date(summary.arrestOrCitationDate);
+                                            if (!isNaN(d.getTime())) {
+                                                return (
+                                                    <p className="mt-1 text-sm text-gray-600">
+                                                        <span className="font-medium">Arrest/Citation Date:</span> {d.toLocaleDateString()}
+                                                    </p>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                 </div>
 
                                 {summary.charges && summary.charges.length > 0 && (
