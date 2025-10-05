@@ -145,7 +145,7 @@ describe('CaseProcessor', () => {
     describe('buildCaseSummary', () => {
         const { buildCaseSummary } = CaseProcessor as any;
 
-        it('extracts the earliest LPSD Event.EventDate and sets arrestOrCitationDate as ISO string', () => {
+        it('extracts the earliest LPSD Event.EventDate and sets arrestOrCitationDate and type as Arrest', () => {
             const rawData = {
                 summary: {
                     CaseSummaryHeader: {
@@ -186,13 +186,43 @@ describe('CaseProcessor', () => {
 
             expect(summary).not.toBeNull();
             expect(summary?.arrestOrCitationDate).toBeDefined();
+            expect(summary?.arrestOrCitationType).toBe('Arrest');
 
             // Expected earliest LPSD date is 02/10/2021 -> construct UTC Date and compare ISO
             const expectedIso = new Date(Date.UTC(2021, 1, 10)).toISOString();
             expect(summary?.arrestOrCitationDate).toBe(expectedIso);
         });
 
-        it('does not set arrestOrCitationDate when no LPSD events present', () => {
+        it('selects CIT over LPSD if earlier (sets type Citation)', () => {
+            const rawData = {
+                summary: {
+                    CaseSummaryHeader: {
+                        Style: 'State vs. Someone',
+                        Heading: 'Circuit Court',
+                        CaseId: 'case-234',
+                    },
+                },
+                charges: { Charges: [] },
+                dispositionEvents: { Events: [] },
+                caseEvents: {
+                    Events: [
+                        { Event: { TypeId: { Word: 'LPSD' }, EventDate: '03/15/2021' } },
+                        { Event: { TypeId: { Word: 'CIT' }, EventDate: '02/09/2021' } },
+                    ],
+                },
+            };
+
+            const summary = buildCaseSummary(rawData);
+
+            expect(summary).not.toBeNull();
+            expect(summary?.arrestOrCitationDate).toBeDefined();
+            expect(summary?.arrestOrCitationType).toBe('Citation');
+
+            const expectedIso = new Date(Date.UTC(2021, 1, 9)).toISOString();
+            expect(summary?.arrestOrCitationDate).toBe(expectedIso);
+        });
+
+        it('does not set arrestOrCitationDate when no LPSD/CIT events present', () => {
             const rawData = {
                 summary: {
                     CaseSummaryHeader: {
@@ -216,6 +246,7 @@ describe('CaseProcessor', () => {
 
             expect(summary).not.toBeNull();
             expect(summary?.arrestOrCitationDate).toBeUndefined();
+            expect(summary?.arrestOrCitationType).toBeUndefined();
         });
 
         it('ignores malformed LPSD Event.EventDate values', () => {
@@ -243,6 +274,7 @@ describe('CaseProcessor', () => {
             const summary = buildCaseSummary(rawData);
             expect(summary).not.toBeNull();
             expect(summary?.arrestOrCitationDate).toBeUndefined();
+            expect(summary?.arrestOrCitationType).toBeUndefined();
         });
     });
 });

@@ -176,14 +176,15 @@ describe('SearchResult component', () => {
                 caseName: 'State vs. Doe',
                 court: 'Circuit Court',
                 arrestOrCitationDate: '2022-02-15T00:00:00Z',
+                arrestOrCitationType: 'Arrest',
                 charges: [],
             },
         });
 
         render(<SearchResult searchResult={testCase} />);
 
-        // Label should be present
-        expect(screen.getByText(/Arrest\/Citation Date:/)).toBeInTheDocument();
+        // Label should be present and explicitly show 'Arrest Date'
+        expect(screen.getByText(/Arrest Date:/)).toBeInTheDocument();
 
         // The displayed date should contain the year 2022 (locale independent check)
         expect(screen.getByText(/2022/)).toBeInTheDocument();
