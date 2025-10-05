@@ -28,11 +28,14 @@ export interface Charge {
     dispositions: Disposition[];
 }
 
+export type ArrestOrCitationType = 'Arrest' | 'Citation';
+
 export interface CaseSummary {
     caseName: string;
     court: string;
     charges: Charge[];
     arrestOrCitationDate?: string;
+    arrestOrCitationType?: ArrestOrCitationType;
 }
 
 export interface ZipCase {

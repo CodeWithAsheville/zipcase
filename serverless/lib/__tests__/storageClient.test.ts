@@ -422,7 +422,7 @@ describe('StorageClient.getSearchResults resilience', () => {
             expect(mockSetImmediate).toHaveBeenCalled();
         });
 
-        it('should preserve arrestOrCitationDate when present in summary', async () => {
+        it('should preserve arrestOrCitationDate and type when present in summary', async () => {
             const { validateAndProcessCaseSummary } = require('../StorageClient');
 
             const caseNumber = 'ARRESTDATE001';
@@ -438,6 +438,7 @@ describe('StorageClient.getSearchResults resilience', () => {
                 court: 'Test Court',
                 charges: [],
                 arrestOrCitationDate: '2021-02-10T00:00:00.000Z',
+                arrestOrCitationType: 'Arrest',
             };
 
             const result = await validateAndProcessCaseSummary(caseNumber, caseData, validSummaryItem);

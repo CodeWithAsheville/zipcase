@@ -745,28 +745,54 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                 });
             });
 
-        // Process case-level events to determine arrest or citation date (LPSD events)
+        // Process case-level events to determine arrest or citation date (LPSD -> Arrest, CIT -> Citation)
         try {
             const caseEvents = rawData['caseEvents']?.['Events'] || [];
             console.log(`📋 Found ${caseEvents.length} case events`);
 
-            // Filter only events that have the LPSD TypeId and a valid EventDate
-            const lpsdEvents = caseEvents.filter(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (ev: any) =>
-                    ev && ev['Event'] && ev['Event']['TypeId'] && ev['Event']['TypeId']['Word'] === 'LPSD' && ev['Event']['EventDate']
+            // Filter only events that have the LPSD (arrest) or CIT (citation) TypeId and a valid EventDate
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const candidateEvents = caseEvents.filter(
+                (ev: any) => ev && ev['Event'] && ev['Event']['TypeId'] && ev['Event']['TypeId']['Word'] && ev['Event']['EventDate']
             );
 
-            if (lpsdEvents.length > 0) {
-                // Parse dates and find the earliest
-                const parsedDates: Date[] = lpsdEvents
-                    .map((ev: any) => parseMMddyyyyToDate(ev['Event']['EventDate']))
-                    .filter((d: Date | null): d is Date => d !== null);
+            console.log(`🔎 Found ${candidateEvents.length} candidate events for arrest/citation`);
 
-                if (parsedDates.length > 0) {
-                    const earliest = parsedDates.reduce((min, d) => (d.getTime() < min.getTime() ? d : min), parsedDates[0]);
-                    caseSummary.arrestOrCitationDate = earliest.toISOString();
-                    console.log(`🔔 Set arrestOrCitationDate to ${caseSummary.arrestOrCitationDate}`);
+            if (candidateEvents.length > 0) {
+                const parsedCandidates: { date: Date; type: 'Arrest' | 'Citation'; raw: string }[] = [];
+
+                candidateEvents.forEach((ev: any, idx: number) => {
+                    const typeWord = ev['Event']['TypeId']['Word'];
+                    const eventDateStr = ev['Event']['EventDate'];
+
+                    if (typeWord !== 'LPSD' && typeWord !== 'CIT') {
+                        return;
+                    }
+
+                    const parsed = parseMMddyyyyToDate(eventDateStr);
+                    if (parsed) {
+                        parsedCandidates.push({
+                            date: parsed,
+                            type: typeWord === 'LPSD' ? 'Arrest' : 'Citation',
+                            raw: eventDateStr,
+                        });
+                        console.log(`   ✔  Candidate #${idx}: Type=${typeWord}, Parsed=${parsed.toISOString()}`);
+                    } else {
+                        console.warn(`   ✖  Candidate #${idx} has unparseable date: ${eventDateStr}`);
+                    }
+                });
+
+                if (parsedCandidates.length > 0) {
+                    // Choose the earliest date among all matching candidates
+                    const earliest = parsedCandidates.reduce(
+                        (min, c) => (c.date.getTime() < min.date.getTime() ? c : min),
+                        parsedCandidates[0]
+                    );
+                    caseSummary.arrestOrCitationDate = earliest.date.toISOString();
+                    caseSummary.arrestOrCitationType = earliest.type;
+                    console.log(`🔔 Set ${earliest.type} date to ${caseSummary.arrestOrCitationDate}`);
+                } else {
+                    console.log('No parsable arrest/citation dates found among candidates');
                 }
             }
         } catch (evtErr) {
