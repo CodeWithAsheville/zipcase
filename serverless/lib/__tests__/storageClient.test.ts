@@ -211,8 +211,8 @@ describe('StorageClient.getSearchResults resilience', () => {
                 caseName: 'State vs Valid Defendant',
                 court: 'Test Superior Court',
                 charges: [
-                    { description: 'Charge 1', statute: 'ABC-123' },
-                    { description: 'Charge 2', statute: 'DEF-456' },
+                    { description: 'Charge 1', statute: 'ABC-123', filingAgency: null, filingAgencyAddress: [] },
+                    { description: 'Charge 2', statute: 'DEF-456', filingAgency: null, filingAgencyAddress: [] },
                 ],
             };
 
@@ -258,7 +258,7 @@ describe('StorageClient.getSearchResults resilience', () => {
             const summaryMissingName = {
                 // caseName is missing
                 court: 'Test Court',
-                charges: [{ description: 'Valid charge' }],
+                charges: [{ description: 'Valid charge', filingAgency: null, filingAgencyAddress: [] }],
             };
 
             const result = await validateAndProcessCaseSummary(caseNumber, caseData, summaryMissingName);
@@ -280,7 +280,7 @@ describe('StorageClient.getSearchResults resilience', () => {
             const summaryMissingCourt = {
                 caseName: 'State vs Defendant',
                 // court is missing
-                charges: [{ description: 'Valid charge' }],
+                charges: [{ description: 'Valid charge', filingAgency: null, filingAgencyAddress: [] }],
             };
 
             const result = await validateAndProcessCaseSummary(caseNumber, caseData, summaryMissingCourt);
@@ -360,8 +360,16 @@ describe('StorageClient.getSearchResults resilience', () => {
                 {
                     caseNumber: 'VALID001',
                     caseData: { caseNumber: 'VALID001', caseId: 'id1', fetchStatus: { status: 'complete' } },
-                    summaryItem: { caseName: 'Valid Case 1', court: 'Court 1', charges: [{ description: 'Charge 1' }] },
-                    expectedResult: { caseName: 'Valid Case 1', court: 'Court 1', charges: [{ description: 'Charge 1' }] },
+                    summaryItem: {
+                        caseName: 'Valid Case 1',
+                        court: 'Court 1',
+                        charges: [{ description: 'Charge 1', filingAgency: null, filingAgencyAddress: [] }],
+                    },
+                    expectedResult: {
+                        caseName: 'Valid Case 1',
+                        court: 'Court 1',
+                        charges: [{ description: 'Charge 1', filingAgency: null, filingAgencyAddress: [] }],
+                    },
                 },
                 {
                     caseNumber: 'CORRUPT002',
@@ -372,8 +380,16 @@ describe('StorageClient.getSearchResults resilience', () => {
                 {
                     caseNumber: 'VALID003',
                     caseData: { caseNumber: 'VALID003', caseId: 'id3', fetchStatus: { status: 'complete' } },
-                    summaryItem: { caseName: 'Valid Case 3', court: 'Court 3', charges: [{ description: 'Charge 3' }] },
-                    expectedResult: { caseName: 'Valid Case 3', court: 'Court 3', charges: [{ description: 'Charge 3' }] },
+                    summaryItem: {
+                        caseName: 'Valid Case 3',
+                        court: 'Court 3',
+                        charges: [{ description: 'Charge 3', filingAgency: null, filingAgencyAddress: [] }],
+                    },
+                    expectedResult: {
+                        caseName: 'Valid Case 3',
+                        court: 'Court 3',
+                        charges: [{ description: 'Charge 3', filingAgency: null, filingAgencyAddress: [] }],
+                    },
                 },
             ];
 
@@ -420,6 +436,30 @@ describe('StorageClient.getSearchResults resilience', () => {
 
             // Verify cleanup was triggered for the corrupted case only
             expect(mockSetImmediate).toHaveBeenCalled();
+        });
+
+        it('should preserve arrestOrCitationDate and type when present in summary', async () => {
+            const { validateAndProcessCaseSummary } = require('../StorageClient');
+
+            const caseNumber = 'ARRESTDATE001';
+            const caseData = {
+                caseNumber,
+                caseId: 'arrest-case-id',
+                fetchStatus: { status: 'complete' },
+                lastUpdated: '2025-09-19T12:00:00Z',
+            };
+
+            const validSummaryItem = {
+                caseName: 'State vs Arrested',
+                court: 'Test Court',
+                charges: [],
+                arrestOrCitationDate: '2021-02-10T00:00:00.000Z',
+                arrestOrCitationType: 'Arrest',
+            };
+
+            const result = await validateAndProcessCaseSummary(caseNumber, caseData, validSummaryItem);
+
+            expect(result).toEqual(validSummaryItem);
         });
     });
 });

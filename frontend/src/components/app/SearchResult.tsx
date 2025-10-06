@@ -64,6 +64,32 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                 <div className="text-sm text-gray-700">
                                     <p className="font-medium">{summary.caseName}</p>
                                     <p>{summary.court}</p>
+                                    {summary.arrestOrCitationDate &&
+                                        (() => {
+                                            const d = new Date(summary.arrestOrCitationDate);
+                                            if (!isNaN(d.getTime())) {
+                                                const label =
+                                                    summary.arrestOrCitationType === 'Arrest'
+                                                        ? 'Arrest Date:'
+                                                        : summary.arrestOrCitationType === 'Citation'
+                                                          ? 'Citation Date:'
+                                                          : 'Arrest/Citation Date:';
+
+                                                return (
+                                                    <p className="mt-1 text-sm text-gray-600">
+                                                        <span className="font-medium">{label}</span> {d.toLocaleDateString()}
+                                                    </p>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
+
+                                    {/* Filing agency: shown at top-level if the case summary has a single filing agency for all charges */}
+                                    {summary.filingAgency && (
+                                        <p className="mt-1 text-sm text-gray-600">
+                                            <span className="font-medium">Filing Agency:</span> {summary.filingAgency}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {summary.charges && summary.charges.length > 0 && (
@@ -76,11 +102,17 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
                                                         <div>
                                                             <span className="font-medium">Filed:</span>{' '}
-                                                            {new Date(charge.filedDate).toLocaleDateString()}
+                                                            {(() => {
+                                                                const d = new Date(charge.filedDate);
+                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                            })()}
                                                         </div>
                                                         <div>
                                                             <span className="font-medium">Offense:</span>{' '}
-                                                            {new Date(charge.offenseDate).toLocaleDateString()}
+                                                            {(() => {
+                                                                const d = new Date(charge.offenseDate);
+                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                            })()}
                                                         </div>
                                                         <div>
                                                             <span className="font-medium">Statute:</span> {charge.statute}
@@ -93,12 +125,23 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                                 <span className="font-medium">Fine:</span> ${charge.fine.toFixed(2)}
                                                             </div>
                                                         )}
+
+                                                        {/* Per-charge filing agency: only shown when no top-level filing agency is present */}
+                                                        {!summary.filingAgency && charge.filingAgency && (
+                                                            <div>
+                                                                <span className="font-medium">Filing Agency:</span> {charge.filingAgency}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     {charge.dispositions && charge.dispositions.length > 0 && (
                                                         <div className="mt-2 text-xs text-gray-600">
                                                             <span className="font-medium">Disposition:</span>{' '}
                                                             {charge.dispositions[0].description} (
-                                                            {new Date(charge.dispositions[0].date).toLocaleDateString()})
+                                                            {(() => {
+                                                                const d = new Date(charge.dispositions[0].date);
+                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                            })()}
+                                                            )
                                                         </div>
                                                     )}
                                                 </div>

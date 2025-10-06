@@ -502,7 +502,31 @@ const caseEndpoints: Record<string, EndpointConfig> = {
     financialSummary: {
         path: "Service/FinancialSummary('{caseId}')",
     },
+    caseEvents: {
+        path: "Service/CaseEvents('{caseId}')?top=200",
+    },
 };
+
+function parseMMddyyyyToDate(dateStr: string): Date | null {
+    if (!dateStr || typeof dateStr !== 'string') {
+        return null;
+    }
+
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) {
+        return null;
+    }
+
+    const month = parseInt(parts[0], 10);
+    const day = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+
+    if (Number.isNaN(month) || Number.isNaN(day) || Number.isNaN(year)) {
+        return null;
+    }
+
+    return new Date(Date.UTC(year, month - 1, day));
+}
 
 async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
     try {
@@ -578,8 +602,8 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
         // Wait for all promises to resolve
         const results = await Promise.all(endpointPromises);
 
-        // Check if any endpoint failed
-        const requiredFailure = results.find(result => !result.success);
+        // Treat caseEvents as optional; if any other endpoint failed, consider it a required failure
+        const requiredFailure = results.find(result => !result.success && result.key !== 'caseEvents');
 
         if (requiredFailure) {
             console.error(`Required endpoint ${requiredFailure.key} failed: ${requiredFailure.error}`);
@@ -615,6 +639,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
             caseName: rawData['summary']['CaseSummaryHeader']['Style'] || '',
             court: rawData['summary']['CaseSummaryHeader']['Heading'] || '',
             charges: [],
+            filingAgency: null,
         };
 
         const chargeMap = new Map<number, Charge>();
@@ -639,7 +664,20 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                 },
                 fine: typeof chargeOffense['FineAmount'] === 'number' ? chargeOffense['FineAmount'] : 0,
                 dispositions: [],
+                filingAgency: null,
+                filingAgencyAddress: [],
             };
+
+            const filingAgencyRaw = chargeData['FilingAgencyDescription'];
+            if (filingAgencyRaw) {
+                charge.filingAgency = String(filingAgencyRaw).trim();
+            }
+
+            // Extract filing agency address if present. It will be an array of strings.
+            const filingAgencyAddressRaw = chargeData['FilingAgencyAddress'];
+            if (filingAgencyAddressRaw) {
+                charge.filingAgencyAddress.push(...(filingAgencyAddressRaw as any));
+            }
 
             // Add to charges array
             caseSummary.charges.push(charge);
@@ -650,11 +688,27 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
             }
         });
 
-        // Process dispositions and link them to charges
-        const events = rawData['dispositionEvents']['Events'] || [];
-        console.log(`📋 Found ${events.length} disposition events`);
+        // After processing charges, derive top-level filing agency if appropriate
+        try {
+            const definedAgencies = caseSummary.charges.map(ch => ch.filingAgency).filter((a): a is string => a !== null && a.length > 0);
 
-        events
+            const uniqueAgencies = Array.from(new Set(definedAgencies));
+
+            // If there's at least one defined agency, and all defined agencies are identical,
+            // set it on the case summary. Charges that lack an agency (null) are ignored for this decision.
+            if (uniqueAgencies.length === 1 && uniqueAgencies[0]) {
+                caseSummary.filingAgency = uniqueAgencies[0];
+                console.log(`🔔 Set Filing Agency to ${caseSummary.filingAgency}`);
+            }
+        } catch (faErr) {
+            console.error('Error computing top-level filing agency:', faErr);
+        }
+
+        // Process dispositions and link them to charges
+        const dispositionEvents = rawData['dispositionEvents']['Events'] || [];
+        console.log(`📋 Found ${dispositionEvents.length} disposition events`);
+
+        dispositionEvents
             .filter(
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (eventData: any) => eventData && eventData['Type'] === 'CriminalDispositionEvent'
@@ -721,6 +775,60 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                 });
             });
 
+        // Process case-level events to determine arrest or citation date (LPSD -> Arrest, CIT -> Citation)
+        try {
+            const caseEvents = rawData['caseEvents']?.['Events'] || [];
+            console.log(`📋 Found ${caseEvents.length} case events`);
+
+            // Filter only events that have the LPSD (arrest) or CIT (citation) TypeId and a valid EventDate
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const candidateEvents = caseEvents.filter(
+                (ev: any) => ev && ev['Event'] && ev['Event']['TypeId'] && ev['Event']['TypeId']['Word'] && ev['Event']['EventDate']
+            );
+
+            console.log(`🔎 Found ${candidateEvents.length} candidate events for arrest/citation`);
+
+            if (candidateEvents.length > 0) {
+                const parsedCandidates: { date: Date; type: 'Arrest' | 'Citation'; raw: string }[] = [];
+
+                candidateEvents.forEach((ev: any, idx: number) => {
+                    const typeWord = ev['Event']['TypeId']['Word'];
+                    const eventDateStr = ev['Event']['EventDate'];
+
+                    if (typeWord !== 'LPSD' && typeWord !== 'CIT') {
+                        return;
+                    }
+
+                    const parsed = parseMMddyyyyToDate(eventDateStr);
+                    if (parsed) {
+                        parsedCandidates.push({
+                            date: parsed,
+                            type: typeWord === 'LPSD' ? 'Arrest' : 'Citation',
+                            raw: eventDateStr,
+                        });
+                        console.log(`   ✔  Candidate #${idx}: Type=${typeWord}, Parsed=${parsed.toISOString()}`);
+                    } else {
+                        console.warn(`   ✖  Candidate #${idx} has unparseable date: ${eventDateStr}`);
+                    }
+                });
+
+                if (parsedCandidates.length > 0) {
+                    // Choose the earliest date among all matching candidates
+                    const earliest = parsedCandidates.reduce(
+                        (min, c) => (c.date.getTime() < min.date.getTime() ? c : min),
+                        parsedCandidates[0]
+                    );
+                    caseSummary.arrestOrCitationDate = earliest.date.toISOString();
+                    caseSummary.arrestOrCitationType = earliest.type;
+                    console.log(`🔔 Set ${earliest.type} date to ${caseSummary.arrestOrCitationDate}`);
+                } else {
+                    console.log('No parsable arrest/citation dates found among candidates');
+                }
+            }
+        } catch (evtErr) {
+            console.error('Error processing caseEvents for arrest/citation date:', evtErr);
+        }
+
         return caseSummary;
     } catch (error) {
         AlertService.logError(Severity.ERROR, AlertCategory.SYSTEM, 'Error building case summary from raw data', error as Error, {
@@ -736,6 +844,7 @@ const CaseProcessor = {
     processCaseData,
     queueCasesForSearch,
     fetchCaseIdFromPortal,
+    buildCaseSummary,
 };
 
 export default CaseProcessor;
