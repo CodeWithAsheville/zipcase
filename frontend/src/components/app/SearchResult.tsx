@@ -72,8 +72,8 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                     summary.arrestOrCitationType === 'Arrest'
                                                         ? 'Arrest Date:'
                                                         : summary.arrestOrCitationType === 'Citation'
-                                                        ? 'Citation Date:'
-                                                        : 'Arrest/Citation Date:';
+                                                          ? 'Citation Date:'
+                                                          : 'Arrest/Citation Date:';
 
                                                 return (
                                                     <p className="mt-1 text-sm text-gray-600">
