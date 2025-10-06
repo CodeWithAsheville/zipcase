@@ -83,6 +83,13 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                             }
                                             return null;
                                         })()}
+
+                                    {/* Filing agency: shown at top-level if the case summary has a single filing agency for all charges */}
+                                    {summary.filingAgency && (
+                                        <p className="mt-1 text-sm text-gray-600">
+                                            <span className="font-medium">Filing Agency:</span> {summary.filingAgency}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {summary.charges && summary.charges.length > 0 && (
@@ -116,6 +123,13 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                         {charge.fine > 0 && (
                                                             <div>
                                                                 <span className="font-medium">Fine:</span> ${charge.fine.toFixed(2)}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Per-charge filing agency: only shown when no top-level filing agency is present */}
+                                                        {!summary.filingAgency && charge.filingAgency && (
+                                                            <div>
+                                                                <span className="font-medium">Filing Agency:</span> {charge.filingAgency}
                                                             </div>
                                                         )}
                                                     </div>

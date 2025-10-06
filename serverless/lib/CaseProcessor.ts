@@ -639,6 +639,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
             caseName: rawData['summary']['CaseSummaryHeader']['Style'] || '',
             court: rawData['summary']['CaseSummaryHeader']['Heading'] || '',
             charges: [],
+            filingAgency: null,
         };
 
         const chargeMap = new Map<number, Charge>();
@@ -663,7 +664,20 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                 },
                 fine: typeof chargeOffense['FineAmount'] === 'number' ? chargeOffense['FineAmount'] : 0,
                 dispositions: [],
+                filingAgency: null,
+                filingAgencyAddress: [],
             };
+
+            const filingAgencyRaw = chargeData['FilingAgencyDescription'];
+            if (filingAgencyRaw) {
+                charge.filingAgency = String(filingAgencyRaw).trim();
+            }
+
+            // Extract filing agency address if present. It will be an array of strings.
+            const filingAgencyAddressRaw = chargeData['FilingAgencyAddress'];
+            if (filingAgencyAddressRaw) {
+                charge.filingAgencyAddress.push(...(filingAgencyAddressRaw as any));
+            }
 
             // Add to charges array
             caseSummary.charges.push(charge);
@@ -673,6 +687,22 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                 chargeMap.set(chargeData['ChargeId'], charge);
             }
         });
+
+        // After processing charges, derive top-level filing agency if appropriate
+        try {
+            const definedAgencies = caseSummary.charges.map(ch => ch.filingAgency).filter((a): a is string => a !== null && a.length > 0);
+
+            const uniqueAgencies = Array.from(new Set(definedAgencies));
+
+            // If there's at least one defined agency, and all defined agencies are identical,
+            // set it on the case summary. Charges that lack an agency (null) are ignored for this decision.
+            if (uniqueAgencies.length === 1 && uniqueAgencies[0]) {
+                caseSummary.filingAgency = uniqueAgencies[0];
+                console.log(`🔔 Set Filing Agency to ${caseSummary.filingAgency}`);
+            }
+        } catch (faErr) {
+            console.error('Error computing top-level filing agency:', faErr);
+        }
 
         // Process dispositions and link them to charges
         const dispositionEvents = rawData['dispositionEvents']['Events'] || [];

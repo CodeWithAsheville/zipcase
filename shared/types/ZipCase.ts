@@ -26,6 +26,8 @@ export interface Charge {
     degree: ChargeDegree;
     fine: number;
     dispositions: Disposition[];
+    filingAgency: string | null;
+    filingAgencyAddress: string[];
 }
 
 export type ArrestOrCitationType = 'Arrest' | 'Citation';
@@ -36,6 +38,7 @@ export interface CaseSummary {
     charges: Charge[];
     arrestOrCitationDate?: string;
     arrestOrCitationType?: ArrestOrCitationType;
+    filingAgency: string | null;
 }
 
 export interface ZipCase {
