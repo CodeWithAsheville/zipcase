@@ -50,8 +50,11 @@ const createTestCase = (override = {}): SearchResultType => ({
                         description: 'Guilty',
                     },
                 ],
+                filingAgency: null,
+                filingAgencyAddress: [],
             },
         ],
+        filingAgency: null,
     },
     ...override,
 });
@@ -217,5 +220,78 @@ describe('SearchResult component', () => {
 
         // Should still render the charge description
         expect(screen.getByText('Weird Charge')).toBeInTheDocument();
+    });
+
+    it('displays top-level filing agency when present', () => {
+        const testCase = createTestCase({
+            caseSummary: {
+                caseName: 'State vs. Doe',
+                court: 'Circuit Court',
+                filingAgency: 'Metro PD',
+                charges: [
+                    {
+                        offenseDate: '2022-01-01',
+                        filedDate: '2022-01-02',
+                        description: 'Theft',
+                        statute: '123.456',
+                        degree: { code: 'M', description: 'Misdemeanor' },
+                        fine: 0,
+                        dispositions: [],
+                        filingAgency: 'Metro PD',
+                    },
+                ],
+            },
+        });
+
+        render(<SearchResult searchResult={testCase} />);
+
+        // Top-level Filing Agency should be present
+        expect(screen.getByText(/Filing Agency:/)).toBeInTheDocument();
+        expect(screen.getByText('Metro PD')).toBeInTheDocument();
+
+        // Per-charge filing agency should not be duplicated when top-level present
+        const chargeAgency = screen.queryAllByText(/Filing Agency:/).length;
+        expect(chargeAgency).toBe(1); // only the top-level label
+    });
+
+    it('displays per-charge filing agencies when they differ and no top-level is set', () => {
+        const testCase = createTestCase({
+            caseSummary: {
+                caseName: 'State vs. Doe',
+                court: 'Circuit Court',
+                charges: [
+                    {
+                        offenseDate: '2022-01-01',
+                        filedDate: '2022-01-02',
+                        description: 'Charge A',
+                        statute: '111',
+                        degree: { code: 'M', description: 'M' },
+                        fine: 0,
+                        dispositions: [],
+                        filingAgency: 'Dept A',
+                    },
+                    {
+                        offenseDate: '2022-02-01',
+                        filedDate: '2022-02-02',
+                        description: 'Charge B',
+                        statute: '222',
+                        degree: { code: 'M', description: 'M' },
+                        fine: 0,
+                        dispositions: [],
+                        filingAgency: 'Dept B',
+                    },
+                ],
+            },
+        });
+
+        render(<SearchResult searchResult={testCase} />);
+
+        // No single top-level filing agency — expect per-charge Filing Agency labels for each charge
+        const filingLabels = screen.queryAllByText(/Filing Agency:/);
+        expect(filingLabels.length).toBeGreaterThanOrEqual(2);
+
+        // Both per-charge filing agencies should be present
+        expect(screen.getByText('Dept A')).toBeInTheDocument();
+        expect(screen.getByText('Dept B')).toBeInTheDocument();
     });
 });

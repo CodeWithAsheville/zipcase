@@ -40,6 +40,7 @@ describe('CaseSearchProcessor', () => {
                 caseName: 'Test vs State',
                 court: 'Test Court',
                 charges: [],
+                filingAgency: null,
             };
 
             const completeCase: SearchResult = {
@@ -284,6 +285,7 @@ describe('CaseSearchProcessor', () => {
                 caseName: 'Test vs State',
                 court: 'Test Court',
                 charges: [],
+                filingAgency: null,
             };
 
             mockStorageClient.getSearchResults.mockResolvedValue({
