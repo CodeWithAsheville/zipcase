@@ -9,6 +9,7 @@ import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import * as cheerio from 'cheerio';
 import UserAgentClient from './UserAgentClient';
+import { CASE_SUMMARY_VERSION_DATE } from './CaseProcessor';
 
 // Process API case search requests
 export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<CaseSearchResponse> {
@@ -54,27 +55,30 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
 
                 switch (status) {
                     case 'complete':
-                        if (caseSummary) {
-                            // Truly complete - has both ID and summary
-                            console.log(`Case ${caseNumber} is complete with summary, preserving`);
+                        const lastUpdated = results[caseNumber].zipCase.lastUpdated;
+                        if (caseSummary && lastUpdated && new Date(lastUpdated) >= CASE_SUMMARY_VERSION_DATE) {
+                            // Truly complete - has both ID and an up-to-date summary
+                            console.log(`Case ${caseNumber} is complete with up-to-date summary schema, preserving`);
                             continue;
                         } else if (caseId) {
-                            // Has ID but missing summary - treat as 'found' and queue for data retrieval
+                            // Has ID but missing summary or summary schema is outdated - treat as 'found' and queue for data retrieval
                             console.log(
-                                `Case ${caseNumber} has 'complete' status but missing summary, treating as 'found' and queueing for data retrieval`
+                                `Case ${caseNumber} has 'complete' status but ${caseSummary ? 'summary is outdated' : 'missing summary'}; treating as 'found' and queueing for data retrieval`
                             );
 
-                            // Update status to 'found' since we need to rebuild the summary
+                            const nowString = new Date().toISOString();
+
+                            // Update status to 'found', since we need to rebuild the summary
                             await StorageClient.saveCase({
                                 caseNumber,
                                 caseId,
                                 fetchStatus: { status: 'found' },
-                                lastUpdated: new Date().toISOString(),
+                                lastUpdated: nowString,
                             });
 
                             // Also update the results object that will be returned to frontend
                             results[caseNumber].zipCase.fetchStatus = { status: 'found' };
-                            results[caseNumber].zipCase.lastUpdated = new Date().toISOString();
+                            results[caseNumber].zipCase.lastUpdated = nowString;
 
                             try {
                                 await QueueClient.queueCaseForDataRetrieval(caseNumber, caseId, req.userId);
