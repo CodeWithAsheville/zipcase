@@ -10,6 +10,10 @@ import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
 import * as cheerio from 'cheerio';
 
+// Version date used to determine whether a cached 'complete' CaseSummary is
+// up-to-date or should be re-fetched to align with current schema/logic.
+export const CASE_SUMMARY_VERSION_DATE = new Date('2025-10-06T00:00:00Z');
+
 // Type for raw portal JSON data - using `any` is acceptable here since we're dealing with
 // dynamic external API responses that we don't control
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,13 +258,23 @@ async function processCaseDataRecord(
     receiptHandle: string
 ): Promise<FetchStatus> {
     try {
-        // Check for existing data and skip if already complete
+        // Check for existing data and skip if already complete with current schema version.
         const zipCase = await StorageClient.getCase(caseNumber);
         if (zipCase && zipCase.fetchStatus.status === 'complete') {
-            // Always use the cached data for complete cases
-            await QueueClient.deleteMessage(receiptHandle, 'data');
-            console.log(`Case ${caseNumber} already complete; using cached data and deleted queue item`);
-            return zipCase.fetchStatus;
+            const lastUpdated = zipCase.lastUpdated ? new Date(zipCase.lastUpdated) : new Date(0);
+
+            if (lastUpdated.getTime() >= CASE_SUMMARY_VERSION_DATE.getTime()) {
+                // Cached summary is new enough for current version - use it
+                await QueueClient.deleteMessage(receiptHandle, 'data');
+                console.log(
+                    `Case ${caseNumber} already complete and up-to-date (lastUpdated=${zipCase.lastUpdated}); using cached data`
+                );
+                return zipCase.fetchStatus;
+            }
+
+            console.log(
+                `Case ${caseNumber} lastUpdated (${zipCase.lastUpdated}) is older than version date ${CASE_SUMMARY_VERSION_DATE.toISOString()}; re-fetching case summary`
+            );
         }
 
         // Fetch case summary
