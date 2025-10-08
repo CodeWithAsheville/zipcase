@@ -13,7 +13,7 @@ import * as cheerio from 'cheerio';
 
 // Version date used to determine whether a cached 'complete' CaseSummary is
 // up-to-date or should be re-fetched to align with current schema/logic.
-export const CASE_SUMMARY_VERSION_DATE = new Date('2025-10-06T00:00:00Z');
+export const CASE_SUMMARY_VERSION_DATE = new Date('2025-10-08T14:00:00Z');
 
 // Type for raw portal JSON data - using `any` is acceptable here since we're dealing with
 // dynamic external API responses that we don't control
