@@ -1,5 +1,6 @@
 import React from 'react';
 import type { SearchResult as SearchResultType } from '../../../../shared/types';
+import { parseDateString, formatDisplayDate } from '../../../../shared/DateTimeUtils';
 import SearchStatus from './SearchStatus';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { PORTAL_CASE_URL } from '../../aws-exports';
@@ -66,8 +67,8 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                     <p>{summary.court}</p>
                                     {summary.arrestOrCitationDate &&
                                         (() => {
-                                            const d = new Date(summary.arrestOrCitationDate);
-                                            if (!isNaN(d.getTime())) {
+                                            const d = parseDateString(summary.arrestOrCitationDate);
+                                            if (d) {
                                                 const label =
                                                     summary.arrestOrCitationType === 'Arrest'
                                                         ? 'Arrest Date:'
@@ -77,7 +78,7 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
 
                                                 return (
                                                     <p className="mt-1 text-sm text-gray-600">
-                                                        <span className="font-medium">{label}</span> {d.toLocaleDateString()}
+                                                        <span className="font-medium">{label}</span> {formatDisplayDate(d)}
                                                     </p>
                                                 );
                                             }
@@ -103,15 +104,15 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                         <div>
                                                             <span className="font-medium">Filed:</span>{' '}
                                                             {(() => {
-                                                                const d = new Date(charge.filedDate);
-                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                                const d = parseDateString(charge.filedDate);
+                                                                return d ? formatDisplayDate(d) : '';
                                                             })()}
                                                         </div>
                                                         <div>
                                                             <span className="font-medium">Offense:</span>{' '}
                                                             {(() => {
-                                                                const d = new Date(charge.offenseDate);
-                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                                const d = parseDateString(charge.offenseDate);
+                                                                return d ? formatDisplayDate(d) : '';
                                                             })()}
                                                         </div>
                                                         <div>
@@ -138,8 +139,9 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                                             <span className="font-medium">Disposition:</span>{' '}
                                                             {charge.dispositions[0].description} (
                                                             {(() => {
-                                                                const d = new Date(charge.dispositions[0].date);
-                                                                return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+                                                                const dispDate = charge.dispositions[0].date;
+                                                                const d = parseDateString(dispDate);
+                                                                return d ? formatDisplayDate(d) : '';
                                                             })()}
                                                             )
                                                         </div>

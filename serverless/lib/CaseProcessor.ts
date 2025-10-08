@@ -8,6 +8,7 @@ import { CaseSummary, Charge, Disposition, FetchStatus } from '../../shared/type
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
+import { parseUsDate, formatIsoDate } from '../../shared/DateTimeUtils';
 import * as cheerio from 'cheerio';
 
 // Version date used to determine whether a cached 'complete' CaseSummary is
@@ -521,27 +522,6 @@ const caseEndpoints: Record<string, EndpointConfig> = {
     },
 };
 
-function parseMMddyyyyToDate(dateStr: string): Date | null {
-    if (!dateStr || typeof dateStr !== 'string') {
-        return null;
-    }
-
-    const parts = dateStr.split('/');
-    if (parts.length !== 3) {
-        return null;
-    }
-
-    const month = parseInt(parts[0], 10);
-    const day = parseInt(parts[1], 10);
-    const year = parseInt(parts[2], 10);
-
-    if (Number.isNaN(month) || Number.isNaN(day) || Number.isNaN(year)) {
-        return null;
-    }
-
-    return new Date(Date.UTC(year, month - 1, day));
-}
-
 async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
     try {
         const portalCaseUrl = process.env.PORTAL_CASE_URL;
@@ -813,7 +793,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                         return;
                     }
 
-                    const parsed = parseMMddyyyyToDate(eventDateStr);
+                    const parsed = parseUsDate(eventDateStr);
                     if (parsed) {
                         parsedCandidates.push({
                             date: parsed,
@@ -832,7 +812,8 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
                         (min, c) => (c.date.getTime() < min.date.getTime() ? c : min),
                         parsedCandidates[0]
                     );
-                    caseSummary.arrestOrCitationDate = earliest.date.toISOString();
+
+                    caseSummary.arrestOrCitationDate = formatIsoDate(earliest.date);
                     caseSummary.arrestOrCitationType = earliest.type;
                     console.log(`🔔 Set ${earliest.type} date to ${caseSummary.arrestOrCitationDate}`);
                 } else {

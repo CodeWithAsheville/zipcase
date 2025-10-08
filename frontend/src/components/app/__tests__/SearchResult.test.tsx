@@ -178,7 +178,7 @@ describe('SearchResult component', () => {
             caseSummary: {
                 caseName: 'State vs. Doe',
                 court: 'Circuit Court',
-                arrestOrCitationDate: '2022-02-15T00:00:00Z',
+                arrestOrCitationDate: '2022-02-15',
                 arrestOrCitationType: 'Arrest',
                 charges: [],
             },
