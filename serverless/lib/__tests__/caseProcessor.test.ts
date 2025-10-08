@@ -188,9 +188,9 @@ describe('CaseProcessor', () => {
             expect(summary?.arrestOrCitationDate).toBeDefined();
             expect(summary?.arrestOrCitationType).toBe('Arrest');
 
-            // Expected earliest LPSD date is 02/10/2021 -> construct UTC Date and compare ISO
-            const expectedIso = new Date(Date.UTC(2021, 1, 10)).toISOString();
-            expect(summary?.arrestOrCitationDate).toBe(expectedIso);
+            // Expected earliest LPSD date is 02/10/2021 -> expect date-only string
+            const expectedDateOnly = '2021-02-10';
+            expect(summary?.arrestOrCitationDate).toBe(expectedDateOnly);
         });
 
         it('selects CIT over LPSD if earlier (sets type Citation)', () => {
@@ -218,8 +218,8 @@ describe('CaseProcessor', () => {
             expect(summary?.arrestOrCitationDate).toBeDefined();
             expect(summary?.arrestOrCitationType).toBe('Citation');
 
-            const expectedIso = new Date(Date.UTC(2021, 1, 9)).toISOString();
-            expect(summary?.arrestOrCitationDate).toBe(expectedIso);
+            const expectedDateOnly = '2021-02-09';
+            expect(summary?.arrestOrCitationDate).toBe(expectedDateOnly);
         });
 
         it('does not set arrestOrCitationDate when no LPSD/CIT events present', () => {

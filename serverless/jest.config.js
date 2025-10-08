@@ -2,6 +2,7 @@
 module.exports = {
     preset: 'ts-jest',
     testEnvironment: 'node',
+    roots: ['<rootDir>', '<rootDir>/../shared'],
     testMatch: ['**/__tests__/**/*.test.ts'],
     setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
     collectCoverage: true,

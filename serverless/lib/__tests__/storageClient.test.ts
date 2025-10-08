@@ -453,7 +453,7 @@ describe('StorageClient.getSearchResults resilience', () => {
                 caseName: 'State vs Arrested',
                 court: 'Test Court',
                 charges: [],
-                arrestOrCitationDate: '2021-02-10T00:00:00.000Z',
+                arrestOrCitationDate: '2021-02-10',
                 arrestOrCitationType: 'Arrest',
             };
 
