@@ -510,6 +510,66 @@ const caseEndpoints: Record<string, EndpointConfig> = {
     },
 };
 
+const ENDPOINT_FETCH_MAX_RETRIES = parseInt(process.env.ENDPOINT_FETCH_MAX_RETRIES || '3', 10);
+const ENDPOINT_FETCH_RETRY_BASE_MS = parseInt(process.env.ENDPOINT_FETCH_RETRY_BASE_MS || '200', 10);
+
+export async function fetchWithRetry(client: any, url: string, key: string) {
+    let attempt = 0;
+
+    while (attempt < ENDPOINT_FETCH_MAX_RETRIES) {
+        attempt += 1;
+        try {
+            const response = await client.get(url);
+            if (response.status === 200) {
+                return { key, success: true, data: response.data };
+            }
+
+            // Non-200 responses: decide whether retryable (5xx)
+            if (response.status >= 500 && attempt < ENDPOINT_FETCH_MAX_RETRIES) {
+                const delayMs = ENDPOINT_FETCH_RETRY_BASE_MS * Math.pow(2, attempt - 1);
+                console.warn(
+                    `Transient server error fetching ${key} (status ${response.status}), retrying in ${delayMs}ms (attempt ${attempt})`
+                );
+                await new Promise(res => setTimeout(res, delayMs));
+                continue;
+            }
+
+            return { key, success: false, error: `${key} request failed with status ${response.status}` };
+        } catch (error) {
+            const err: any = error;
+
+            // If axios returned a response, check its status
+            const status = err?.response?.status;
+            if (status && status >= 500 && attempt < ENDPOINT_FETCH_MAX_RETRIES) {
+                const delayMs = ENDPOINT_FETCH_RETRY_BASE_MS * Math.pow(2, attempt - 1);
+                console.warn(`Transient server error fetching ${key} (status ${status}), retrying in ${delayMs}ms (attempt ${attempt})`);
+                await new Promise(res => setTimeout(res, delayMs));
+                continue;
+            }
+
+            // Network-level or timeout errors are considered retryable
+            const isNetworkError =
+                !err?.response || err?.code === 'ECONNABORTED' || err?.code === 'ENOTFOUND' || err?.code === 'ECONNRESET';
+            if (isNetworkError && attempt < ENDPOINT_FETCH_MAX_RETRIES) {
+                const delayMs = ENDPOINT_FETCH_RETRY_BASE_MS * Math.pow(2, attempt - 1);
+                console.warn(`Network error fetching ${key} (${err?.message}), retrying in ${delayMs}ms (attempt ${attempt})`);
+                await new Promise(res => setTimeout(res, delayMs));
+                continue;
+            }
+
+            // If this was a network error and we've exhausted attempts, return a standardized exhausted message
+            if (isNetworkError && attempt >= ENDPOINT_FETCH_MAX_RETRIES) {
+                return { key, success: false, error: `Failed to fetch ${key} after ${ENDPOINT_FETCH_MAX_RETRIES} attempts` };
+            }
+
+            // Not retryable or other error: return detailed error
+            return { key, success: false, error: `Error fetching ${key}: ${err?.message || String(err)}` };
+        }
+    }
+
+    return { key, success: false, error: `Failed to fetch ${key} after ${ENDPOINT_FETCH_MAX_RETRIES} attempts` };
+}
+
 async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
     try {
         const portalCaseUrl = process.env.PORTAL_CASE_URL;
@@ -551,22 +611,23 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
                 const url = `${portalCaseUrl}${endpoint.path.replace('{caseId}', caseId)}`;
                 console.log(`Fetching ${key} data from ${url}`);
 
-                const response = await client.get(url);
+                const fetchResult = await fetchWithRetry(client, url, key);
 
-                if (response.status !== 200) {
-                    const errorMessage = `${key} request failed with status ${response.status}`;
-
-                    await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, `Failed to fetch ${key}`, new Error(errorMessage), {
-                        caseId,
-                        statusCode: response.status,
-                        resource: key,
-                    });
-
-                    return { key, success: false, error: errorMessage };
+                if (!fetchResult.success) {
+                    await AlertService.logError(
+                        Severity.ERROR,
+                        AlertCategory.PORTAL,
+                        `Failed to fetch ${key}`,
+                        new Error(fetchResult.error),
+                        {
+                            caseId,
+                            resource: key,
+                        }
+                    );
+                    return { key, success: false, error: fetchResult.error };
                 }
 
-                // Just store the raw response data
-                return { key, success: true, data: response.data };
+                return { key, success: true, data: fetchResult.data };
             } catch (error) {
                 await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, `Error fetching ${key}`, error as Error, {
                     caseId,
@@ -584,11 +645,12 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
         // Wait for all promises to resolve
         const results = await Promise.all(endpointPromises);
 
-        // Treat caseEvents as optional; if any other endpoint failed, consider it a required failure
-        const requiredFailure = results.find(result => !result.success && result.key !== 'caseEvents');
+        // Only the 'summary' endpoint is strictly required. Other endpoints are optional;
+        // if they fail we'll proceed with partial data but still alert which endpoints failed.
+        const summaryFailure = results.find(result => !result.success && result.key === 'summary');
 
-        if (requiredFailure) {
-            console.error(`Required endpoint ${requiredFailure.key} failed: ${requiredFailure.error}`);
+        if (summaryFailure) {
+            console.error(`Required endpoint ${summaryFailure.key} failed: ${summaryFailure.error}`);
             return null;
         }
 
@@ -612,9 +674,17 @@ async function fetchCaseSummary(caseId: string): Promise<CaseSummary | null> {
 
 function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSummary | null {
     try {
-        if (!rawData['summary'] || !rawData['charges'] || !rawData['dispositionEvents']) {
-            console.error('Missing required raw data for building case summary');
+        if (!rawData['summary']) {
+            console.error('Missing required summary data for building case summary');
             return null;
+        }
+
+        // If other endpoints are missing, emit a warning but continue building a partial summary.
+        if (!rawData['charges']) {
+            console.warn('Charges data missing for case; building partial summary without charges');
+        }
+        if (!rawData['dispositionEvents']) {
+            console.warn('Disposition events missing for case; building partial summary without dispositions');
         }
 
         const caseSummary: CaseSummary = {
@@ -627,7 +697,7 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
         const chargeMap = new Map<number, Charge>();
 
         // Process charges
-        const charges = rawData['charges']['Charges'] || [];
+        const charges = rawData['charges'] && rawData['charges']['Charges'] ? rawData['charges']['Charges'] : [];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         charges.forEach((chargeData: any) => {
             if (!chargeData) return;
@@ -687,7 +757,8 @@ function buildCaseSummary(rawData: Record<string, PortalApiResponse>): CaseSumma
         }
 
         // Process dispositions and link them to charges
-        const dispositionEvents = rawData['dispositionEvents']['Events'] || [];
+        const dispositionEvents =
+            rawData['dispositionEvents'] && rawData['dispositionEvents']['Events'] ? rawData['dispositionEvents']['Events'] : [];
         console.log(`📋 Found ${dispositionEvents.length} disposition events`);
 
         dispositionEvents
