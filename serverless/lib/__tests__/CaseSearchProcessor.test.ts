@@ -6,6 +6,9 @@ import StorageClient from '../StorageClient';
 import QueueClient from '../QueueClient';
 import PortalAuthenticator from '../PortalAuthenticator';
 import { SearchResult, CaseSearchRequest, ZipCase, CaseSummary } from '../../../shared/types';
+import { CASE_SUMMARY_VERSION_DATE } from '../CaseProcessor';
+
+const lastUpdatedAfterVersion = (offsetMs = 1000): string => new Date(CASE_SUMMARY_VERSION_DATE.getTime() + offsetMs).toISOString();
 
 // Mock dependencies
 jest.mock('../StorageClient');
@@ -48,7 +51,8 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: 'test-case-id',
                     fetchStatus: { status: 'complete' },
-                    lastUpdated: new Date().toISOString(),
+                    // Ensure lastUpdated is after CASE_SUMMARY_VERSION_DATE so tests treat the summary as up-to-date
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary,
             };
@@ -71,7 +75,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: 'test-case-id',
                     fetchStatus: { status: 'complete' },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined, // Missing summary
             };
@@ -107,7 +111,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: undefined, // Missing caseId
                     fetchStatus: { status: 'complete' },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined,
             };
@@ -131,7 +135,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: 'test-case-id',
                     fetchStatus: { status: 'found' },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined,
             };
@@ -155,7 +159,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: 'test-case-id',
                     fetchStatus: { status: 'reprocessing', tryCount: 1 },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined,
             };
@@ -179,7 +183,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: undefined, // Missing caseId
                     fetchStatus: { status: 'found' },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined,
             };
@@ -203,7 +207,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: 'test-case-id',
                     fetchStatus: { status: 'processing' },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined,
             };
@@ -226,7 +230,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: undefined,
                     fetchStatus: { status: 'notFound' },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined,
             };
@@ -249,7 +253,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: undefined,
                     fetchStatus: { status: 'failed', message: 'Test failure' },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined,
             };
@@ -294,7 +298,7 @@ describe('CaseSearchProcessor', () => {
                         caseNumber: '22CR123456-789',
                         caseId: 'case-id-1',
                         fetchStatus: { status: 'complete' },
-                        lastUpdated: new Date().toISOString(),
+                        lastUpdated: lastUpdatedAfterVersion(),
                     } as ZipCase,
                     caseSummary, // Has summary - truly complete
                 },
@@ -303,7 +307,7 @@ describe('CaseSearchProcessor', () => {
                         caseNumber: '23CV654321-456',
                         caseId: 'case-id-2',
                         fetchStatus: { status: 'complete' },
-                        lastUpdated: new Date().toISOString(),
+                        lastUpdated: lastUpdatedAfterVersion(),
                     } as ZipCase,
                     caseSummary: undefined, // Missing summary - should be treated as found
                 },
@@ -312,7 +316,7 @@ describe('CaseSearchProcessor', () => {
                         caseNumber: '24CV789012-345',
                         caseId: 'case-id-3',
                         fetchStatus: { status: 'found' },
-                        lastUpdated: new Date().toISOString(),
+                        lastUpdated: lastUpdatedAfterVersion(),
                     } as ZipCase,
                     caseSummary: undefined,
                 },
@@ -363,7 +367,7 @@ describe('CaseSearchProcessor', () => {
                     caseNumber: '22CR123456-789',
                     caseId: 'test-case-id',
                     fetchStatus: { status: 'found' },
-                    lastUpdated: new Date().toISOString(),
+                    lastUpdated: lastUpdatedAfterVersion(),
                 } as ZipCase,
                 caseSummary: undefined,
             };
