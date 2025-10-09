@@ -2,14 +2,16 @@ import React from 'react';
 import type { SearchResult as SearchResultType } from '../../../../shared/types';
 import { parseDateString, formatDisplayDate } from '../../../../shared/DateTimeUtils';
 import SearchStatus from './SearchStatus';
-import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { ArrowTopRightOnSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { PORTAL_CASE_URL } from '../../aws-exports';
+import { useRemoveCase } from '../../hooks/useCaseSearch';
 
 interface SearchResultProps {
     searchResult: SearchResultType;
 }
 
 const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
+    const removeCase = useRemoveCase();
     // Add a safety check to ensure we have a properly structured case object
     if (!sr?.zipCase?.caseNumber) {
         console.error('Invalid case object received by SearchResult:', sr);
@@ -18,8 +20,21 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
 
     const { zipCase: c, caseSummary: summary } = sr;
 
+    const handleRemove = () => {
+        removeCase(c.caseNumber);
+    };
+
     return (
-        <div className="bg-white rounded-lg shadow overflow-hidden border-t border-gray-100">
+        <div className="bg-white rounded-lg shadow overflow-hidden border-t border-gray-100 relative group">
+            {/* Remove button - appears in upper right corner */}
+            <button
+                onClick={handleRemove}
+                className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
+                aria-label="Remove case from results"
+                title="Remove case from results"
+            >
+                <XMarkIcon className="h-5 w-5" />
+            </button>
             <div className="p-4 sm:p-6">
                 <div className="flex items-start">
                     <div className="flex-shrink-0 mr-4">
