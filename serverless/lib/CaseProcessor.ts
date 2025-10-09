@@ -120,9 +120,7 @@ async function processCaseSearchRecord(
                 });
             } else if (fetchStatus === 'processing') {
                 // Handle processing timeout (5 minutes)
-                const lastUpdated = zipCase.lastUpdated
-                    ? new Date(zipCase.lastUpdated)
-                    : new Date(0);
+                const lastUpdated = zipCase.lastUpdated ? new Date(zipCase.lastUpdated) : new Date(0);
                 const minutesDiff = (nowTime - lastUpdated.getTime()) / (1000 * 60);
 
                 if (minutesDiff < 5) {
@@ -252,12 +250,7 @@ async function processCaseSearchRecord(
 }
 
 // Process a case data message - responsible for fetching case details
-async function processCaseDataRecord(
-    caseNumber: string,
-    caseId: string,
-    userId: string,
-    receiptHandle: string
-): Promise<FetchStatus> {
+async function processCaseDataRecord(caseNumber: string, caseId: string, userId: string, receiptHandle: string): Promise<FetchStatus> {
     try {
         // Check for existing data and skip if already complete with current schema version.
         const zipCase = await StorageClient.getCase(caseNumber);
@@ -267,9 +260,7 @@ async function processCaseDataRecord(
             if (lastUpdated.getTime() >= CASE_SUMMARY_VERSION_DATE.getTime()) {
                 // Cached summary is new enough for current version - use it
                 await QueueClient.deleteMessage(receiptHandle, 'data');
-                console.log(
-                    `Case ${caseNumber} already complete and up-to-date (lastUpdated=${zipCase.lastUpdated}); using cached data`
-                );
+                console.log(`Case ${caseNumber} already complete and up-to-date (lastUpdated=${zipCase.lastUpdated}); using cached data`);
                 return zipCase.fetchStatus;
             }
 
@@ -322,10 +313,7 @@ interface CaseSearchResult {
     };
 }
 
-async function fetchCaseIdFromPortal(
-    caseNumber: string,
-    cookieJar: CookieJar
-): Promise<CaseSearchResult> {
+async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: CookieJar): Promise<CaseSearchResult> {
     try {
         // Get the portal URL from environment variable
         const portalUrl = process.env.PORTAL_URL;
