@@ -29,7 +29,7 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
             {/* Remove button - appears in upper right corner */}
             <button
                 onClick={handleRemove}
-                className="absolute top-2 right-2 p-1 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors group-hover:text-gray-400 focus:text-gray-600 focus:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
+                className="absolute top-2 right-2 p-1.5 text-gray-300 hover:text-gray-700 hover:bg-gray-200 hover:shadow-sm rounded transition-all group-hover:text-gray-400 focus:text-gray-700 focus:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
                 aria-label="Remove case from results"
                 title="Remove case from results"
             >
