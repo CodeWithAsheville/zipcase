@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom';
+import userEvent from '@testing-library/user-event';
 import SearchResult from '../SearchResult';
 import { SearchResult as SearchResultType, ZipCase } from '../../../../../shared/types';
 
@@ -293,5 +294,79 @@ describe('SearchResult component', () => {
         // Both per-charge filing agencies should be present
         expect(screen.getByText('Dept A')).toBeInTheDocument();
         expect(screen.getByText('Dept B')).toBeInTheDocument();
+    });
+
+    it('displays copy button when caseId is present', () => {
+        const testCase = createTestCase();
+        render(<SearchResult searchResult={testCase} />);
+
+        // Check that copy button is rendered
+        const copyButton = screen.getByTitle('Copy case number to clipboard');
+        expect(copyButton).toBeInTheDocument();
+    });
+
+    it('displays copy button when caseId is not present', () => {
+        const testCase = createTestCase({
+            zipCase: {
+                caseNumber: '22CR123456-789',
+                caseId: undefined,
+                fetchStatus: {
+                    status: 'processing',
+                },
+            },
+        });
+        render(<SearchResult searchResult={testCase} />);
+
+        // Check that copy button is rendered
+        const copyButton = screen.getByTitle('Copy case number to clipboard');
+        expect(copyButton).toBeInTheDocument();
+    });
+
+    it('copies case number to clipboard when copy button is clicked', async () => {
+        const user = userEvent.setup();
+        
+        // Mock clipboard API
+        const writeTextMock = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', {
+            value: {
+                writeText: writeTextMock,
+            },
+            writable: true,
+            configurable: true,
+        });
+
+        const testCase = createTestCase();
+        render(<SearchResult searchResult={testCase} />);
+
+        // Click the copy button
+        const copyButton = screen.getByTitle('Copy case number to clipboard');
+        await user.click(copyButton);
+
+        // Verify that clipboard.writeText was called with the correct case number
+        expect(writeTextMock).toHaveBeenCalledWith('22CR123456-789');
+    });
+
+    it('shows visual feedback when case number is copied', async () => {
+        const user = userEvent.setup();
+        
+        // Mock clipboard API
+        const writeTextMock = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', {
+            value: {
+                writeText: writeTextMock,
+            },
+            writable: true,
+            configurable: true,
+        });
+
+        const testCase = createTestCase();
+        render(<SearchResult searchResult={testCase} />);
+
+        // Click the copy button
+        const copyButton = screen.getByTitle('Copy case number to clipboard');
+        await user.click(copyButton);
+
+        // Check that the title changes to indicate success
+        expect(screen.getByTitle('Copied!')).toBeInTheDocument();
     });
 });
