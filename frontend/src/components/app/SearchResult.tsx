@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { SearchResult as SearchResultType } from '../../../../shared/types';
 import { parseDateString, formatDisplayDate } from '../../../../shared/DateTimeUtils';
 import SearchStatus from './SearchStatus';
-import { ArrowTopRightOnSquareIcon, ClipboardIcon } from '@heroicons/react/24/outline';
+import { ArrowTopRightOnSquareIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
 import { PORTAL_CASE_URL } from '../../aws-exports';
 
 interface SearchResultProps {
@@ -59,9 +59,9 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                         <button
                                             onClick={copyCaseNumber}
                                             title={copySuccess ? 'Copied!' : 'Copy case number to clipboard'}
-                                            className="ml-1 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                                            className="ml-1 text-gray-500 hover:text-gray-900 hover:scale-110 transition-all focus:outline-none"
                                         >
-                                            <ClipboardIcon className={`h-4 w-4 ${copySuccess ? 'text-green-600' : ''}`} />
+                                            <DocumentDuplicateIcon className={`h-4 w-4 ${copySuccess ? 'text-green-600' : ''}`} />
                                         </button>
                                     </div>
                                 ) : (
@@ -70,9 +70,9 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                         <button
                                             onClick={copyCaseNumber}
                                             title={copySuccess ? 'Copied!' : 'Copy case number to clipboard'}
-                                            className="ml-1 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                                            className="ml-1 text-gray-500 hover:text-gray-900 hover:scale-110 transition-all focus:outline-none"
                                         >
-                                            <ClipboardIcon className={`h-4 w-4 ${copySuccess ? 'text-green-600' : ''}`} />
+                                            <DocumentDuplicateIcon className={`h-4 w-4 ${copySuccess ? 'text-green-600' : ''}`} />
                                         </button>
                                     </div>
                                 )}
