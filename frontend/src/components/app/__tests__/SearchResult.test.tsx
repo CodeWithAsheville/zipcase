@@ -3,6 +3,26 @@ import { describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import SearchResult from '../SearchResult';
 import { SearchResult as SearchResultType, ZipCase } from '../../../../../shared/types';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
+
+// Create a test query client wrapper
+const createTestQueryClient = () => {
+    return new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false,
+            },
+        },
+    });
+};
+
+const createWrapper = (queryClient?: QueryClient) => {
+    const testQueryClient = queryClient || createTestQueryClient();
+    return ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={testQueryClient}>{children}</QueryClientProvider>
+    );
+};
 
 // Mock SearchStatus component
 vi.mock('../SearchStatus', () => ({
@@ -15,6 +35,7 @@ vi.mock('../SearchStatus', () => ({
 
 // Mock constants from aws-exports
 vi.mock('../../../aws-exports', () => ({
+    API_URL: 'https://api.example.com',
     PORTAL_URL: 'https://portal.example.com',
     PORTAL_CASE_URL: 'https://portal.example.com/search-results',
 }));
@@ -62,7 +83,7 @@ const createTestCase = (override = {}): SearchResultType => ({
 describe('SearchResult component', () => {
     it('renders case information correctly', () => {
         const testCase = createTestCase();
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Check case number is displayed
         expect(screen.getByText('22CR123456-789')).toBeInTheDocument();
@@ -81,7 +102,7 @@ describe('SearchResult component', () => {
 
     it('renders case as a link when caseId is present', () => {
         const testCase = createTestCase();
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Check that case number is rendered as a link
         const link = screen.getByRole('link', { name: /22CR123456-789/ });
@@ -100,7 +121,7 @@ describe('SearchResult component', () => {
                 },
             },
         });
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Check that case number is rendered as text, not a link
         expect(screen.queryByRole('link')).not.toBeInTheDocument();
@@ -117,7 +138,7 @@ describe('SearchResult component', () => {
                 },
             },
         });
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Last updated text should not be present
         expect(screen.queryByText(/Last Updated:/)).not.toBeInTheDocument();
@@ -127,7 +148,7 @@ describe('SearchResult component', () => {
         const testCase = createTestCase({
             caseSummary: undefined,
         });
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Summary information should not be present
         expect(screen.queryByText('State vs. Doe')).not.toBeInTheDocument();
@@ -140,7 +161,7 @@ describe('SearchResult component', () => {
         const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
         // Render with invalid data (missing caseNumber)
-        const { container } = render(<SearchResult searchResult={{} as SearchResultType} />);
+        const { container } = render(<SearchResult searchResult={{} as SearchResultType} />, { wrapper: createWrapper() });
 
         // Component should render nothing
         expect(container).toBeEmptyDOMElement();
@@ -163,7 +184,7 @@ describe('SearchResult component', () => {
                 },
             },
         });
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Check that error message is displayed
         expect(screen.getByText('Error: Failed to fetch case data')).toBeInTheDocument();
@@ -184,7 +205,7 @@ describe('SearchResult component', () => {
             },
         });
 
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Label should be present and explicitly show 'Arrest Date'
         expect(screen.getByText(/Arrest Date:/)).toBeInTheDocument();
@@ -213,7 +234,7 @@ describe('SearchResult component', () => {
             },
         });
 
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Should not render 'Invalid Date' anywhere
         expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
@@ -243,7 +264,7 @@ describe('SearchResult component', () => {
             },
         });
 
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // Top-level Filing Agency should be present
         expect(screen.getByText(/Filing Agency:/)).toBeInTheDocument();
@@ -284,7 +305,7 @@ describe('SearchResult component', () => {
             },
         });
 
-        render(<SearchResult searchResult={testCase} />);
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
 
         // No single top-level filing agency — expect per-charge Filing Agency labels for each charge
         const filingLabels = screen.queryAllByText(/Filing Agency:/);
