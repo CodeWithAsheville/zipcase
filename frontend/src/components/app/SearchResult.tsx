@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import type { SearchResult as SearchResultType } from '../../../../shared/types';
 import { parseDateString, formatDisplayDate } from '../../../../shared/DateTimeUtils';
 import SearchStatus from './SearchStatus';
-import { ArrowTopRightOnSquareIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
+import { ArrowTopRightOnSquareIcon, DocumentDuplicateIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { PORTAL_CASE_URL } from '../../aws-exports';
+import { useRemoveCase } from '../../hooks/useCaseSearch';
+import { Button as HeadlessButton } from '@headlessui/react';
 
 interface SearchResultProps {
     searchResult: SearchResultType;
 }
 
 const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
+    const removeCase = useRemoveCase();
     const [copySuccess, setCopySuccess] = useState(false);
 
     // Add a safety check to ensure we have a properly structured case object
@@ -19,6 +22,10 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
     }
 
     const { zipCase: c, caseSummary: summary } = sr;
+
+    const handleRemove = () => {
+        removeCase(c.caseNumber);
+    };
 
     const copyCaseNumber = async () => {
         if (navigator.clipboard) {
@@ -35,7 +42,16 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
     };
 
     return (
-        <div className="bg-white rounded-lg shadow overflow-hidden border-t border-gray-100">
+        <div className="bg-white rounded-lg shadow overflow-hidden border-t border-gray-100 relative group">
+            {/* Remove button - appears in upper right corner */}
+            <HeadlessButton
+                onClick={handleRemove}
+                className="absolute top-2 right-2 p-1.5 rounded text-gray-300 transition-colors duration-200 group-hover:text-gray-500 data-hover:text-gray-700 data-hover:bg-gray-100 data-focus:text-gray-700 data-focus:bg-gray-100 focus:outline-none data-focus:outline data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-gray-400"
+                aria-label="Remove case from results"
+                title="Remove case from results"
+            >
+                <XMarkIcon className="h-5 w-5" />
+            </HeadlessButton>
             <div className="p-4 sm:p-6">
                 <div className="flex items-start">
                     <div className="flex-shrink-0 mr-4">
@@ -56,24 +72,24 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
                                             {c.caseNumber}
                                         </a>
                                         <ArrowTopRightOnSquareIcon className="h-4 w-4 ml-1 text-gray-500" />
-                                        <button
+                                        <HeadlessButton
                                             onClick={copyCaseNumber}
                                             title={copySuccess ? 'Copied!' : 'Copy case number to clipboard'}
-                                            className="ml-1 text-gray-500 hover:text-gray-900 hover:scale-110 transition-all focus:outline-none"
+                                            className="ml-1 text-gray-500 data-hover:text-gray-900 data-hover:scale-110 transition-all focus:outline-none"
                                         >
                                             <DocumentDuplicateIcon className={`h-4 w-4 ${copySuccess ? 'text-green-600' : ''}`} />
-                                        </button>
+                                        </HeadlessButton>
                                     </div>
                                 ) : (
                                     <div className="inline-flex items-center font-medium text-gray-600">
                                         {c.caseNumber}
-                                        <button
+                                        <HeadlessButton
                                             onClick={copyCaseNumber}
                                             title={copySuccess ? 'Copied!' : 'Copy case number to clipboard'}
-                                            className="ml-1 text-gray-500 hover:text-gray-900 hover:scale-110 transition-all focus:outline-none"
+                                            className="ml-1 text-gray-500 data-hover:text-gray-900 data-hover:scale-110 transition-all focus:outline-none"
                                         >
                                             <DocumentDuplicateIcon className={`h-4 w-4 ${copySuccess ? 'text-green-600' : ''}`} />
-                                        </button>
+                                        </HeadlessButton>
                                     </div>
                                 )}
                             </div>
