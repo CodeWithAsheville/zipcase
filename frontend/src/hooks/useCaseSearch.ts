@@ -92,6 +92,33 @@ export function useSearchResults() {
     });
 }
 
+export function useRemoveCase() {
+    const queryClient = useQueryClient();
+
+    return (caseNumber: string) => {
+        const currentState = queryClient.getQueryData<ResultsState>(['searchResults']);
+
+        if (!currentState) {
+            return;
+        }
+
+        // Remove the case from results
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [caseNumber]: _removed, ...remainingResults } = currentState.results;
+
+        // Remove the case from all batches
+        const updatedBatches = currentState.searchBatches
+            .map(batch => batch.filter(cn => cn !== caseNumber))
+            .filter(batch => batch.length > 0); // Remove empty batches
+
+        // Update the query cache
+        queryClient.setQueryData(['searchResults'], {
+            results: remainingResults,
+            searchBatches: updatedBatches,
+        });
+    };
+}
+
 export function useConsolidatedPolling() {
     const queryClient = useQueryClient();
 

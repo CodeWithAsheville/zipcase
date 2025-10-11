@@ -315,4 +315,14 @@ describe('SearchResult component', () => {
         expect(screen.getByText('Dept A')).toBeInTheDocument();
         expect(screen.getByText('Dept B')).toBeInTheDocument();
     });
+
+    it('renders remove button that appears on hover', () => {
+        const testCase = createTestCase();
+        render(<SearchResult searchResult={testCase} />, { wrapper: createWrapper() });
+
+        // Remove button should be present
+        const removeButton = screen.getByRole('button', { name: /remove case from results/i });
+        expect(removeButton).toBeInTheDocument();
+        expect(removeButton).toHaveAttribute('title', 'Remove case from results');
+    });
 });

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useSearchResults, useConsolidatedPolling } from '../useCaseSearch';
+import { useSearchResults, useConsolidatedPolling, useRemoveCase } from '../useCaseSearch';
 
 vi.mock('../../aws-exports', () => ({
     API_URL: 'http://test-api.example.com',
@@ -164,6 +164,132 @@ describe('useConsolidatedPolling - state management', () => {
             const stopResult = result.current.stopPolling();
             // The function returns true if it successfully stopped polling
             expect(stopResult).toBe(true);
+        });
+    });
+});
+
+describe('useRemoveCase', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+    });
+
+    afterEach(() => {
+        vi.resetAllMocks();
+    });
+
+    it('should remove a case from results and batches', () => {
+        const testData = {
+            results: {
+                case123: {
+                    zipCase: {
+                        caseNumber: 'case123',
+                        fetchStatus: { status: 'complete' },
+                    },
+                },
+                case456: {
+                    zipCase: {
+                        caseNumber: 'case456',
+                        fetchStatus: { status: 'complete' },
+                    },
+                },
+            },
+            searchBatches: [['case123', 'case456']],
+        };
+
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(['searchResults'], testData);
+        const wrapper = createWrapper(queryClient);
+
+        const { result } = renderHook(() => useRemoveCase(), { wrapper });
+
+        // Remove case123
+        act(() => {
+            result.current('case123');
+        });
+
+        // Check that the case was removed
+        const updatedData = queryClient.getQueryData(['searchResults']);
+        expect(updatedData).toEqual({
+            results: {
+                case456: {
+                    zipCase: {
+                        caseNumber: 'case456',
+                        fetchStatus: { status: 'complete' },
+                    },
+                },
+            },
+            searchBatches: [['case456']],
+        });
+    });
+
+    it('should remove empty batches after removing all cases', () => {
+        const testData = {
+            results: {
+                case123: {
+                    zipCase: {
+                        caseNumber: 'case123',
+                        fetchStatus: { status: 'complete' },
+                    },
+                },
+            },
+            searchBatches: [['case123']],
+        };
+
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(['searchResults'], testData);
+        const wrapper = createWrapper(queryClient);
+
+        const { result } = renderHook(() => useRemoveCase(), { wrapper });
+
+        // Remove case123
+        act(() => {
+            result.current('case123');
+        });
+
+        // Check that the batch was removed too
+        const updatedData = queryClient.getQueryData(['searchResults']);
+        expect(updatedData).toEqual({
+            results: {},
+            searchBatches: [],
+        });
+    });
+
+    it('should handle removing a non-existent case gracefully', () => {
+        const testData = {
+            results: {
+                case123: {
+                    zipCase: {
+                        caseNumber: 'case123',
+                        fetchStatus: { status: 'complete' },
+                    },
+                },
+            },
+            searchBatches: [['case123']],
+        };
+
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(['searchResults'], testData);
+        const wrapper = createWrapper(queryClient);
+
+        const { result } = renderHook(() => useRemoveCase(), { wrapper });
+
+        // Remove non-existent case
+        act(() => {
+            result.current('case999');
+        });
+
+        // Check that the state remains the same
+        const updatedData = queryClient.getQueryData(['searchResults']);
+        expect(updatedData).toEqual({
+            results: {
+                case123: {
+                    zipCase: {
+                        caseNumber: 'case123',
+                        fetchStatus: { status: 'complete' },
+                    },
+                },
+            },
+            searchBatches: [['case123']],
         });
     });
 });

@@ -2,14 +2,17 @@ import React from 'react';
 import type { SearchResult as SearchResultType } from '../../../../shared/types';
 import { parseDateString, formatDisplayDate } from '../../../../shared/DateTimeUtils';
 import SearchStatus from './SearchStatus';
-import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import { ArrowTopRightOnSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { PORTAL_CASE_URL } from '../../aws-exports';
+import { useRemoveCase } from '../../hooks/useCaseSearch';
+import { Button as HeadlessButton } from '@headlessui/react';
 
 interface SearchResultProps {
     searchResult: SearchResultType;
 }
 
 const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
+    const removeCase = useRemoveCase();
     // Add a safety check to ensure we have a properly structured case object
     if (!sr?.zipCase?.caseNumber) {
         console.error('Invalid case object received by SearchResult:', sr);
@@ -18,8 +21,21 @@ const SearchResult: React.FC<SearchResultProps> = ({ searchResult: sr }) => {
 
     const { zipCase: c, caseSummary: summary } = sr;
 
+    const handleRemove = () => {
+        removeCase(c.caseNumber);
+    };
+
     return (
-        <div className="bg-white rounded-lg shadow overflow-hidden border-t border-gray-100">
+        <div className="bg-white rounded-lg shadow overflow-hidden border-t border-gray-100 relative group">
+            {/* Remove button - appears in upper right corner */}
+            <HeadlessButton
+                onClick={handleRemove}
+                className="absolute top-2 right-2 p-1.5 rounded text-gray-300 transition-colors duration-200 group-hover:text-gray-500 data-hover:text-gray-700 data-hover:bg-gray-100 data-focus:text-gray-700 data-focus:bg-gray-100 focus:outline-none data-focus:outline data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-gray-400"
+                aria-label="Remove case from results"
+                title="Remove case from results"
+            >
+                <XMarkIcon className="h-5 w-5" />
+            </HeadlessButton>
             <div className="p-4 sm:p-6">
                 <div className="flex items-start">
                     <div className="flex-shrink-0 mr-4">
