@@ -365,8 +365,9 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
             withCredentials: true,
             headers: {
                 ...PortalAuthenticator.getDefaultRequestHeaders(userAgent),
-                Origin: portalUrl,
                 'Content-Type': 'application/x-www-form-urlencoded',
+                Origin: portalUrl,
+                Referer: 'https://portal-nc.tylertech.cloud/Portal/Home/Dashboard/29',
             },
         });
 

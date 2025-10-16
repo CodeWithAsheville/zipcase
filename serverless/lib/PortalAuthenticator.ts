@@ -28,8 +28,10 @@ const DEFAULT_USER_AGENT =
 export function getDefaultRequestHeaders(userAgent?: string): Record<string, string> {
     return {
         'User-Agent': userAgent || DEFAULT_USER_AGENT,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'max-age=0',
     };
 }
 
