@@ -329,7 +329,7 @@ functions:
 
     processCaseData:
         handler: handlers/case.processCaseData
-        timeout: 12
+        timeout: 90
         events:
             - sqs:
                   arn: ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
