@@ -1,4 +1,4 @@
-import { CaseSearchRequest, CaseSearchResponse, SearchResult, FetchStatus } from '../../shared/types';
+import { CaseSearchRequest, CaseSearchResponse, SearchResult, FetchStatus, ZipCase } from '../../shared/types';
 import QueueClient from './QueueClient';
 import SearchParser from './SearchParser';
 import StorageClient from './StorageClient';
@@ -121,22 +121,24 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                     case 'processing':
                         // We requeue 'queued' and 'processing' because they might be stuck.
                         // When they get picked up from the queue, we'll see whether they became 'complete' in the mean time and exit early.
+                        const zipCase = results[caseNumber].zipCase;
+
+                        zipCase.fetchStatus = { status: 'queued' };
+
+                        await StorageClient.saveCase(zipCase);
+
                         casesToQueue.push(caseNumber);
                 }
             } else {
                 // Case doesn't exist yet - create it with queued status and add to queue
-                results[caseNumber] = {
-                    zipCase: {
-                        caseNumber,
-                        fetchStatus: { status: 'queued' },
-                    },
-                };
-
-                // Save the new case to storage
-                await StorageClient.saveCase({
+                const zipCase: ZipCase = {
                     caseNumber,
                     fetchStatus: { status: 'queued' },
-                });
+                };
+
+                results[caseNumber] = { zipCase: zipCase };
+
+                await StorageClient.saveCase(zipCase);
 
                 casesToQueue.push(caseNumber);
             }

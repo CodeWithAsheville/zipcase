@@ -221,7 +221,13 @@ describe('CaseSearchProcessor', () => {
             // Should queue for search (processing cases get re-queued in case they're stuck)
             expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
-            expect(mockStorageClient.saveCase).not.toHaveBeenCalled();
+            // Status should be saved to DynamoDB as 'queued'
+            expect(mockStorageClient.saveCase).toHaveBeenCalledWith({
+                caseNumber: '22CR123456-789',
+                fetchStatus: { status: 'queued' },
+                caseId: 'test-case-id',
+                lastUpdated: expect.any(String),
+            });
         });
 
         it('should handle cases with notFound status (should queue for search retry)', async () => {
@@ -244,7 +250,15 @@ describe('CaseSearchProcessor', () => {
             // Should queue for search retry, in case the record is not actually in-queue
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
             expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
-            expect(mockStorageClient.saveCase).not.toHaveBeenCalled();
+            // Status should be saved to DynamoDB as 'queued'
+            expect(mockStorageClient.saveCase).toHaveBeenCalledWith({
+                caseNumber: '22CR123456-789',
+                fetchStatus: { status: 'queued' },
+                caseId: undefined,
+                lastUpdated: expect.any(String),
+            });
+            // Status should be updated to 'queued' in the response for the UI
+            expect(result.results['22CR123456-789'].zipCase.fetchStatus.status).toBe('queued');
         });
 
         it('should handle cases with failed status (should queue for search)', async () => {
@@ -267,7 +281,15 @@ describe('CaseSearchProcessor', () => {
             // Should queue for search (failed status gets re-queued)
             expect(mockQueueClient.queueCasesForSearch).toHaveBeenCalledWith(['22CR123456-789'], 'test-user-id', 'Test Agent');
             expect(mockQueueClient.queueCaseForDataRetrieval).not.toHaveBeenCalled();
-            expect(mockStorageClient.saveCase).not.toHaveBeenCalled();
+            // Status should be saved to DynamoDB as 'queued'
+            expect(mockStorageClient.saveCase).toHaveBeenCalledWith({
+                caseNumber: '22CR123456-789',
+                fetchStatus: { status: 'queued' },
+                caseId: undefined,
+                lastUpdated: expect.any(String),
+            });
+            // Status should be updated to 'queued' in the response for the UI
+            expect(result.results['22CR123456-789'].zipCase.fetchStatus.status).toBe('queued');
         });
 
         it('should handle new cases (not in storage)', async () => {
