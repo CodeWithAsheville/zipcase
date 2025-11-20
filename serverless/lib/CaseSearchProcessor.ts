@@ -11,10 +11,6 @@ import * as cheerio from 'cheerio';
 import UserAgentClient from './UserAgentClient';
 import { CASE_SUMMARY_VERSION_DATE } from './CaseProcessor';
 
-// Track last request time per user to detect potential race conditions
-const lastRequestTimes = new Map<string, number>();
-const MIN_REQUEST_INTERVAL_MS = 100; // Minimum time between requests (adjust as needed)
-
 // Process API case search requests
 export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<CaseSearchResponse> {
     let caseNumbers = SearchParser.parseSearchInput(req.input);
@@ -343,30 +339,6 @@ export async function processCaseSearchRecord(
 
 // Fetch case ID from the portal
 export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: CookieJar): Promise<CaseSearchResult> {
-    const requestId = `${caseNumber}-${Date.now()}`;
-    const timings: Record<string, number> = {};
-    const startTime = Date.now();
-
-    // Check for potential race conditions
-    const lastRequestTime = lastRequestTimes.get(caseNumber);
-    if (lastRequestTime) {
-        const timeSinceLastRequest = startTime - lastRequestTime;
-        if (timeSinceLastRequest < MIN_REQUEST_INTERVAL_MS) {
-            console.warn(
-                `[${requestId}] POTENTIAL RACE CONDITION: Request for ${caseNumber} made ${timeSinceLastRequest}ms after previous request (< ${MIN_REQUEST_INTERVAL_MS}ms threshold)`
-            );
-        }
-    }
-    lastRequestTimes.set(caseNumber, startTime);
-
-    // Clean up old entries (older than 5 minutes)
-    const fiveMinutesAgo = startTime - 5 * 60 * 1000;
-    for (const [key, time] of lastRequestTimes.entries()) {
-        if (time < fiveMinutesAgo) {
-            lastRequestTimes.delete(key);
-        }
-    }
-
     try {
         // Get the portal URL from environment variable
         const portalUrl = process.env.PORTAL_URL;
@@ -387,14 +359,6 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
 
         const userAgent = await UserAgentClient.getUserAgent('system');
 
-        // Log cookie state for debugging
-        const cookies = await cookieJar.getCookies(portalUrl);
-        console.log(`[${requestId}] Starting case search with ${cookies.length} cookies`, {
-            caseNumber,
-            cookieNames: cookies.map(c => c.key),
-            userAgent,
-        });
-
         const client = wrapper(axios).create({
             timeout: 20000,
             maxRedirects: 10,
@@ -409,119 +373,21 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
             },
         });
 
-        // Track request timings
-        const requestTimings = new Map<string, number>();
-
-        // Add request interceptor for detailed logging
-        client.interceptors.request.use(
-            config => {
-                const requestStart = Date.now();
-                const reqKey = `${config.method}-${config.url}`;
-                requestTimings.set(reqKey, requestStart);
-
-                console.log(`[${requestId}] >>> Outgoing request`, {
-                    method: config.method?.toUpperCase(),
-                    url: config.url,
-                    headers: config.headers,
-                    hasData: !!config.data,
-                    dataLength: config.data ? String(config.data).length : 0,
-                });
-                return config;
-            },
-            error => {
-                console.error(`[${requestId}] Request interceptor error`, error);
-                return Promise.reject(error);
-            }
-        );
-
-        // Add response interceptor for detailed logging
-        client.interceptors.response.use(
-            response => {
-                const reqKey = `${response.config.method}-${response.config.url}`;
-                const startTime = requestTimings.get(reqKey) || Date.now();
-                const duration = Date.now() - startTime;
-                requestTimings.delete(reqKey);
-
-                console.log(`[${requestId}] <<< Incoming response`, {
-                    status: response.status,
-                    statusText: response.statusText,
-                    duration,
-                    headers: response.headers,
-                    dataLength: response.data ? String(response.data).length : 0,
-                    url: response.config.url,
-                });
-                return response;
-            },
-            error => {
-                const reqKey = `${error.config?.method}-${error.config?.url}`;
-                const startTime = requestTimings.get(reqKey) || Date.now();
-                const duration = Date.now() - startTime;
-                requestTimings.delete(reqKey);
-
-                console.error(`[${requestId}] <<< Error response`, {
-                    duration,
-                    status: error.response?.status,
-                    statusText: error.response?.statusText,
-                    headers: error.response?.headers,
-                    url: error.config?.url,
-                    code: error.code,
-                    message: error.message,
-                });
-                return Promise.reject(error);
-            }
-        );
-
-        console.log(`[${requestId}] Searching for case number ${caseNumber}`);
+        console.log(`Searching for case number ${caseNumber}`);
 
         // Step 1: Submit the search form (following the Insomnia export)
         const searchFormData = new URLSearchParams();
         searchFormData.append('caseCriteria.SearchCriteria', caseNumber);
         searchFormData.append('caseCriteria.SearchCases', 'true');
 
-        const searchUrl = `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`;
-        console.log(`[${requestId}] POST ${searchUrl}`, {
-            formData: Object.fromEntries(searchFormData.entries()),
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Origin: portalUrl,
-                'User-Agent': userAgent,
-            },
-        });
-
-        const searchStartTime = Date.now();
-        const searchResponse = await client.post(searchUrl, searchFormData);
-        timings.searchRequest = Date.now() - searchStartTime;
-
-        console.log(`[${requestId}] Search form submission response`, {
-            status: searchResponse.status,
-            statusText: searchResponse.statusText,
-            duration: timings.searchRequest,
-            headers: searchResponse.headers,
-            redirects: searchResponse.request?._redirectable?._redirectCount,
-        });
+        const searchResponse = await client.post(`${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`, searchFormData);
 
         if (searchResponse.status !== 200) {
             const errorMessage = `Search request failed with status ${searchResponse.status}`;
-            const responseBody =
-                typeof searchResponse.data === 'string'
-                    ? searchResponse.data.substring(0, 1000)
-                    : JSON.stringify(searchResponse.data).substring(0, 1000);
-
-            console.error(`[${requestId}] Search request failed`, {
-                status: searchResponse.status,
-                statusText: searchResponse.statusText,
-                headers: searchResponse.headers,
-                bodyPreview: responseBody,
-                duration: timings.searchRequest,
-            });
 
             await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
-                requestId,
                 caseNumber,
                 statusCode: searchResponse.status,
-                statusText: searchResponse.statusText,
-                duration: timings.searchRequest,
-                bodyPreview: responseBody,
                 resource: 'portal-search',
             });
 
@@ -535,43 +401,14 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
         }
 
         // Step 2: Get the search results page
-        const resultsUrl = `${portalUrl}/Portal/SmartSearch/SmartSearchResults`;
-        console.log(`[${requestId}] GET ${resultsUrl}`);
-
-        const resultsStartTime = Date.now();
-        const resultsResponse = await client.get(resultsUrl);
-        timings.resultsRequest = Date.now() - resultsStartTime;
-
-        console.log(`[${requestId}] Search results response`, {
-            status: resultsResponse.status,
-            statusText: resultsResponse.statusText,
-            duration: timings.resultsRequest,
-            headers: resultsResponse.headers,
-            contentLength: resultsResponse.data?.length || 0,
-        });
+        const resultsResponse = await client.get(`${portalUrl}/Portal/SmartSearch/SmartSearchResults`);
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;
-            const responseBody =
-                typeof resultsResponse.data === 'string'
-                    ? resultsResponse.data.substring(0, 1000)
-                    : JSON.stringify(resultsResponse.data).substring(0, 1000);
-
-            console.error(`[${requestId}] Results request failed`, {
-                status: resultsResponse.status,
-                statusText: resultsResponse.statusText,
-                headers: resultsResponse.headers,
-                bodyPreview: responseBody,
-                duration: timings.resultsRequest,
-            });
 
             await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
-                requestId,
                 caseNumber,
                 statusCode: resultsResponse.status,
-                statusText: resultsResponse.statusText,
-                duration: timings.resultsRequest,
-                bodyPreview: responseBody,
                 resource: 'portal-search-results',
             });
 
@@ -588,16 +425,8 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
         if (resultsResponse.data.includes('Smart Search is having trouble processing your search')) {
             const errorMessage = 'Smart Search is having trouble processing your search. Please try again later.';
 
-            console.error(`[${requestId}] Portal smart search error`, {
-                caseNumber,
-                totalDuration: Date.now() - startTime,
-                timings,
-            });
-
             await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
-                requestId,
                 caseNumber,
-                timings,
                 resource: 'smart-search',
             });
 
@@ -611,25 +440,14 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
         }
 
         // Step 3: Extract the case ID from the response using cheerio
-        const parseStartTime = Date.now();
         const $ = cheerio.load(resultsResponse.data);
-        timings.htmlParse = Date.now() - parseStartTime;
 
         // Look for anchor tags with class "caseLink" and get the data-caseid attribute
         // From the Insomnia export's after-response script
         const caseLinks = $('a.caseLink');
 
-        console.log(`[${requestId}] Parsed HTML results`, {
-            caseLinksFound: caseLinks.length,
-            parseDuration: timings.htmlParse,
-            totalDuration: Date.now() - startTime,
-        });
-
         if (caseLinks.length === 0) {
-            console.log(`[${requestId}] No cases found for case number ${caseNumber}`, {
-                timings,
-                totalDuration: Date.now() - startTime,
-            });
+            console.log(`No cases found for case number ${caseNumber}`);
             return {
                 caseId: null,
                 error: {
@@ -645,18 +463,8 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
         if (!caseId) {
             const errorMessage = `No case ID found in search results for ${caseNumber}`;
 
-            console.error(`[${requestId}] No case ID attribute found`, {
-                caseLinksFound: caseLinks.length,
-                firstLinkHtml: caseLinks.first().html()?.substring(0, 200),
-                timings,
-                totalDuration: Date.now() - startTime,
-            });
-
             await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', new Error(errorMessage), {
-                requestId,
                 caseNumber,
-                caseLinksFound: caseLinks.length,
-                timings,
                 resource: 'case-search-results',
             });
             return {
@@ -668,56 +476,13 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
             };
         }
 
-        const totalDuration = Date.now() - startTime;
-        console.log(`[${requestId}] Found case ID ${caseId} for case number ${caseNumber}`, {
-            timings,
-            totalDuration,
-        });
-
+        console.log(`Found case ID ${caseId} for case number ${caseNumber}`);
         return { caseId };
     } catch (error) {
-        const totalDuration = Date.now() - startTime;
-        const axiosError = error as any;
-
-        // Enhanced error logging with request/response details
-        const errorDetails: Record<string, any> = {
-            requestId,
+        await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', error as Error, {
             caseNumber,
-            timings,
-            totalDuration,
             resource: 'case-id-fetch',
-        };
-
-        // Capture axios-specific error details
-        if (axiosError.response) {
-            // The request was made and the server responded with a status code
-            // that falls out of the range of 2xx
-            errorDetails.responseStatus = axiosError.response.status;
-            errorDetails.responseStatusText = axiosError.response.statusText;
-            errorDetails.responseHeaders = axiosError.response.headers;
-
-            // Capture response body (truncated)
-            if (axiosError.response.data) {
-                const responseBody =
-                    typeof axiosError.response.data === 'string' ? axiosError.response.data : JSON.stringify(axiosError.response.data);
-                errorDetails.responseBodyPreview = responseBody.substring(0, 1000);
-            }
-        } else if (axiosError.request) {
-            // The request was made but no response was received
-            errorDetails.requestMade = true;
-            errorDetails.noResponse = true;
-            errorDetails.requestTimeout = axiosError.code === 'ECONNABORTED';
-        } else {
-            // Something happened in setting up the request that triggered an Error
-            errorDetails.setupError = true;
-        }
-
-        errorDetails.errorCode = axiosError.code;
-        errorDetails.errorMessage = axiosError.message;
-
-        console.error(`[${requestId}] Error fetching case ID from portal`, errorDetails);
-
-        await AlertService.logError(Severity.ERROR, AlertCategory.PORTAL, '', error as Error, errorDetails);
+        });
 
         return {
             caseId: null,
