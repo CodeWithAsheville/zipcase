@@ -29,7 +29,8 @@
         "axios-cookiejar-support": "^5.0.5",
         "cheerio": "^1.0.0",
         "humanparser": "^2.7.0",
-        "tough-cookie": "^5.1.2"
+        "tough-cookie": "^5.1.2",
+        "xlsx": "^0.18.5"
     },
     "scripts": {
         "test": "jest",

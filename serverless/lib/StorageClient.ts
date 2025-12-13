@@ -124,7 +124,7 @@ export const BatchHelper = {
      * @param keys Array of composite keys to get
      * @returns Map of composite keys to their corresponding items
      */
-    async getMany<T extends Record<string, unknown>>(keys: DynamoCompositeKey[]): Promise<Map<DynamoCompositeKey, T>> {
+    async getMany<T>(keys: DynamoCompositeKey[]): Promise<Map<DynamoCompositeKey, T>> {
         if (keys.length === 0) {
             return new Map();
         }

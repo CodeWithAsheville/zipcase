@@ -334,3 +334,12 @@ functions:
             - sqs:
                   arn: ${cf:infra-${self:provider.stage}.CaseDataQueueArn}
                   batchSize: 10 # Higher concurrency for case data processing
+
+    exportCases:
+        handler: handlers/export.handler
+        memorySize: 1024
+        events:
+            - httpApi:
+                  path: /export
+                  method: post
+                  authorizer: cognitoAuth
