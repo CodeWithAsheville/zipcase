@@ -2,7 +2,8 @@ import SearchResult from './SearchResult';
 import { useSearchResults, useConsolidatedPolling } from '../../hooks/useCaseSearch';
 import { SearchResult as SearchResultType } from '../../../../shared/types';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
+import { ZipCaseClient } from '../../services/ZipCaseClient';
 
 type DisplayItem = SearchResultType | 'divider';
 
@@ -12,8 +13,11 @@ function CaseResultItem({ searchResult }: { searchResult: SearchResultType }) {
 
 export default function SearchResultsList() {
     const { data, isLoading, isError, error } = useSearchResults();
+
     const [copied, setCopied] = useState(false);
     const copiedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const [isExporting, setIsExporting] = useState(false);
 
     // Extract batches and create a flat display list with dividers
     const displayItems = useMemo(() => {
@@ -111,7 +115,7 @@ export default function SearchResultsList() {
         };
     }, [searchResults, polling]);
 
-    // Cleanup timeout on unmount
+    // Clean up timeout on unmount
     useEffect(() => {
         return () => {
             if (copiedTimeoutRef.current) {
@@ -119,6 +123,38 @@ export default function SearchResultsList() {
             }
         };
     }, []);
+
+    const handleExport = async () => {
+        const caseNumbers = searchResults.map(r => r.zipCase.caseNumber);
+        if (caseNumbers.length === 0) return;
+
+        setIsExporting(true);
+
+        // Set a timeout to reset the exporting state after 10 seconds
+        const timeoutId = setTimeout(() => {
+            setIsExporting(false);
+        }, 10000);
+
+        try {
+            const client = new ZipCaseClient();
+            await client.cases.export(caseNumbers);
+        } catch (error) {
+            console.error('Export failed:', error);
+        } finally {
+            clearTimeout(timeoutId);
+            setIsExporting(false);
+        }
+    };
+
+    const isExportEnabled = useMemo(() => {
+        if (searchResults.length === 0) return false;
+        const terminalStates = ['complete', 'failed', 'notFound'];
+        return searchResults.every(r => terminalStates.includes(r.zipCase.fetchStatus.status));
+    }, [searchResults]);
+
+    const exportableCount = useMemo(() => {
+        return searchResults.filter(r => r.zipCase.fetchStatus.status !== 'notFound').length;
+    }, [searchResults]);
 
     if (isError) {
         console.error('Error in useSearchResults:', error);
@@ -144,20 +180,66 @@ export default function SearchResultsList() {
                             <div className="mt-8">
                                 <div className="flex justify-between items-center">
                                     <h3 className="text-base font-semibold text-gray-900">Search Results</h3>
-                                    <button
-                                        onClick={copyCaseNumbers}
-                                        className={`inline-flex items-center gap-x-2 rounded-md bg-white px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset hover:bg-gray-50 ${
-                                            copied ? 'text-green-700 ring-green-600' : 'text-gray-900 ring-gray-300'
-                                        }`}
-                                        aria-label="Copy all case numbers"
-                                    >
-                                        {copied ? (
-                                            <CheckIcon className="h-5 w-5 text-green-600" aria-hidden="true" />
-                                        ) : (
-                                            <ClipboardDocumentIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                                        )}
-                                        Copy Case Numbers
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleExport}
+                                            disabled={!isExportEnabled || isExporting}
+                                            className={`inline-flex items-center gap-x-1.5 rounded-md px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset ${
+                                                isExportEnabled && !isExporting
+                                                    ? 'bg-white text-gray-900 ring-gray-300 hover:bg-gray-50'
+                                                    : 'bg-gray-100 text-gray-400 ring-gray-200 cursor-not-allowed'
+                                            }`}
+                                            title={
+                                                isExportEnabled
+                                                    ? `Export ${exportableCount} case${exportableCount === 1 ? '' : 's'}`
+                                                    : 'Wait for all cases to finish processing before exporting'
+                                            }
+                                        >
+                                            {isExporting ? (
+                                                <svg
+                                                    className="animate-spin -ml-0.5 h-5 w-5 text-gray-400"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <circle
+                                                        className="opacity-25"
+                                                        cx="12"
+                                                        cy="12"
+                                                        r="10"
+                                                        stroke="currentColor"
+                                                        strokeWidth="4"
+                                                    ></circle>
+                                                    <path
+                                                        className="opacity-75"
+                                                        fill="currentColor"
+                                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                    ></path>
+                                                </svg>
+                                            ) : (
+                                                <ArrowDownTrayIcon
+                                                    className={`-ml-0.5 h-5 w-5 ${isExportEnabled ? 'text-gray-400' : 'text-gray-300'}`}
+                                                    aria-hidden="true"
+                                                />
+                                            )}
+                                            Export
+                                        </button>
+                                        <button
+                                            onClick={copyCaseNumbers}
+                                            className={`inline-flex items-center gap-x-2 rounded-md bg-white px-3 py-2 text-sm font-semibold shadow-sm ring-1 ring-inset hover:bg-gray-50 ${
+                                                copied ? 'text-green-700 ring-green-600' : 'text-gray-900 ring-gray-300'
+                                            }`}
+                                            aria-label="Copy all case numbers"
+                                        >
+                                            {copied ? (
+                                                <CheckIcon className="h-5 w-5 text-green-600" aria-hidden="true" />
+                                            ) : (
+                                                <ClipboardDocumentIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                            )}
+                                            Copy Case Numbers
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="mt-4">
                                     {displayItems.map((item, index) => (
