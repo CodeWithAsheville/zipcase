@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SearchResultsList from '../SearchResultsList';
 import { SearchResult, ZipCase } from '../../../../../shared/types';
+import userEvent from '@testing-library/user-event';
 
 // Import hooks to mock
 import * as hooks from '../../../hooks/useCaseSearch';
@@ -229,5 +230,85 @@ describe('SearchResultsList', () => {
 
         // Console error should have been called
         expect(console.error).toHaveBeenCalled();
+    });
+
+    it('renders copy case numbers button when results are present', () => {
+        const mockResults = {
+            case1: createSearchResult('case1', 'complete'),
+            case2: createSearchResult('case2', 'processing'),
+        };
+
+        vi.mocked(hooks.useSearchResults).mockReturnValue({
+            data: {
+                results: mockResults,
+                searchBatches: [['case1', 'case2']],
+            },
+            isLoading: false,
+            isError: false,
+            error: null,
+        } as any);
+
+        render(<SearchResultsList />, { wrapper: createWrapper() });
+
+        // Check that the copy button is rendered
+        expect(screen.getByRole('button', { name: /copy all case numbers/i })).toBeInTheDocument();
+    });
+
+    it('does not render copy case numbers button when no results', () => {
+        vi.mocked(hooks.useSearchResults).mockReturnValue({
+            data: { results: {}, searchBatches: [] },
+            isLoading: false,
+            isError: false,
+            error: null,
+        } as any);
+
+        render(<SearchResultsList />, { wrapper: createWrapper() });
+
+        // Check that the copy button is not rendered
+        expect(screen.queryByRole('button', { name: /copy all case numbers/i })).not.toBeInTheDocument();
+    });
+
+    it('copies case numbers to clipboard when button is clicked', async () => {
+        const user = userEvent.setup();
+
+        const mockResults = {
+            case2: createSearchResult('case2', 'processing'),
+            case3: createSearchResult('case3', 'queued'),
+            case1: createSearchResult('case1', 'complete'),
+        };
+
+        vi.mocked(hooks.useSearchResults).mockReturnValue({
+            data: {
+                results: mockResults,
+                searchBatches: [['case2', 'case3', 'case1']],
+            },
+            isLoading: false,
+            isError: false,
+            error: null,
+        } as any);
+
+        // Mock clipboard API
+        const writeTextMock = vi.fn().mockResolvedValue(undefined);
+        Object.defineProperty(navigator, 'clipboard', {
+            value: {
+                writeText: writeTextMock,
+            },
+            writable: true,
+            configurable: true,
+        });
+
+        render(<SearchResultsList />, { wrapper: createWrapper() });
+
+        const copyButton = screen.getByRole('button', { name: /copy all case numbers/i });
+        await user.click(copyButton);
+
+        // Verify clipboard.writeText was called with sorted case numbers
+        expect(writeTextMock).toHaveBeenCalledWith('case1\ncase2\ncase3');
+
+        // Verify button still shows "Copy Case Numbers" text
+        expect(screen.getByText('Copy Case Numbers')).toBeInTheDocument();
+
+        // Verify button has green styling indicating success
+        expect(copyButton).toHaveClass('text-green-700');
     });
 });
