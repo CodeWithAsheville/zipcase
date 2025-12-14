@@ -1,7 +1,8 @@
 import SearchResult from './SearchResult';
 import { useSearchResults, useConsolidatedPolling } from '../../hooks/useCaseSearch';
 import { SearchResult as SearchResultType } from '../../../../shared/types';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 type DisplayItem = SearchResultType | 'divider';
 
@@ -11,6 +12,7 @@ function CaseResultItem({ searchResult }: { searchResult: SearchResultType }) {
 
 export default function SearchResultsList() {
     const { data, isLoading, isError, error } = useSearchResults();
+    const [copied, setCopied] = useState(false);
 
     // Extract batches and create a flat display list with dividers
     const displayItems = useMemo(() => {
@@ -58,6 +60,25 @@ export default function SearchResultsList() {
     // Use the consolidated polling approach for all non-terminal cases
     const polling = useConsolidatedPolling();
 
+    // Function to copy all case numbers to clipboard
+    const copyCaseNumbers = async () => {
+        if (!searchResults || searchResults.length === 0) {
+            return;
+        }
+
+        // Extract case numbers and join with newlines
+        const caseNumbers = searchResults.map(result => result.zipCase.caseNumber).join('\n');
+        
+        try {
+            await navigator.clipboard.writeText(caseNumbers);
+            setCopied(true);
+            // Reset copied state after 2 seconds
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy case numbers:', err);
+        }
+    };
+
     // Start/stop polling based on whether we have non-terminal cases
     useEffect(() => {
         if (searchResults.length > 0) {
@@ -102,7 +123,26 @@ export default function SearchResultsList() {
                     <>
                         {displayItems.length > 0 ? (
                             <div className="mt-8">
-                                <h3 className="text-base font-semibold text-gray-900">Search Results</h3>
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-base font-semibold text-gray-900">Search Results</h3>
+                                    <button
+                                        onClick={copyCaseNumbers}
+                                        className="inline-flex items-center gap-x-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                                        aria-label="Copy all case numbers"
+                                    >
+                                        {copied ? (
+                                            <>
+                                                <CheckIcon className="h-5 w-5 text-green-600" aria-hidden="true" />
+                                                Copied!
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ClipboardDocumentIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                                Copy Case Numbers
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                                 <div className="mt-4">
                                     {displayItems.map((item, index) => (
                                         <div key={item === 'divider' ? `divider-${index}` : item.zipCase.caseNumber}>
