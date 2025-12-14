@@ -1,7 +1,7 @@
 import SearchResult from './SearchResult';
 import { useSearchResults, useConsolidatedPolling } from '../../hooks/useCaseSearch';
 import { SearchResult as SearchResultType } from '../../../../shared/types';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 type DisplayItem = SearchResultType | 'divider';
@@ -13,6 +13,7 @@ function CaseResultItem({ searchResult }: { searchResult: SearchResultType }) {
 export default function SearchResultsList() {
     const { data, isLoading, isError, error } = useSearchResults();
     const [copied, setCopied] = useState(false);
+    const copiedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Extract batches and create a flat display list with dividers
     const displayItems = useMemo(() => {
@@ -72,8 +73,14 @@ export default function SearchResultsList() {
         try {
             await navigator.clipboard.writeText(caseNumbers);
             setCopied(true);
+            
+            // Clear any existing timeout
+            if (copiedTimeoutRef.current) {
+                clearTimeout(copiedTimeoutRef.current);
+            }
+            
             // Reset copied state after 2 seconds
-            setTimeout(() => setCopied(false), 2000);
+            copiedTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
         } catch (err) {
             console.error('Failed to copy case numbers:', err);
         }
@@ -100,6 +107,15 @@ export default function SearchResultsList() {
             polling.stopPolling();
         };
     }, [searchResults, polling]);
+
+    // Cleanup timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (copiedTimeoutRef.current) {
+                clearTimeout(copiedTimeoutRef.current);
+            }
+        };
+    }, []);
 
     if (isError) {
         console.error('Error in useSearchResults:', error);
