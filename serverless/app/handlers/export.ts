@@ -126,6 +126,23 @@ export const handler: APIGatewayProxyHandler = async event => {
         // Create workbook and worksheet
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(rows);
+
+        // Auto-fit columns
+        if (rows.length > 0) {
+            const headers = Object.keys(rows[0]);
+            const colWidths = headers.map(key => {
+                let maxLength = key.length;
+                rows.forEach(row => {
+                    const val = row[key as keyof ExportRow];
+                    const len = val ? String(val).length : 0;
+                    if (len > maxLength) maxLength = len;
+                });
+                // Cap the width at 50 to prevent massive columns, but ensure at least 10
+                return { wch: Math.min(Math.max(maxLength + 2, 10), 50) };
+            });
+            ws['!cols'] = colWidths;
+        }
+
         XLSX.utils.book_append_sheet(wb, ws, 'Cases');
 
         // Generate buffer

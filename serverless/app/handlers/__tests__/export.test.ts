@@ -17,7 +17,7 @@ jest.mock('../../../lib/StorageClient', () => ({
 jest.mock('xlsx', () => ({
     utils: {
         book_new: jest.fn(),
-        json_to_sheet: jest.fn(),
+        json_to_sheet: jest.fn().mockReturnValue({}),
         book_append_sheet: jest.fn(),
     },
     write: jest.fn().mockReturnValue(Buffer.from('mock-excel-content')),
