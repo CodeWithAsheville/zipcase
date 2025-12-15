@@ -1,4 +1,5 @@
 import { fetchAuthSession } from '@aws-amplify/core';
+import { format } from 'date-fns';
 import { API_URL } from '../aws-exports';
 import {
     ApiKeyResponse,
@@ -111,7 +112,77 @@ export class ZipCaseClient {
         get: async (caseNumber: string): Promise<ZipCaseResponse<SearchResult>> => {
             return await this.request<SearchResult>(`/case/${caseNumber}`, { method: 'GET' });
         },
+
+        export: async (caseNumbers: string[]): Promise<void> => {
+            return await this.download('/export', {
+                method: 'POST',
+                data: { caseNumbers },
+            });
+        },
     };
+
+    /**
+     * Helper method to handle file downloads
+     */
+    private async download(endpoint: string, options: { method?: string; data?: unknown } = {}): Promise<void> {
+        const { method = 'GET', data } = options;
+        const path = endpoint.startsWith('/') ? endpoint.substring(1) : endpoint;
+        const url = `${this.baseUrl}/${path}`;
+
+        try {
+            const session = await fetchAuthSession();
+            const token = session.tokens?.accessToken;
+
+            if (!token) {
+                throw new Error('No authentication token available');
+            }
+
+            const requestOptions: RequestInit = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token.toString()}`,
+                },
+            };
+
+            if (method !== 'GET' && data) {
+                requestOptions.body = JSON.stringify(data);
+            }
+
+            const response = await fetch(url, requestOptions);
+
+            if (!response.ok) {
+                throw new Error(`Download failed with status ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+
+            const contentDisposition = response.headers.get('Content-Disposition');
+
+            // Generate a default filename with local timestamp
+            const timestamp = format(new Date(), 'yyyyMMdd-HHmmss');
+            let filename = `ZipCase-Export-${timestamp}.xlsx`;
+
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (filenameMatch && filenameMatch.length === 2) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Download error:', error);
+            throw error;
+        }
+    }
 
     /**
      * Core request method that handles all API interactions
