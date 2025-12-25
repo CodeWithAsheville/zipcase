@@ -16,6 +16,9 @@
         "test:coverage": "vitest run --coverage --config ./config/vitest.config.ts",
         "deploy:dev": "npm run build && aws s3 sync dist/ s3://zipcase-frontend-dev && aws cloudfront create-invalidation --distribution-id $(terraform -chdir=../infra/terraform/dev output -raw cloudfront_distribution_id) --paths \"/*\""
     },
+    "overrides": {
+        "glob": "^10.5.0"
+    },
     "dependencies": {
         "@aws-amplify/ui-react": "^6.9.5",
         "@headlessui/react": "^2.2.0",
