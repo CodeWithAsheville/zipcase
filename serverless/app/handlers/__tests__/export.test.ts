@@ -23,12 +23,22 @@ jest.mock('xlsx', () => ({
             const [, end] = range.split(':');
             const col = end.replace(/\d/g, '');
             const row = Number(end.replace(/[A-Z]/g, ''));
+            const colIndex = col.split('').reduce((acc, char) => acc * 26 + (char.charCodeAt(0) - 64), 0) - 1;
             return {
                 s: { c: 0, r: 0 },
-                e: { c: col.charCodeAt(0) - 65, r: row - 1 },
+                e: { c: colIndex, r: row - 1 },
             };
         }),
-        encode_cell: jest.fn().mockImplementation(({ r, c }: { r: number; c: number }) => `${String.fromCharCode(65 + c)}${r + 1}`),
+        encode_cell: jest.fn().mockImplementation(({ r, c }: { r: number; c: number }) => {
+            let col = '';
+            let current = c + 1;
+            while (current > 0) {
+                const rem = (current - 1) % 26;
+                col = String.fromCharCode(65 + rem) + col;
+                current = Math.floor((current - 1) / 26);
+            }
+            return `${col}${r + 1}`;
+        }),
     },
     write: jest.fn().mockReturnValue(Buffer.from('mock-excel-content')),
 }));
