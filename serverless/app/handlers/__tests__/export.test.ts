@@ -111,7 +111,7 @@ describe('export handler', () => {
             },
             isBase64Encoded: true,
         });
-        expect(XLSX.write).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'buffer', bookType: 'xlsx', cellStyles: true }));
+        expect(XLSX.write).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'buffer', bookType: 'xlsx' }));
 
         // Verify XLSX calls
         expect(XLSX.utils.json_to_sheet).toHaveBeenCalledWith([
@@ -277,19 +277,13 @@ describe('export handler', () => {
 
         expect(worksheet.A2).toMatchObject({
             l: { Target: 'https://portal.example.com/search-results/#/case-id-123' },
-            f: 'HYPERLINK("https://portal.example.com/search-results/#/case-id-123","CASE123")',
             t: 's',
             v: 'CASE123',
-            s: {
-                font: {
-                    color: { rgb: '0563C1' },
-                    underline: true,
-                },
-            },
         });
+        expect(worksheet.A2.f).toBeUndefined();
     });
 
-    it('should escape quotes in hyperlink formula values', async () => {
+    it('should keep text value and hyperlink relationship for quoted case numbers', async () => {
         const mockCaseNumbers = ['CASE"123'];
         const worksheet = {
             '!ref': 'A1:J2',
@@ -314,7 +308,9 @@ describe('export handler', () => {
 
         expect(worksheet.A2).toMatchObject({
             l: { Target: 'https://portal.example.com/search-results/#/case"id-123' },
-            f: 'HYPERLINK("https://portal.example.com/search-results/#/case""id-123","CASE""123")',
+            t: 's',
+            v: 'CASE"123',
         });
+        expect(worksheet.A2.f).toBeUndefined();
     });
 });

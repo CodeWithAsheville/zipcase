@@ -152,22 +152,10 @@ export const handler: APIGatewayProxyHandler = async event => {
                     const caseUrl = caseNumberToUrlMap.get(caseNumber);
                     if (caseUrl && cell) {
                         const caseNumberCell = cell as XLSX.CellObject;
-                        const escapedCaseUrl = caseUrl.replace(/"/g, '""');
-                        const escapedCaseNumber = caseNumber.replace(/"/g, '""');
-                        caseNumberCell.l = { Target: caseUrl };
-                        caseNumberCell.f = `HYPERLINK("${escapedCaseUrl}","${escapedCaseNumber}")`;
                         caseNumberCell.t = 's';
                         caseNumberCell.v = caseNumber;
-                        const existingStyle = (caseNumberCell.s as Record<string, unknown> | undefined) || {};
-                        const existingFont = (existingStyle.font as Record<string, unknown> | undefined) || {};
-                        caseNumberCell.s = {
-                            ...existingStyle,
-                            font: {
-                                ...existingFont,
-                                color: { rgb: '0563C1' },
-                                underline: true,
-                            },
-                        };
+                        delete caseNumberCell.f;
+                        caseNumberCell.l = { Target: caseUrl };
                     }
                 }
             }
@@ -192,7 +180,7 @@ export const handler: APIGatewayProxyHandler = async event => {
         XLSX.utils.book_append_sheet(wb, ws, 'Cases');
 
         // Generate buffer
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
         const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
         const filename = `ZipCase-Export-${timestamp}.xlsx`;
