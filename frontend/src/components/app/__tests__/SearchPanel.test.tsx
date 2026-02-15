@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import SearchPanel from '../SearchPanel';
-import { useCaseSearch } from '../../../hooks';
+import { useCaseSearch, useFileSearch } from '../../../hooks';
 
 // Mock the useCaseSearch hook
 vi.mock('../../../hooks', () => ({
@@ -23,7 +23,30 @@ vi.mock('../../../hooks', () => ({
         data: undefined,
         error: null,
         reset: vi.fn(),
-        variables: '',
+        variables: undefined,
+        failureCount: 0,
+        failureReason: null,
+        context: undefined,
+        mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+        isPaused: false,
+        submittedAt: Date.now(),
+    })),
+    useFileSearch: vi.fn(() => ({
+        mutate: vi.fn((file, options) => {
+            if (options && options.onSuccess) {
+                options.onSuccess({ results: { '22CR123456-789': { zipCase: { caseNumber: '22CR123456-789' } } } });
+            }
+        }),
+        isPending: false,
+        isLoading: false,
+        isError: false,
+        isSuccess: false,
+        isIdle: true,
+        status: 'idle',
+        data: undefined,
+        error: null,
+        reset: vi.fn(),
+        variables: undefined,
         failureCount: 0,
         failureReason: null,
         context: undefined,
@@ -53,6 +76,56 @@ describe('SearchPanel Component', () => {
         user = userEvent.setup();
         // Clear all mocks before each test
         vi.clearAllMocks();
+
+        const mockUseCaseSearch = vi.mocked(useCaseSearch);
+        mockUseCaseSearch.mockImplementation(() => ({
+            mutate: vi.fn((caseNumber, options) => {
+                if (options && options.onSuccess) {
+                    options.onSuccess({ results: { [caseNumber]: { zipCase: { caseNumber } } } });
+                }
+            }),
+            isPending: false,
+            isLoading: false,
+            isError: false,
+            isSuccess: false,
+            isIdle: true,
+            status: 'idle',
+            data: undefined,
+            error: null,
+            reset: vi.fn(),
+            variables: undefined,
+            failureCount: 0,
+            failureReason: null,
+            context: undefined,
+            mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+            isPaused: false,
+            submittedAt: Date.now(),
+        }));
+
+        const mockUseFileSearch = vi.mocked(useFileSearch);
+        mockUseFileSearch.mockImplementation(() => ({
+            mutate: vi.fn((file, options) => {
+                if (options && options.onSuccess) {
+                    options.onSuccess({ results: { '22CR123456-789': { zipCase: { caseNumber: '22CR123456-789' } } } });
+                }
+            }),
+            isPending: false,
+            isLoading: false,
+            isError: false,
+            isSuccess: false,
+            isIdle: true,
+            status: 'idle',
+            data: undefined,
+            error: null,
+            reset: vi.fn(),
+            variables: undefined,
+            failureCount: 0,
+            failureReason: null,
+            context: undefined,
+            mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+            isPaused: false,
+            submittedAt: Date.now(),
+        }));
     });
 
     it('renders correctly with initial empty state', () => {
@@ -191,6 +264,40 @@ describe('SearchPanel Component', () => {
         // Button should be disabled and show loading state
         expect(searchButton).toBeDisabled();
         expect(screen.getByText('Searching...')).toBeInTheDocument();
+    });
+
+    it('disables the input and shows loading state during file processing', async () => {
+        const mockUseFileSearch = vi.mocked(useFileSearch);
+        mockUseFileSearch.mockImplementation(() => ({
+            mutate: vi.fn(),
+            isPending: true,
+            isLoading: true,
+            isError: false,
+            isSuccess: false,
+            isIdle: false,
+            status: 'pending',
+            data: undefined,
+            error: null,
+            reset: vi.fn(),
+            variables: undefined,
+            failureCount: 0,
+            failureReason: null,
+            context: undefined,
+            mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+            isPaused: false,
+            submittedAt: Date.now(),
+        }));
+
+        render(<SearchPanel />, { wrapper: createWrapper() });
+
+        const input = screen.getByLabelText('Case Numbers');
+        const searchButton = screen.getByRole('button', { name: /search/i });
+        const uploadButton = screen.getByRole('button', { name: /processing/i });
+
+        expect(input).toBeDisabled();
+        expect(searchButton).toBeDisabled();
+        expect(uploadButton).toBeDisabled();
+        expect(screen.getByText('Processing...')).toBeInTheDocument();
     });
 
     it('shows an error message when search fails', async () => {
@@ -585,6 +692,181 @@ describe('SearchPanel Component', () => {
                 const errorElement = screen.getByText('No case numbers found in search text');
                 expect(errorElement).toBeInTheDocument();
                 expect(errorElement).toHaveClass('text-red-600');
+            });
+        });
+    });
+
+    describe('File Upload', () => {
+        it('submits a selected file for processing', async () => {
+            const mockUseFileSearch = vi.mocked(useFileSearch);
+            const mutateSpy = vi.fn((file, options) => {
+                if (options?.onSuccess) {
+                    options.onSuccess({ results: { '22CR123456-789': { zipCase: { caseNumber: '22CR123456-789' } } } });
+                }
+            });
+            mockUseFileSearch.mockImplementation(() => ({
+                mutate: mutateSpy,
+                isPending: false,
+                isLoading: false,
+                isError: false,
+                isSuccess: false,
+                isIdle: true,
+                status: 'idle',
+                data: undefined,
+                error: null,
+                reset: vi.fn(),
+                variables: undefined,
+                failureCount: 0,
+                failureReason: null,
+                context: undefined,
+                mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+                isPaused: false,
+                submittedAt: Date.now(),
+            }));
+
+            const { container } = render(<SearchPanel />, { wrapper: createWrapper() });
+
+            const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+            const file = new File(['sample content'], 'cases.pdf', { type: 'application/pdf' });
+
+            await user.upload(fileInput, file);
+
+            expect(mutateSpy).toHaveBeenCalledWith(file, expect.any(Object));
+            await waitFor(() => {
+                expect(screen.getByText('Found 1 case number')).toBeInTheDocument();
+            });
+        });
+
+        it('processes a dropped file', async () => {
+            const mockUseFileSearch = vi.mocked(useFileSearch);
+            const mutateSpy = vi.fn((file, options) => {
+                if (options?.onSuccess) {
+                    options.onSuccess({ results: { '22CR123456-789': { zipCase: { caseNumber: '22CR123456-789' } } } });
+                }
+            });
+            mockUseFileSearch.mockImplementation(() => ({
+                mutate: mutateSpy,
+                isPending: false,
+                isLoading: false,
+                isError: false,
+                isSuccess: false,
+                isIdle: true,
+                status: 'idle',
+                data: undefined,
+                error: null,
+                reset: vi.fn(),
+                variables: undefined,
+                failureCount: 0,
+                failureReason: null,
+                context: undefined,
+                mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+                isPaused: false,
+                submittedAt: Date.now(),
+            }));
+
+            render(<SearchPanel />, { wrapper: createWrapper() });
+
+            const file = new File(['sample content'], 'cases.pdf', { type: 'application/pdf' });
+            const form = document.querySelector('form');
+            if (!form) throw new Error('Form not found');
+
+            const dataTransfer = {
+                files: [file],
+            } as unknown as DataTransfer;
+
+            fireEvent.drop(form, { dataTransfer });
+
+            expect(mutateSpy).toHaveBeenCalledWith(file, expect.any(Object));
+            await waitFor(() => {
+                expect(screen.getByText('Found 1 case number')).toBeInTheDocument();
+            });
+        });
+
+        it('processes a pasted file', async () => {
+            const mockUseFileSearch = vi.mocked(useFileSearch);
+            const mutateSpy = vi.fn((file, options) => {
+                if (options?.onSuccess) {
+                    options.onSuccess({ results: { '22CR123456-789': { zipCase: { caseNumber: '22CR123456-789' } } } });
+                }
+            });
+            mockUseFileSearch.mockImplementation(() => ({
+                mutate: mutateSpy,
+                isPending: false,
+                isLoading: false,
+                isError: false,
+                isSuccess: false,
+                isIdle: true,
+                status: 'idle',
+                data: undefined,
+                error: null,
+                reset: vi.fn(),
+                variables: undefined,
+                failureCount: 0,
+                failureReason: null,
+                context: undefined,
+                mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+                isPaused: false,
+                submittedAt: Date.now(),
+            }));
+
+            render(<SearchPanel />, { wrapper: createWrapper() });
+
+            const file = new File(['sample content'], 'cases.pdf', { type: 'application/pdf' });
+            const input = screen.getByLabelText('Case Numbers');
+
+            fireEvent.paste(input, {
+                clipboardData: {
+                    files: [file],
+                },
+            });
+
+            expect(mutateSpy).toHaveBeenCalledWith(file, expect.any(Object));
+            await waitFor(() => {
+                expect(screen.getByText('Found 1 case number')).toBeInTheDocument();
+            });
+        });
+
+        it('handles pasted image data from the clipboard', async () => {
+            const mockUseFileSearch = vi.mocked(useFileSearch);
+            const mutateSpy = vi.fn((file, options) => {
+                if (options?.onSuccess) {
+                    options.onSuccess({ results: { '22CR123456-789': { zipCase: { caseNumber: '22CR123456-789' } } } });
+                }
+            });
+            mockUseFileSearch.mockImplementation(() => ({
+                mutate: mutateSpy,
+                isPending: false,
+                isLoading: false,
+                isError: false,
+                isSuccess: false,
+                isIdle: true,
+                status: 'idle',
+                data: undefined,
+                error: null,
+                reset: vi.fn(),
+                variables: undefined,
+                failureCount: 0,
+                failureReason: null,
+                context: undefined,
+                mutateAsync: vi.fn().mockResolvedValue({ results: {} }),
+                isPaused: false,
+                submittedAt: Date.now(),
+            }));
+
+            render(<SearchPanel />, { wrapper: createWrapper() });
+
+            const file = new File(['image content'], 'pasted.png', { type: 'image/png' });
+            const input = screen.getByLabelText('Case Numbers');
+
+            fireEvent.paste(input, {
+                clipboardData: {
+                    files: [file],
+                },
+            });
+
+            expect(mutateSpy).toHaveBeenCalledWith(file, expect.any(Object));
+            await waitFor(() => {
+                expect(screen.getByText('Found 1 case number')).toBeInTheDocument();
             });
         });
     });

@@ -79,6 +79,22 @@ export class ZipCaseClient {
             });
         },
 
+        getUploadUrl: async (fileExtension: string, contentType: string): Promise<ZipCaseResponse<{ uploadUrl: string; key: string }>> => {
+            return await this.request<{ uploadUrl: string; key: string }>(
+                `/search/upload-url?extension=${fileExtension}&contentType=${encodeURIComponent(contentType)}`,
+                {
+                    method: 'GET',
+                }
+            );
+        },
+
+        searchFile: async (key: string): Promise<ZipCaseResponse<CaseSearchResponse>> => {
+            return await this.request<CaseSearchResponse>('/search/file', {
+                method: 'POST',
+                data: { key },
+            });
+        },
+
         nameSearch: async (
             name: string,
             dateOfBirth?: string,
