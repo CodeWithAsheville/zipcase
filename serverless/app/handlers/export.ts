@@ -158,6 +158,16 @@ export const handler: APIGatewayProxyHandler = async event => {
                         caseNumberCell.f = `HYPERLINK("${escapedCaseUrl}","${escapedCaseNumber}")`;
                         caseNumberCell.t = 's';
                         caseNumberCell.v = caseNumber;
+                        const existingStyle = (caseNumberCell.s as Record<string, unknown> | undefined) || {};
+                        const existingFont = (existingStyle.font as Record<string, unknown> | undefined) || {};
+                        caseNumberCell.s = {
+                            ...existingStyle,
+                            font: {
+                                ...existingFont,
+                                color: { rgb: '0563C1' },
+                                underline: true,
+                            },
+                        };
                     }
                 }
             }
@@ -182,7 +192,7 @@ export const handler: APIGatewayProxyHandler = async event => {
         XLSX.utils.book_append_sheet(wb, ws, 'Cases');
 
         // Generate buffer
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellStyles: true });
 
         const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
         const filename = `ZipCase-Export-${timestamp}.xlsx`;

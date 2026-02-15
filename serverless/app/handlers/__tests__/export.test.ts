@@ -111,6 +111,7 @@ describe('export handler', () => {
             },
             isBase64Encoded: true,
         });
+        expect(XLSX.write).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'buffer', bookType: 'xlsx', cellStyles: true }));
 
         // Verify XLSX calls
         expect(XLSX.utils.json_to_sheet).toHaveBeenCalledWith([
@@ -279,6 +280,12 @@ describe('export handler', () => {
             f: 'HYPERLINK("https://portal.example.com/search-results/#/case-id-123","CASE123")',
             t: 's',
             v: 'CASE123',
+            s: {
+                font: {
+                    color: { rgb: '0563C1' },
+                    underline: true,
+                },
+            },
         });
     });
 
