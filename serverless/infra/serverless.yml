@@ -7,6 +7,16 @@ provider:
     deploymentBucket:
         name: zipcase-serverless-deployments-${self:provider.stage}
 
+stages:
+    dev:
+        params:
+            uploadsCorsOrigins:
+                - https://app-dev.${env:DOMAIN}
+    prod:
+        params:
+            uploadsCorsOrigins:
+                - https://app.${env:DOMAIN}
+
 plugins:
     - serverless-offline
 
@@ -22,6 +32,45 @@ package:
 
 resources:
     Resources:
+        # User uploads bucket for file-based search
+        UploadsBucket:
+            Type: AWS::S3::Bucket
+            DeletionPolicy: Retain
+            UpdateReplacePolicy: Retain
+            Properties:
+                BucketName: zipcase-uploads-${self:provider.stage}
+                BucketEncryption:
+                    ServerSideEncryptionConfiguration:
+                        - ServerSideEncryptionByDefault:
+                              SSEAlgorithm: AES256
+                OwnershipControls:
+                    Rules:
+                        - ObjectOwnership: BucketOwnerEnforced
+                CorsConfiguration:
+                    CorsRules:
+                        - AllowedHeaders:
+                              - '*'
+                          AllowedMethods:
+                              - PUT
+                              - POST
+                          AllowedOrigins: ${param:uploadsCorsOrigins}
+                          ExposedHeaders:
+                              - ETag
+                          MaxAge: 3000
+                LifecycleConfiguration:
+                    Rules:
+                        - Id: cleanup-temp-uploads
+                          Status: Enabled
+                          ExpirationInDays: 1
+
+        UploadsBucketParameter:
+            Type: AWS::SSM::Parameter
+            Properties:
+                Name: /zipcase/uploads_bucket
+                Type: String
+                Value: !Ref UploadsBucket
+                Description: Uploads bucket name for file-based search
+
         # SNS Topic for alerts
         AlertTopic:
             Type: AWS::SNS::Topic
@@ -305,6 +354,11 @@ resources:
                 Value: !GetAtt ZipCaseEncryptionKey.Arn
 
     Outputs:
+        UploadsBucketName:
+            Value: !Ref UploadsBucket
+            Export:
+                Name: ${self:service}-${self:provider.stage}-UploadsBucketName
+
         SearchQueueUrl:
             Value: !Ref SearchQueue
             Export:

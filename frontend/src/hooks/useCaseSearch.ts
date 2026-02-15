@@ -69,6 +69,86 @@ export function useCaseSearch() {
     });
 }
 
+// Hook for file-based search
+export function useFileSearch() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (file: File) => {
+            // 1. Get upload URL
+            const extension = file.name.split('.').pop() || 'pdf';
+            const uploadUrlRes = await client.cases.getUploadUrl(extension, file.type);
+
+            if (!uploadUrlRes.success || !uploadUrlRes.data) {
+                throw new Error(uploadUrlRes.error || 'Failed to get upload URL');
+            }
+
+            const { uploadUrl, key } = uploadUrlRes.data;
+
+            // 2. Upload file to S3
+            const uploadRes = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'Content-Type': file.type,
+                },
+            });
+
+            if (!uploadRes.ok) {
+                throw new Error('Failed to upload file');
+            }
+
+            // 3. Process file search
+            const searchRes = await client.cases.searchFile(key);
+
+            if (!searchRes.success) {
+                throw new Error(searchRes.error || 'Failed to process file');
+            }
+
+            return searchRes.data;
+        },
+        onSuccess: data => {
+            // Reuse the same success logic as text search
+            const results = data?.results || {};
+
+            if (Object.keys(results).length === 0) {
+                return;
+            }
+
+            const existingState = queryClient.getQueryData<ResultsState>(['searchResults']) || {
+                results: {},
+                searchBatches: [],
+            };
+
+            const now = new Date().toISOString();
+            const processedResults: Record<string, SearchResult> = {};
+
+            Object.entries(results).forEach(([caseNumber, result]: [string, SearchResult]) => {
+                if (!result.zipCase.lastUpdated || result.zipCase.fetchStatus.status === 'queued') {
+                    processedResults[caseNumber] = {
+                        ...result,
+                        zipCase: {
+                            ...result.zipCase,
+                            lastUpdated: now,
+                        },
+                    };
+                } else {
+                    processedResults[caseNumber] = result;
+                }
+            });
+
+            const newBatch = Object.keys(processedResults);
+            const updatedBatches = [newBatch, ...existingState.searchBatches];
+            const mergedResults = { ...existingState.results, ...processedResults };
+
+            queryClient.setQueryData(['searchResults'], {
+                results: mergedResults,
+                searchBatches: updatedBatches,
+            });
+        },
+    });
+}
+
 interface ResultsState {
     results: Record<string, SearchResult>;
     searchBatches: string[][]; // Array of case number batches, newest first
