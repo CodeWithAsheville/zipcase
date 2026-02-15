@@ -1,5 +1,5 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { BatchHelper, Key } from '../../lib/StorageClient';
 import { CaseSummary, Disposition, ZipCase } from '../../../shared/types';
 
@@ -47,6 +47,7 @@ export const handler: APIGatewayProxyHandler = async event => {
         const dataMap = await BatchHelper.getMany<CaseSummary | ZipCase>(allKeys);
 
         const rows: ExportRow[] = [];
+        const caseNumberToUrlMap = new Map<string, string>();
 
         for (const caseNumber of caseNumbers) {
             const summaryKey = Key.Case(caseNumber).SUMMARY;
@@ -62,6 +63,11 @@ export const handler: APIGatewayProxyHandler = async event => {
             // Filter out notFound cases
             if (!zipCase || zipCase.fetchStatus.status === 'notFound') {
                 continue;
+            }
+
+            const caseUrl = zipCase.caseId && process.env.PORTAL_CASE_URL ? `${process.env.PORTAL_CASE_URL}/#/${zipCase.caseId}` : '';
+            if (caseUrl) {
+                caseNumberToUrlMap.set(caseNumber, caseUrl);
             }
 
             // Handle failed cases and those without summaries
@@ -124,29 +130,58 @@ export const handler: APIGatewayProxyHandler = async event => {
         }
 
         // Create workbook and worksheet
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Cases');
 
-        // Auto-fit columns
-        if (rows.length > 0) {
-            const headers = Object.keys(rows[0]);
-            const colWidths = headers.map(key => {
-                let maxLength = key.length;
-                rows.forEach(row => {
-                    const val = row[key as keyof ExportRow];
-                    const len = val ? String(val).length : 0;
-                    if (len > maxLength) maxLength = len;
-                });
-                // Cap the width at 50 to prevent massive columns, but ensure at least 10
-                return { wch: Math.min(Math.max(maxLength + 2, 10), 50) };
+        const headers: (keyof ExportRow)[] = [
+            'Case Number',
+            'Court Name',
+            'Arrest Date',
+            'Offense Description',
+            'Offense Level',
+            'Offense Date',
+            'Disposition',
+            'Disposition Date',
+            'Arresting Agency',
+            'Notes',
+        ];
+
+        const colWidths = headers.map(key => {
+            let maxLength = key.length;
+            rows.forEach(row => {
+                const val = row[key];
+                const len = val ? String(val).length : 0;
+                if (len > maxLength) maxLength = len;
             });
-            ws['!cols'] = colWidths;
+            return Math.min(Math.max(maxLength + 2, 10), 50);
+        });
+
+        ws.columns = headers.map((header, idx) => ({
+            header,
+            key: header,
+            width: colWidths[idx],
+        }));
+        ws.addRows(rows);
+
+        const caseNumberColumn = headers.indexOf('Case Number') + 1;
+        if (caseNumberColumn > 0) {
+            rows.forEach((row, idx) => {
+                const caseNumber = row['Case Number'];
+                const caseUrl = caseNumberToUrlMap.get(caseNumber);
+                if (caseUrl) {
+                    const caseNumberCell = ws.getRow(idx + 2).getCell(caseNumberColumn);
+                    caseNumberCell.value = { text: caseNumber, hyperlink: caseUrl };
+                    caseNumberCell.font = {
+                        ...(caseNumberCell.font || {}),
+                        color: { argb: 'FF0563C1' },
+                        underline: true,
+                    };
+                }
+            });
         }
 
-        XLSX.utils.book_append_sheet(wb, ws, 'Cases');
-
         // Generate buffer
-        const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        const buffer = Buffer.from(await wb.xlsx.writeBuffer());
 
         const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
         const filename = `ZipCase-Export-${timestamp}.xlsx`;
