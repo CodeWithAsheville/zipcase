@@ -39,7 +39,7 @@ export const handler: APIGatewayProxyHandler = async event => {
             body: JSON.stringify(result),
         };
     } catch (error) {
-        console.error('Error in search handler:', error);
+        await AlertService.logError(Severity.ERROR, AlertCategory.SYSTEM, 'Error in search handler', error as Error);
 
         return {
             statusCode: 500,
