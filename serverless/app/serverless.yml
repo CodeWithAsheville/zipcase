@@ -17,6 +17,7 @@ provider:
         DEFAULT_USAGE_PLAN_ID: ${cf:api-${self:provider.stage}.TestUsagePlanId}
         PORTAL_URL: ${ssm:/zipcase/portal_url}
         PORTAL_CASE_URL: ${ssm:/zipcase/portal_case_url}
+        UPLOADS_BUCKET: ${ssm:/zipcase/uploads_bucket}
     iam:
         role:
             statements:
@@ -76,6 +77,19 @@ provider:
                       - ssm:GetParameter
                   Resource:
                       - arn:aws:ssm:${self:provider.region}:*:parameter/zipcase/*
+
+                - Effect: Allow
+                  Action:
+                      - s3:PutObject
+                      - s3:GetObject
+                  Resource: arn:aws:s3:::${ssm:/zipcase/uploads_bucket}/*
+
+                - Effect: Allow
+                  Action:
+                      - textract:DetectDocumentText
+                      - textract:StartDocumentTextDetection
+                      - textract:GetDocumentTextDetection
+                  Resource: '*'
 
     httpApi:
         cors: true
