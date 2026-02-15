@@ -286,6 +286,24 @@ functions:
                   method: post
                   authorizer: cognitoAuth
 
+    getUploadUrl:
+        handler: handlers/upload.getUploadUrl
+        events:
+            - httpApi:
+                  path: /search/upload-url
+                  method: get
+                  authorizer: cognitoAuth
+
+    postSearchFile:
+        handler: handlers/search.fileHandler
+        timeout: 60
+        memorySize: 1024
+        events:
+            - httpApi:
+                  path: /search/file
+                  method: post
+                  authorizer: cognitoAuth
+
     postSearch:
         handler: handlers/search.handler
         timeout: 60
