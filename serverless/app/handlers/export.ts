@@ -17,7 +17,6 @@ interface ExportRow {
     Disposition: string;
     'Disposition Date': string;
     'Arresting Agency': string;
-    'Case URL': string;
     Notes: string;
 }
 
@@ -48,6 +47,7 @@ export const handler: APIGatewayProxyHandler = async event => {
         const dataMap = await BatchHelper.getMany<CaseSummary | ZipCase>(allKeys);
 
         const rows: ExportRow[] = [];
+        const caseNumberToUrlMap = new Map<string, string>();
 
         for (const caseNumber of caseNumbers) {
             const summaryKey = Key.Case(caseNumber).SUMMARY;
@@ -66,6 +66,9 @@ export const handler: APIGatewayProxyHandler = async event => {
             }
 
             const caseUrl = zipCase.caseId && process.env.PORTAL_CASE_URL ? `${process.env.PORTAL_CASE_URL}/#/${zipCase.caseId}` : '';
+            if (caseUrl) {
+                caseNumberToUrlMap.set(caseNumber, caseUrl);
+            }
 
             // Handle failed cases and those without summaries
             if (!summary || zipCase.fetchStatus.status === 'failed') {
@@ -79,7 +82,6 @@ export const handler: APIGatewayProxyHandler = async event => {
                     'Disposition': '',
                     'Disposition Date': '',
                     'Arresting Agency': '',
-                    'Case URL': caseUrl,
                     Notes: 'Failed to load case data',
                 });
                 continue;
@@ -96,7 +98,6 @@ export const handler: APIGatewayProxyHandler = async event => {
                     'Disposition': '',
                     'Disposition Date': '',
                     'Arresting Agency': summary.filingAgency || '',
-                    'Case URL': caseUrl,
                     Notes: 'No charges found',
                 });
                 continue;
@@ -123,7 +124,6 @@ export const handler: APIGatewayProxyHandler = async event => {
                     'Disposition': disposition ? disposition.description : '',
                     'Disposition Date': disposition ? disposition.date : '',
                     'Arresting Agency': charge.filingAgency || summary.filingAgency || '',
-                    'Case URL': caseUrl,
                     Notes: '',
                 });
             }
@@ -135,21 +135,23 @@ export const handler: APIGatewayProxyHandler = async event => {
 
         const worksheetRange = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : null;
         if (worksheetRange) {
-            let caseUrlColumn = -1;
+            let caseNumberColumn = -1;
             for (let col = worksheetRange.s.c; col <= worksheetRange.e.c; col++) {
                 const headerCell = ws[XLSX.utils.encode_cell({ r: 0, c: col })];
-                if (headerCell?.v === 'Case URL') {
-                    caseUrlColumn = col;
+                if (headerCell?.v === 'Case Number') {
+                    caseNumberColumn = col;
                     break;
                 }
             }
 
-            if (caseUrlColumn >= 0) {
+            if (caseNumberColumn >= 0) {
                 for (let row = 1; row <= worksheetRange.e.r; row++) {
-                    const cellRef = XLSX.utils.encode_cell({ r: row, c: caseUrlColumn });
+                    const cellRef = XLSX.utils.encode_cell({ r: row, c: caseNumberColumn });
                     const cell = ws[cellRef];
-                    if (cell?.v) {
-                        (cell as XLSX.CellObject).l = { Target: String(cell.v) };
+                    const caseNumber = cell?.v ? String(cell.v) : '';
+                    const caseUrl = caseNumberToUrlMap.get(caseNumber);
+                    if (caseUrl && cell) {
+                        (cell as XLSX.CellObject).l = { Target: caseUrl };
                     }
                 }
             }

@@ -124,7 +124,6 @@ describe('export handler', () => {
                 Disposition: 'Guilty',
                 'Disposition Date': '2023-02-01',
                 'Arresting Agency': 'Test Agency',
-                'Case URL': 'https://portal.example.com/search-results/#/case-id-123',
                 Notes: '',
             },
         ]);
@@ -244,10 +243,10 @@ describe('export handler', () => {
         });
     });
 
-    it('should create clickable hyperlink for case URL cells', async () => {
+    it('should create clickable hyperlink for case number cells', async () => {
         const mockCaseNumbers = ['CASE123'];
         const worksheet = {
-            '!ref': 'A1:K2',
+            '!ref': 'A1:J2',
             A1: { v: 'Case Number' },
             B1: { v: 'Court Name' },
             C1: { v: 'Arrest Date' },
@@ -257,9 +256,8 @@ describe('export handler', () => {
             G1: { v: 'Disposition' },
             H1: { v: 'Disposition Date' },
             I1: { v: 'Arresting Agency' },
-            J1: { v: 'Case URL' },
-            K1: { v: 'Notes' },
-            J2: { v: 'https://portal.example.com/search-results/#/case-id-123' },
+            J1: { v: 'Notes' },
+            A2: { v: 'CASE123' },
         };
         (XLSX.utils.json_to_sheet as jest.Mock).mockReturnValueOnce(worksheet);
 
@@ -276,7 +274,7 @@ describe('export handler', () => {
 
         await handler(mockEvent({ caseNumbers: mockCaseNumbers }), {} as any, {} as any);
 
-        expect(worksheet.J2).toMatchObject({
+        expect(worksheet.A2).toMatchObject({
             l: { Target: 'https://portal.example.com/search-results/#/case-id-123' },
         });
     });
