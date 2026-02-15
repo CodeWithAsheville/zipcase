@@ -276,12 +276,38 @@ describe('export handler', () => {
 
         expect(worksheet.A2).toMatchObject({
             l: { Target: 'https://portal.example.com/search-results/#/case-id-123' },
-            s: {
-                font: {
-                    color: { rgb: '0563C1' },
-                    underline: true,
-                },
-            },
+            f: 'HYPERLINK("https://portal.example.com/search-results/#/case-id-123","CASE123")',
+            t: 's',
+            v: 'CASE123',
+        });
+    });
+
+    it('should escape quotes in hyperlink formula values', async () => {
+        const mockCaseNumbers = ['CASE"123'];
+        const worksheet = {
+            '!ref': 'A1:J2',
+            A1: { v: 'Case Number' },
+            J1: { v: 'Notes' },
+            A2: { v: 'CASE"123' },
+        };
+        (XLSX.utils.json_to_sheet as jest.Mock).mockReturnValueOnce(worksheet);
+
+        const mockSummary = { charges: [] };
+        const mockZipCase = { caseId: 'case"id-123', fetchStatus: { status: 'complete' } };
+        (BatchHelper.getMany as jest.Mock).mockImplementation(async (keys: any[]) => {
+            const map = new Map();
+            keys.forEach(key => {
+                if (key.PK === 'CASE#CASE"123' && key.SK === 'SUMMARY') map.set(key, mockSummary);
+                if (key.PK === 'CASE#CASE"123' && key.SK === 'ID') map.set(key, mockZipCase);
+            });
+            return map;
+        });
+
+        await handler(mockEvent({ caseNumbers: mockCaseNumbers }), {} as any, {} as any);
+
+        expect(worksheet.A2).toMatchObject({
+            l: { Target: 'https://portal.example.com/search-results/#/case"id-123' },
+            f: 'HYPERLINK("https://portal.example.com/search-results/#/case""id-123","CASE""123")',
         });
     });
 });

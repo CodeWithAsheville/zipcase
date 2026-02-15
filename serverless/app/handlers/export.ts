@@ -152,15 +152,12 @@ export const handler: APIGatewayProxyHandler = async event => {
                     const caseUrl = caseNumberToUrlMap.get(caseNumber);
                     if (caseUrl && cell) {
                         const caseNumberCell = cell as XLSX.CellObject;
+                        const escapedCaseUrl = caseUrl.replace(/"/g, '""');
+                        const escapedCaseNumber = caseNumber.replace(/"/g, '""');
                         caseNumberCell.l = { Target: caseUrl };
-                        caseNumberCell.s = {
-                            ...caseNumberCell.s,
-                            font: {
-                                ...(caseNumberCell.s as { font?: object } | undefined)?.font,
-                                color: { rgb: '0563C1' },
-                                underline: true,
-                            },
-                        };
+                        caseNumberCell.f = `HYPERLINK("${escapedCaseUrl}","${escapedCaseNumber}")`;
+                        caseNumberCell.t = 's';
+                        caseNumberCell.v = caseNumber;
                     }
                 }
             }
