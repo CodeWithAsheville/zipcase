@@ -276,6 +276,12 @@ describe('export handler', () => {
 
         expect(worksheet.A2).toMatchObject({
             l: { Target: 'https://portal.example.com/search-results/#/case-id-123' },
+            s: {
+                font: {
+                    color: { rgb: '0563C1' },
+                    underline: true,
+                },
+            },
         });
     });
 });

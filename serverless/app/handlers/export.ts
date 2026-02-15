@@ -151,7 +151,16 @@ export const handler: APIGatewayProxyHandler = async event => {
                     const caseNumber = cell?.v ? String(cell.v) : '';
                     const caseUrl = caseNumberToUrlMap.get(caseNumber);
                     if (caseUrl && cell) {
-                        (cell as XLSX.CellObject).l = { Target: caseUrl };
+                        const caseNumberCell = cell as XLSX.CellObject;
+                        caseNumberCell.l = { Target: caseUrl };
+                        caseNumberCell.s = {
+                            ...caseNumberCell.s,
+                            font: {
+                                ...(caseNumberCell.s as { font?: object } | undefined)?.font,
+                                color: { rgb: '0563C1' },
+                                underline: true,
+                            },
+                        };
                     }
                 }
             }
