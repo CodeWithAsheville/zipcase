@@ -31,6 +31,8 @@ resource "aws_iam_policy" "github_actions_policy" {
         Resource = [
           "arn:aws:s3:::zipcase-frontend-*",
           "arn:aws:s3:::zipcase-frontend-*/*",
+          "arn:aws:s3:::zipcase-uploads-*",
+          "arn:aws:s3:::zipcase-uploads-*/*",
           "arn:aws:s3:::zipcase-tf-state-*",
           "arn:aws:s3:::zipcase-tf-state-*/*",
           "arn:aws:s3:::serverless-framework-state-*",
