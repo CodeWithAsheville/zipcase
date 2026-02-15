@@ -17,6 +17,7 @@ interface ExportRow {
     Disposition: string;
     'Disposition Date': string;
     'Arresting Agency': string;
+    'Case URL': string;
     Notes: string;
 }
 
@@ -64,6 +65,8 @@ export const handler: APIGatewayProxyHandler = async event => {
                 continue;
             }
 
+            const caseUrl = zipCase.caseId && process.env.PORTAL_CASE_URL ? `${process.env.PORTAL_CASE_URL}/#/${zipCase.caseId}` : '';
+
             // Handle failed cases and those without summaries
             if (!summary || zipCase.fetchStatus.status === 'failed') {
                 rows.push({
@@ -76,6 +79,7 @@ export const handler: APIGatewayProxyHandler = async event => {
                     'Disposition': '',
                     'Disposition Date': '',
                     'Arresting Agency': '',
+                    'Case URL': caseUrl,
                     Notes: 'Failed to load case data',
                 });
                 continue;
@@ -92,6 +96,7 @@ export const handler: APIGatewayProxyHandler = async event => {
                     'Disposition': '',
                     'Disposition Date': '',
                     'Arresting Agency': summary.filingAgency || '',
+                    'Case URL': caseUrl,
                     Notes: 'No charges found',
                 });
                 continue;
@@ -118,6 +123,7 @@ export const handler: APIGatewayProxyHandler = async event => {
                     'Disposition': disposition ? disposition.description : '',
                     'Disposition Date': disposition ? disposition.date : '',
                     'Arresting Agency': charge.filingAgency || summary.filingAgency || '',
+                    'Case URL': caseUrl,
                     Notes: '',
                 });
             }
@@ -126,6 +132,28 @@ export const handler: APIGatewayProxyHandler = async event => {
         // Create workbook and worksheet
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(rows);
+
+        const worksheetRange = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : null;
+        if (worksheetRange) {
+            let caseUrlColumn = -1;
+            for (let col = worksheetRange.s.c; col <= worksheetRange.e.c; col++) {
+                const headerCell = ws[XLSX.utils.encode_cell({ r: 0, c: col })];
+                if (headerCell?.v === 'Case URL') {
+                    caseUrlColumn = col;
+                    break;
+                }
+            }
+
+            if (caseUrlColumn >= 0) {
+                for (let row = 1; row <= worksheetRange.e.r; row++) {
+                    const cellRef = XLSX.utils.encode_cell({ r: row, c: caseUrlColumn });
+                    const cell = ws[cellRef];
+                    if (cell?.v) {
+                        (cell as XLSX.CellObject).l = { Target: String(cell.v) };
+                    }
+                }
+            }
+        }
 
         // Auto-fit columns
         if (rows.length > 0) {

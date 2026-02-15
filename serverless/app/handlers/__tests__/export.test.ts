@@ -19,6 +19,16 @@ jest.mock('xlsx', () => ({
         book_new: jest.fn(),
         json_to_sheet: jest.fn().mockReturnValue({}),
         book_append_sheet: jest.fn(),
+        decode_range: jest.fn().mockImplementation((range: string) => {
+            const [, end] = range.split(':');
+            const col = end.replace(/\d/g, '');
+            const row = Number(end.replace(/[A-Z]/g, ''));
+            return {
+                s: { c: 0, r: 0 },
+                e: { c: col.charCodeAt(0) - 65, r: row - 1 },
+            };
+        }),
+        encode_cell: jest.fn().mockImplementation(({ r, c }: { r: number; c: number }) => `${String.fromCharCode(65 + c)}${r + 1}`),
     },
     write: jest.fn().mockReturnValue(Buffer.from('mock-excel-content')),
 }));
@@ -31,6 +41,7 @@ describe('export handler', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        process.env.PORTAL_CASE_URL = 'https://portal.example.com/search-results';
     });
 
     it('should return 400 if body is missing', async () => {
@@ -68,6 +79,7 @@ describe('export handler', () => {
         };
 
         const mockZipCase = {
+            caseId: 'case-id-123',
             fetchStatus: { status: 'complete' },
         };
 
@@ -102,6 +114,7 @@ describe('export handler', () => {
                 Disposition: 'Guilty',
                 'Disposition Date': '2023-02-01',
                 'Arresting Agency': 'Test Agency',
+                'Case URL': 'https://portal.example.com/search-results/#/case-id-123',
                 Notes: '',
             },
         ]);
@@ -218,6 +231,43 @@ describe('export handler', () => {
             headers: {
                 'Content-Disposition': expect.stringMatching(/attachment; filename="ZipCase-Export-\d{8}-\d{6}\.xlsx"/),
             },
+        });
+    });
+
+    it('should create clickable hyperlink for case URL cells', async () => {
+        const mockCaseNumbers = ['CASE123'];
+        const worksheet = {
+            '!ref': 'A1:K2',
+            A1: { v: 'Case Number' },
+            B1: { v: 'Court Name' },
+            C1: { v: 'Arrest Date' },
+            D1: { v: 'Offense Description' },
+            E1: { v: 'Offense Level' },
+            F1: { v: 'Offense Date' },
+            G1: { v: 'Disposition' },
+            H1: { v: 'Disposition Date' },
+            I1: { v: 'Arresting Agency' },
+            J1: { v: 'Case URL' },
+            K1: { v: 'Notes' },
+            J2: { v: 'https://portal.example.com/search-results/#/case-id-123' },
+        };
+        (XLSX.utils.json_to_sheet as jest.Mock).mockReturnValueOnce(worksheet);
+
+        const mockSummary = { charges: [] };
+        const mockZipCase = { caseId: 'case-id-123', fetchStatus: { status: 'complete' } };
+        (BatchHelper.getMany as jest.Mock).mockImplementation(async (keys: any[]) => {
+            const map = new Map();
+            keys.forEach(key => {
+                if (key.PK === 'CASE#CASE123' && key.SK === 'SUMMARY') map.set(key, mockSummary);
+                if (key.PK === 'CASE#CASE123' && key.SK === 'ID') map.set(key, mockZipCase);
+            });
+            return map;
+        });
+
+        await handler(mockEvent({ caseNumbers: mockCaseNumbers }), {} as any, {} as any);
+
+        expect(worksheet.J2).toMatchObject({
+            l: { Target: 'https://portal.example.com/search-results/#/case-id-123' },
         });
     });
 });
