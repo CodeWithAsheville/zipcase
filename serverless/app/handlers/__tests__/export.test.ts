@@ -1,6 +1,6 @@
 import { handler } from '../export';
 import { BatchHelper, Key } from '../../../lib/StorageClient';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 // Mock dependencies
 jest.mock('../../../lib/StorageClient', () => ({
@@ -14,33 +14,32 @@ jest.mock('../../../lib/StorageClient', () => ({
         }),
     },
 }));
-jest.mock('xlsx', () => ({
-    utils: {
-        book_new: jest.fn(),
-        json_to_sheet: jest.fn().mockReturnValue({}),
-        book_append_sheet: jest.fn(),
-        decode_range: jest.fn().mockImplementation((range: string) => {
-            const [, end] = range.split(':');
-            const col = end.replace(/\d/g, '');
-            const row = Number(end.replace(/[A-Z]/g, ''));
-            const colIndex = col.split('').reduce((acc, char) => acc * 26 + (char.charCodeAt(0) - 64), 0) - 1;
-            return {
-                s: { c: 0, r: 0 },
-                e: { c: colIndex, r: row - 1 },
-            };
-        }),
-        encode_cell: jest.fn().mockImplementation(({ r, c }: { r: number; c: number }) => {
-            let col = '';
-            let current = c + 1;
-            while (current > 0) {
-                const rem = (current - 1) % 26;
-                col = String.fromCharCode(65 + rem) + col;
-                current = Math.floor((current - 1) / 26);
+const mockCells = new Map<string, { value?: unknown; font?: unknown }>();
+const mockWorksheet = {
+    columns: [] as unknown[],
+    addRows: jest.fn(),
+    getRow: jest.fn((rowNumber: number) => ({
+        getCell: jest.fn((columnNumber: number) => {
+            const key = `${rowNumber}:${columnNumber}`;
+            if (!mockCells.has(key)) {
+                mockCells.set(key, {});
             }
-            return `${col}${r + 1}`;
+            return mockCells.get(key)!;
         }),
+    })),
+};
+const writeBufferMock = jest.fn().mockResolvedValue(Buffer.from('mock-excel-content'));
+const mockWorkbook = {
+    addWorksheet: jest.fn().mockReturnValue(mockWorksheet),
+    xlsx: {
+        writeBuffer: writeBufferMock,
     },
-    write: jest.fn().mockReturnValue(Buffer.from('mock-excel-content')),
+};
+jest.mock('exceljs', () => ({
+    __esModule: true,
+    default: {
+        Workbook: jest.fn().mockImplementation(() => mockWorkbook),
+    },
 }));
 
 describe('export handler', () => {
@@ -51,6 +50,8 @@ describe('export handler', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        mockCells.clear();
+        mockWorksheet.columns = [];
         process.env.PORTAL_CASE_URL = 'https://portal.example.com/search-results';
     });
 
@@ -111,10 +112,11 @@ describe('export handler', () => {
             },
             isBase64Encoded: true,
         });
-        expect(XLSX.write).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'buffer', bookType: 'xlsx' }));
+        expect(ExcelJS.Workbook).toHaveBeenCalledTimes(1);
+        expect(writeBufferMock).toHaveBeenCalledTimes(1);
 
-        // Verify XLSX calls
-        expect(XLSX.utils.json_to_sheet).toHaveBeenCalledWith([
+        // Verify worksheet rows
+        expect(mockWorksheet.addRows).toHaveBeenCalledWith([
             {
                 'Case Number': 'CASE123',
                 'Court Name': 'Test Court',
@@ -147,7 +149,7 @@ describe('export handler', () => {
 
         await handler(mockEvent({ caseNumbers: mockCaseNumbers }), {} as any, {} as any);
 
-        expect(XLSX.utils.json_to_sheet).toHaveBeenCalledWith([
+        expect(mockWorksheet.addRows).toHaveBeenCalledWith([
             expect.objectContaining({
                 'Case Number': 'CASE_FAILED',
                 Notes: 'Failed to load case data',
@@ -178,7 +180,7 @@ describe('export handler', () => {
 
         await handler(mockEvent({ caseNumbers: mockCaseNumbers }), {} as any, {} as any);
 
-        expect(XLSX.utils.json_to_sheet).toHaveBeenCalledWith([
+        expect(mockWorksheet.addRows).toHaveBeenCalledWith([
             expect.objectContaining({
                 'Case Number': 'CASE_NO_CHARGES',
                 Notes: 'No charges found',
@@ -214,7 +216,7 @@ describe('export handler', () => {
 
         await handler(mockEvent({ caseNumbers: mockCaseNumbers }), {} as any, {} as any);
 
-        const calls = (XLSX.utils.json_to_sheet as jest.Mock).mock.calls[0][0];
+        const calls = (mockWorksheet.addRows as jest.Mock).mock.calls[0][0];
         const levels = calls.map((row: any) => row['Offense Level']);
 
         expect(levels).toEqual(['M1', '', 'GL M', 'T', 'INF']);
@@ -246,21 +248,6 @@ describe('export handler', () => {
 
     it('should create clickable hyperlink for case number cells', async () => {
         const mockCaseNumbers = ['CASE123'];
-        const worksheet = {
-            '!ref': 'A1:J2',
-            A1: { v: 'Case Number' },
-            B1: { v: 'Court Name' },
-            C1: { v: 'Arrest Date' },
-            D1: { v: 'Offense Description' },
-            E1: { v: 'Offense Level' },
-            F1: { v: 'Offense Date' },
-            G1: { v: 'Disposition' },
-            H1: { v: 'Disposition Date' },
-            I1: { v: 'Arresting Agency' },
-            J1: { v: 'Notes' },
-            A2: { v: 'CASE123' },
-        };
-        (XLSX.utils.json_to_sheet as jest.Mock).mockReturnValueOnce(worksheet);
 
         const mockSummary = { charges: [] };
         const mockZipCase = { caseId: 'case-id-123', fetchStatus: { status: 'complete' } };
@@ -275,23 +262,20 @@ describe('export handler', () => {
 
         await handler(mockEvent({ caseNumbers: mockCaseNumbers }), {} as any, {} as any);
 
-        expect(worksheet.A2).toMatchObject({
-            l: { Target: 'https://portal.example.com/search-results/#/case-id-123' },
-            t: 's',
-            v: 'CASE123',
+        expect(mockWorksheet.getRow).toHaveBeenCalledWith(2);
+        const caseNumberCell = mockCells.get('2:1');
+        expect(caseNumberCell?.value).toEqual({
+            text: 'CASE123',
+            hyperlink: 'https://portal.example.com/search-results/#/case-id-123',
         });
-        expect(worksheet.A2.f).toBeUndefined();
+        expect(caseNumberCell?.font).toMatchObject({
+            color: { argb: 'FF0563C1' },
+            underline: true,
+        });
     });
 
     it('should keep text value and hyperlink relationship for quoted case numbers', async () => {
         const mockCaseNumbers = ['CASE"123'];
-        const worksheet = {
-            '!ref': 'A1:J2',
-            A1: { v: 'Case Number' },
-            J1: { v: 'Notes' },
-            A2: { v: 'CASE"123' },
-        };
-        (XLSX.utils.json_to_sheet as jest.Mock).mockReturnValueOnce(worksheet);
 
         const mockSummary = { charges: [] };
         const mockZipCase = { caseId: 'case"id-123', fetchStatus: { status: 'complete' } };
@@ -306,11 +290,10 @@ describe('export handler', () => {
 
         await handler(mockEvent({ caseNumbers: mockCaseNumbers }), {} as any, {} as any);
 
-        expect(worksheet.A2).toMatchObject({
-            l: { Target: 'https://portal.example.com/search-results/#/case"id-123' },
-            t: 's',
-            v: 'CASE"123',
+        const caseNumberCell = mockCells.get('2:1');
+        expect(caseNumberCell?.value).toEqual({
+            text: 'CASE"123',
+            hyperlink: 'https://portal.example.com/search-results/#/case"id-123',
         });
-        expect(worksheet.A2.f).toBeUndefined();
     });
 });
