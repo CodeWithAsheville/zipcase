@@ -65,7 +65,7 @@ jobs:
 
     terraform-plan-dev:
         name: Terraform Plan (Dev)
-        if: github.base_ref == 'main'
+        if: github.base_ref == 'main' && github.actor != 'dependabot[bot]'
         runs-on: ubuntu-latest
         environment: dev
         defaults:
