@@ -2,7 +2,7 @@ service: app
 
 provider:
     name: aws
-    runtime: nodejs20.x
+    runtime: nodejs22.x
     region: us-east-2
     stage: ${opt:stage, 'dev'}
     memorySize: 512
@@ -110,7 +110,7 @@ build:
     esbuild:
         minify: false
         sourcemap: true
-        target: node20
+        target: node22
         format: cjs # Use CommonJS format instead of ESM
         bundle: true # Ensure all dependencies are bundled
         external:
