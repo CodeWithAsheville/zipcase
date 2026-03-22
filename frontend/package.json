@@ -17,6 +17,7 @@
         "deploy:dev": "npm run build && aws s3 sync dist/ s3://zipcase-frontend-dev && aws cloudfront create-invalidation --distribution-id $(terraform -chdir=../infra/terraform/dev output -raw cloudfront_distribution_id) --paths \"/*\""
     },
     "overrides": {
+        "fast-xml-parser": "^5.5.6",
         "glob": "^10.5.0",
         "minimatch": "^9.0.9"
     },
