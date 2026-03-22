@@ -1,5 +1,6 @@
 {
     "overrides": {
+        "flatted": "^3.4.2",
         "rimraf": {
             "glob": "^10.5.0"
         }
