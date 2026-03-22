@@ -1,6 +1,7 @@
 {
     "overrides": {
         "flatted": "^3.4.2",
+        "fast-xml-parser": "^5.5.6",
         "rimraf": {
             "glob": "^10.5.0"
         }
