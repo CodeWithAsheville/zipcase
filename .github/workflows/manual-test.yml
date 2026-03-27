@@ -9,6 +9,9 @@ on:
         default: 'main'
         type: string
 
+permissions:
+    contents: read
+
 env:
   VITE_API_URL: https://test-api.example.com
   VITE_PORTAL_URL: https://test-portal.example.com

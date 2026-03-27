@@ -4,6 +4,9 @@ on:
     push:
         branches: [main, live]
 
+permissions:
+    contents: read
+
 env:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -204,6 +207,8 @@ jobs:
         runs-on: ubuntu-latest
         if: github.ref == 'refs/heads/live'
         needs: [deploy-frontend]
+        permissions:
+            contents: write
         steps:
             - uses: actions/checkout@v4
               with:
