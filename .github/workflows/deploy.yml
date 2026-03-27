@@ -171,6 +171,10 @@ jobs:
                   # Set API URL from environment variables
                   echo "VITE_API_URL=${{ vars.API_BASE_URL }}" >> .env.production
 
+                  # Get WebSocket API URL from CloudFormation exports
+                  WS_URL=$(aws cloudformation list-exports --query "Exports[?Name=='ws-${{ needs.determine-environment.outputs.environment_name }}-WebSocketApiEndpoint'].Value" --output text)
+                  echo "VITE_WS_URL=$WS_URL" >> .env.production
+
                   # Get Cognito User Pool ID
                   USER_POOL_ID=$(aws ssm get-parameter --name "/zipcase/cognito/user_pool_id" --with-decryption --query "Parameter.Value" --output text)
                   echo "VITE_COGNITO_USER_POOL_ID=$USER_POOL_ID" >> .env.production

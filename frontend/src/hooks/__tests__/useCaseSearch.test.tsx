@@ -9,7 +9,23 @@ import { useSearchResults, useConsolidatedPolling, useRemoveCase } from '../useC
 
 vi.mock('../../aws-exports', () => ({
     API_URL: 'http://test-api.example.com',
+    WS_URL: 'ws://test-ws.example.com',
 }));
+
+vi.mock('../../services', async importOriginal => {
+    const original = await importOriginal<typeof import('../../services')>();
+
+    return {
+        ...original,
+        zipCaseSocketClient: {
+            connect: vi.fn().mockResolvedValue(undefined),
+            disconnect: vi.fn(),
+            subscribe: vi.fn(),
+            unsubscribe: vi.fn(),
+            onMessage: vi.fn(() => () => {}),
+        },
+    };
+});
 
 // Create a wrapper for the tests that need React Query context
 const createTestQueryClient = (initialData = null) => {

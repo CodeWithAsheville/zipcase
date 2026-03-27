@@ -5,6 +5,7 @@ import StorageClient from './StorageClient';
 import UserAgentClient from './UserAgentClient';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 import { CaseSummary, Charge, Disposition, FetchStatus } from '../../shared/types';
+import WebSocketPublisher from './WebSocketPublisher';
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
@@ -272,19 +273,31 @@ async function processCaseDataRecord(caseNumber: string, caseId: string, userId:
         // Fetch case summary
         const caseSummary = await fetchCaseSummary(caseId);
 
+        const completedAt = new Date().toISOString();
+
         // Update to complete status
         const completeStatus: FetchStatus = { status: 'complete' };
         await StorageClient.saveCase({
             caseNumber,
             caseId,
             fetchStatus: completeStatus,
-            lastUpdated: new Date().toISOString(),
+            lastUpdated: completedAt,
         });
 
         // Save the case summary if available
         if (caseSummary) {
             await StorageClient.saveCaseSummary(caseNumber, caseSummary);
         }
+
+        await WebSocketPublisher.publishCaseStatusUpdated(userId, caseNumber, {
+            zipCase: {
+                caseNumber,
+                caseId,
+                fetchStatus: completeStatus,
+                lastUpdated: completedAt,
+            },
+            caseSummary: caseSummary || undefined,
+        });
 
         // Delete the data queue item
         await QueueClient.deleteMessage(receiptHandle, 'data');

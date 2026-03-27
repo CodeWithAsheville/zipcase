@@ -99,8 +99,8 @@ jobs:
 
             - name: Set Terraform environment variables
               run: |
-                echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
-                echo "TF_VAR_capsolver_api_key=${{ secrets.CAPSOLVER_API_KEY }}" >> $GITHUB_ENV
+                  echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
+                  echo "TF_VAR_capsolver_api_key=${{ secrets.CAPSOLVER_API_KEY }}" >> $GITHUB_ENV
 
             - name: Terraform Init
               working-directory: ./infra/terraform/${{ github.event.inputs.environment }}
@@ -185,6 +185,10 @@ jobs:
 
                   # Set API URL from environment variables
                   echo "VITE_API_URL=${{ vars.API_BASE_URL }}" >> .env.production
+
+                  # Get WebSocket API URL from CloudFormation exports
+                  WS_URL=$(aws cloudformation list-exports --query "Exports[?Name=='ws-${{ github.event.inputs.environment }}-WebSocketApiEndpoint'].Value" --output text)
+                  echo "VITE_WS_URL=$WS_URL" >> .env.production
 
                   # Get Cognito User Pool ID
                   USER_POOL_ID=$(aws ssm get-parameter --name "/zipcase/cognito/user_pool_id" --with-decryption --query "Parameter.Value" --output text)
