@@ -4,6 +4,9 @@ on:
     pull_request:
         branches: [main, live]
 
+permissions:
+    contents: read
+
 env:
     VITE_API_URL: https://test-api.example.com
     VITE_PORTAL_URL: https://test-portal.example.com
