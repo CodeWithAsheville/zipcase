@@ -206,6 +206,11 @@ export async function processCaseSearchRecord(
                     fetchStatus: { status: 'processing' },
                     lastUpdated: isoNow,
                 });
+                await publishCaseUpdate(userId, {
+                    caseNumber,
+                    fetchStatus: { status: 'processing' },
+                    lastUpdated: isoNow,
+                });
             } else if (fetchStatus === 'processing') {
                 // Handle processing timeout (5 minutes)
                 const lastUpdated = zipCase.lastUpdated ? new Date(zipCase.lastUpdated) : new Date(0);
