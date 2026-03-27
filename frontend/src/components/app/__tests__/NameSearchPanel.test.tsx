@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('../../../aws-exports', () => ({
     API_URL: 'http://test-api.example.com',
+    WS_URL: 'ws://test-ws.example.com',
 }));
 
 // Set up the mock before importing the component

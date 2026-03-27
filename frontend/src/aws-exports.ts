@@ -2,6 +2,7 @@ import { ResourcesConfig } from 'aws-amplify';
 
 // Use environment variables with fallbacks for local development
 export const API_URL = import.meta.env.VITE_API_URL;
+export const WS_URL = import.meta.env.VITE_WS_URL;
 
 // Court portal URL - this should match the PORTAL_URL in the backend environment
 export const PORTAL_URL = import.meta.env.VITE_PORTAL_URL;

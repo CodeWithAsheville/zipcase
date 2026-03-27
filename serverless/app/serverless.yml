@@ -12,6 +12,7 @@ provider:
         STAGE: ${self:provider.stage}
         SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.SearchQueueUrl}
         CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
+        WEBSOCKET_MANAGEMENT_ENDPOINT: ${cf:ws-${self:provider.stage}.WebSocketManagementEndpoint, ''}
         KMS_KEY_ID: ${cf:infra-${self:provider.stage}.ZipCaseEncryptionKeyId, 'key-not-set'}
         ZIPCASE_DATA_TABLE: ${cf:infra-${self:provider.stage}.ZipCaseDataTableName, 'zipcase-data-${self:provider.stage}'}
         DEFAULT_USAGE_PLAN_ID: ${cf:api-${self:provider.stage}.TestUsagePlanId}
@@ -65,6 +66,11 @@ provider:
                 - Effect: Allow
                   Action:
                       - cloudwatch:PutMetricData
+                  Resource: '*'
+
+                - Effect: Allow
+                  Action:
+                      - execute-api:ManageConnections
                   Resource: '*'
 
                 - Effect: Allow

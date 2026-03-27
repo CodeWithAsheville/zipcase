@@ -5,11 +5,17 @@ services:
     infra:
         path: infra
 
+    ws:
+        path: ws
+        dependsOn:
+            - infra
+
     app:
         path: app
         dependsOn:
             - infra
             - api
+            - ws
 
     api:
         path: api

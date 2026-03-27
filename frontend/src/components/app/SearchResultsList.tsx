@@ -63,7 +63,7 @@ export default function SearchResultsList() {
     }, [displayItems]);
 
     // Use the consolidated polling approach for all non-terminal cases
-    const polling = useConsolidatedPolling();
+    const { startPolling, stopPolling } = useConsolidatedPolling();
 
     // Function to copy all case numbers to clipboard
     const copyCaseNumbers = async () => {
@@ -93,10 +93,10 @@ export default function SearchResultsList() {
         }
     };
 
-    // Start/stop polling based on whether we have non-terminal cases
+    // Start or refresh subscriptions when we have non-terminal cases.
+    // Cleanup is handled by hook-level unmount cleanup.
     useEffect(() => {
         if (searchResults.length > 0) {
-            // Check if we have any non-terminal cases to poll
             const terminalStates = ['complete', 'failed'];
             const hasNonTerminalCases = searchResults.some(result => {
                 const status = result.zipCase.fetchStatus.status;
@@ -104,16 +104,16 @@ export default function SearchResultsList() {
             });
 
             if (hasNonTerminalCases) {
-                // Start polling if we have cases to poll
-                polling.startPolling();
+                startPolling();
             }
         }
+    }, [searchResults, startPolling]);
 
-        // Clean up polling on unmount
+    useEffect(() => {
         return () => {
-            polling.stopPolling();
+            stopPolling();
         };
-    }, [searchResults, polling]);
+    }, [stopPolling]);
 
     // Clean up timeout on unmount
     useEffect(() => {

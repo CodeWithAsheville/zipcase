@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
             'import.meta.env.VITE_COGNITO_USER_POOL_ID': JSON.stringify(env.VITE_COGNITO_USER_POOL_ID),
             'import.meta.env.VITE_COGNITO_CLIENT_ID': JSON.stringify(env.VITE_COGNITO_CLIENT_ID),
             'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
+            'import.meta.env.VITE_WS_URL': JSON.stringify(env.VITE_WS_URL),
             'import.meta.env.VITE_PORTAL_URL': JSON.stringify(env.VITE_PORTAL_URL),
             'import.meta.env.VITE_PORTAL_CASE_URL': JSON.stringify(env.VITE_PORTAL_CASE_URL),
         },
@@ -24,6 +25,6 @@ export default defineConfig(({ mode }) => {
             sourcemap: true,
             // Ensure environment variables are included in the build
             assetsInlineLimit: 0, // Ensures small assets are not inlined as base64
-        }
+        },
     };
 });

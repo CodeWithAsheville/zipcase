@@ -5,6 +5,7 @@ import { ZipCaseClient } from '../../services';
 
 vi.mock('../../aws-exports', () => ({
     API_URL: 'http://test-api.example.com',
+    WS_URL: 'ws://test-ws.example.com',
 }));
 
 // Since the module itself uses a singleton instance, we need to manually mock
