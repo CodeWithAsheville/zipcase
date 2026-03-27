@@ -67,6 +67,17 @@ describe('case status websocket publishing', () => {
             expect.objectContaining({
                 zipCase: expect.objectContaining({
                     caseNumber: '22CR123',
+                    fetchStatus: expect.objectContaining({ status: 'processing' }),
+                }),
+            })
+        );
+
+        expect(mockPublisher.publishCaseStatusUpdated).toHaveBeenCalledWith(
+            'user-1',
+            '22CR123',
+            expect.objectContaining({
+                zipCase: expect.objectContaining({
+                    caseNumber: '22CR123',
                     fetchStatus: expect.objectContaining({ status: 'failed' }),
                 }),
             })
@@ -132,6 +143,48 @@ describe('case status websocket publishing', () => {
                     caseNumber: '22CR123',
                     caseId: 'case-id-1',
                     fetchStatus: { status: 'complete' },
+                }),
+            })
+        );
+    });
+
+    it('publishes failed status when case data processing throws', async () => {
+        mockStorage.getCase.mockResolvedValue(null as never);
+        mockUserAgent.getUserAgent.mockResolvedValue('test-agent');
+
+        const axios = await import('axios');
+        const client = (axios.default.create as jest.Mock).mock.results[0]?.value || (axios.default.create as jest.Mock)();
+
+        (client.get as jest.Mock).mockRejectedValue(new Error('portal timeout'));
+
+        await (CaseProcessor as any).processCaseData({
+            Records: [
+                {
+                    body: JSON.stringify({ caseNumber: '22CR500', caseId: 'case-id-500', userId: 'user-1' }),
+                    receiptHandle: 'receipt-500',
+                    messageId: 'msg-500',
+                },
+            ],
+        });
+
+        expect(mockPublisher.publishCaseStatusUpdated).toHaveBeenCalledWith(
+            'user-1',
+            '22CR500',
+            expect.objectContaining({
+                zipCase: expect.objectContaining({
+                    caseNumber: '22CR500',
+                    caseId: 'case-id-500',
+                    fetchStatus: expect.objectContaining({ status: 'failed' }),
+                }),
+            })
+        );
+
+        expect(mockPublisher.publishCaseStatusUpdated).not.toHaveBeenCalledWith(
+            'user-1',
+            '22CR500',
+            expect.objectContaining({
+                zipCase: expect.objectContaining({
+                    fetchStatus: { status: 'processing' },
                 }),
             })
         );
