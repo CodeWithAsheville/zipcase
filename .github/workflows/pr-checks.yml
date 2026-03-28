@@ -4,6 +4,9 @@ on:
     pull_request:
         branches: [main, live]
 
+permissions:
+    contents: read
+
 env:
     VITE_API_URL: https://test-api.example.com
     VITE_PORTAL_URL: https://test-portal.example.com
@@ -17,10 +20,10 @@ jobs:
             run:
                 working-directory: ./serverless
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
 
             - name: Use Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v5
               with:
                   node-version: '20'
                   cache: 'npm'
@@ -39,10 +42,10 @@ jobs:
             run:
                 working-directory: ./frontend
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
 
             - name: Use Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v5
               with:
                   node-version: '20'
                   cache: 'npm'
@@ -65,7 +68,7 @@ jobs:
 
     terraform-plan-dev:
         name: Terraform Plan (Dev)
-        if: github.base_ref == 'main'
+        if: github.base_ref == 'main' && github.actor != 'dependabot[bot]'
         runs-on: ubuntu-latest
         environment: dev
         defaults:
@@ -74,15 +77,15 @@ jobs:
         permissions:
             pull-requests: write
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
 
             - name: Setup Terraform
-              uses: hashicorp/setup-terraform@v3
+              uses: hashicorp/setup-terraform@v4
               with:
                   terraform_version: '1.11.4'
 
             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v4
+              uses: aws-actions/configure-aws-credentials@v5
               with:
                   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -147,15 +150,15 @@ jobs:
         permissions:
             pull-requests: write
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
 
             - name: Setup Terraform
-              uses: hashicorp/setup-terraform@v3
+              uses: hashicorp/setup-terraform@v4
               with:
                   terraform_version: '1.11.4'
 
             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v4
+              uses: aws-actions/configure-aws-credentials@v5
               with:
                   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

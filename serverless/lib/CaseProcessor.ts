@@ -5,6 +5,7 @@ import StorageClient from './StorageClient';
 import UserAgentClient from './UserAgentClient';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 import { CaseSummary, Charge, Disposition, FetchStatus } from '../../shared/types';
+import WebSocketPublisher from './WebSocketPublisher';
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
 import { wrapper } from 'axios-cookiejar-support';
@@ -272,19 +273,54 @@ async function processCaseDataRecord(caseNumber: string, caseId: string, userId:
         // Fetch case summary
         const caseSummary = await fetchCaseSummary(caseId);
 
+        if (!caseSummary) {
+            const message = `Failed to fetch required case summary data for case ${caseNumber}`;
+            const failedAt = new Date().toISOString();
+            const failedStatus: FetchStatus = { status: 'failed', message };
+
+            await StorageClient.saveCase({
+                caseNumber,
+                caseId,
+                fetchStatus: failedStatus,
+                lastUpdated: failedAt,
+            });
+
+            await WebSocketPublisher.publishCaseStatusUpdated(userId, caseNumber, {
+                zipCase: {
+                    caseNumber,
+                    caseId,
+                    fetchStatus: failedStatus,
+                    lastUpdated: failedAt,
+                },
+            });
+
+            await QueueClient.deleteMessage(receiptHandle, 'data');
+            return failedStatus;
+        }
+
+        const completedAt = new Date().toISOString();
+
         // Update to complete status
         const completeStatus: FetchStatus = { status: 'complete' };
         await StorageClient.saveCase({
             caseNumber,
             caseId,
             fetchStatus: completeStatus,
-            lastUpdated: new Date().toISOString(),
+            lastUpdated: completedAt,
         });
 
         // Save the case summary if available
-        if (caseSummary) {
-            await StorageClient.saveCaseSummary(caseNumber, caseSummary);
-        }
+        await StorageClient.saveCaseSummary(caseNumber, caseSummary);
+
+        await WebSocketPublisher.publishCaseStatusUpdated(userId, caseNumber, {
+            zipCase: {
+                caseNumber,
+                caseId,
+                fetchStatus: completeStatus,
+                lastUpdated: completedAt,
+            },
+            caseSummary,
+        });
 
         // Delete the data queue item
         await QueueClient.deleteMessage(receiptHandle, 'data');
@@ -293,6 +329,27 @@ async function processCaseDataRecord(caseNumber: string, caseId: string, userId:
         return completeStatus;
     } catch (error) {
         const message = `Unhandled error while retrieving data for case ${caseNumber}: ${(error as Error).message}`;
+        const failedAt = new Date().toISOString();
+
+        try {
+            await StorageClient.saveCase({
+                caseNumber,
+                caseId,
+                fetchStatus: { status: 'failed', message },
+                lastUpdated: failedAt,
+            });
+
+            await WebSocketPublisher.publishCaseStatusUpdated(userId, caseNumber, {
+                zipCase: {
+                    caseNumber,
+                    caseId,
+                    fetchStatus: { status: 'failed', message },
+                    lastUpdated: failedAt,
+                },
+            });
+        } catch (publishError) {
+            console.error('Failed to persist/publish case data failure status:', publishError);
+        }
 
         await AlertService.logError(Severity.ERROR, AlertCategory.SYSTEM, 'Unhandled error during case data retrieval', error as Error, {
             caseNumber,

@@ -27,6 +27,9 @@ on:
                 default: true
                 type: boolean
 
+permissions:
+    contents: read
+
 env:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -40,7 +43,7 @@ jobs:
         environment: ${{ github.event.inputs.environment }}
         steps:
             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v4
+              uses: aws-actions/configure-aws-credentials@v5
               with:
                   aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -81,17 +84,17 @@ jobs:
             run:
                 working-directory: ./infra/terraform
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
               with:
                   ref: ${{ github.event.inputs.branch }}
 
             - name: Setup Terraform
-              uses: hashicorp/setup-terraform@v3
+              uses: hashicorp/setup-terraform@v4
               with:
                   terraform_version: '1.11.4'
 
             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v4
+              uses: aws-actions/configure-aws-credentials@v5
               with:
                   aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -99,8 +102,8 @@ jobs:
 
             - name: Set Terraform environment variables
               run: |
-                echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
-                echo "TF_VAR_capsolver_api_key=${{ secrets.CAPSOLVER_API_KEY }}" >> $GITHUB_ENV
+                  echo "TF_VAR_alert_email=${{ vars.ALERT_EMAIL }}" >> $GITHUB_ENV
+                  echo "TF_VAR_capsolver_api_key=${{ secrets.CAPSOLVER_API_KEY }}" >> $GITHUB_ENV
 
             - name: Terraform Init
               working-directory: ./infra/terraform/${{ github.event.inputs.environment }}
@@ -121,12 +124,12 @@ jobs:
             run:
                 working-directory: ./serverless
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
               with:
                   ref: ${{ github.event.inputs.branch }}
 
             - name: Use Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v5
               with:
                   node-version: '20'
                   cache: 'npm'
@@ -153,12 +156,12 @@ jobs:
             run:
                 working-directory: ./frontend
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v5
               with:
                   ref: ${{ github.event.inputs.branch }}
 
             - name: Use Node.js
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v5
               with:
                   node-version: '20'
                   cache: 'npm'
@@ -168,7 +171,7 @@ jobs:
               run: npm ci
 
             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v4
+              uses: aws-actions/configure-aws-credentials@v5
               with:
                   aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -185,6 +188,10 @@ jobs:
 
                   # Set API URL from environment variables
                   echo "VITE_API_URL=${{ vars.API_BASE_URL }}" >> .env.production
+
+                  # Get WebSocket API URL from CloudFormation exports
+                  WS_URL=$(aws cloudformation list-exports --query "Exports[?Name=='ws-${{ github.event.inputs.environment }}-WebSocketApiEndpoint'].Value" --output text)
+                  echo "VITE_WS_URL=$WS_URL" >> .env.production
 
                   # Get Cognito User Pool ID
                   USER_POOL_ID=$(aws ssm get-parameter --name "/zipcase/cognito/user_pool_id" --with-decryption --query "Parameter.Value" --output text)

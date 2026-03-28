@@ -10,6 +10,13 @@ import { wrapper } from 'axios-cookiejar-support';
 import * as cheerio from 'cheerio';
 import UserAgentClient from './UserAgentClient';
 import { CASE_SUMMARY_VERSION_DATE } from './CaseProcessor';
+import WebSocketPublisher from './WebSocketPublisher';
+
+async function publishCaseUpdate(userId: string, zipCase: ZipCase): Promise<void> {
+    await WebSocketPublisher.publishCaseStatusUpdated(userId, zipCase.caseNumber, {
+        zipCase,
+    });
+}
 
 // Process API case search requests
 export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<CaseSearchResponse> {
@@ -199,6 +206,11 @@ export async function processCaseSearchRecord(
                     fetchStatus: { status: 'processing' },
                     lastUpdated: isoNow,
                 });
+                await publishCaseUpdate(userId, {
+                    caseNumber,
+                    fetchStatus: { status: 'processing' },
+                    lastUpdated: isoNow,
+                });
             } else if (fetchStatus === 'processing') {
                 // Handle processing timeout (5 minutes)
                 const lastUpdated = zipCase.lastUpdated ? new Date(zipCase.lastUpdated) : new Date(0);
@@ -241,6 +253,12 @@ export async function processCaseSearchRecord(
                 lastUpdated: isoNow,
                 caseId: zipCase?.caseId,
             });
+            await publishCaseUpdate(userId, {
+                caseNumber,
+                fetchStatus: failedStatus,
+                lastUpdated: isoNow,
+                caseId: zipCase?.caseId,
+            });
 
             // Delete the queue item since we've saved the failed status
             await QueueClient.deleteMessage(receiptHandle, 'search');
@@ -276,6 +294,11 @@ export async function processCaseSearchRecord(
                     fetchStatus: failedStatus,
                     lastUpdated: isoNow,
                 });
+                await publishCaseUpdate(userId, {
+                    caseNumber,
+                    fetchStatus: failedStatus,
+                    lastUpdated: isoNow,
+                });
 
                 await QueueClient.deleteMessage(receiptHandle, 'search');
                 return;
@@ -286,6 +309,11 @@ export async function processCaseSearchRecord(
                 const notFoundStatus: FetchStatus = { status: 'notFound' };
 
                 await StorageClient.saveCase({
+                    caseNumber,
+                    fetchStatus: notFoundStatus,
+                    lastUpdated: isoNow,
+                });
+                await publishCaseUpdate(userId, {
                     caseNumber,
                     fetchStatus: notFoundStatus,
                     lastUpdated: isoNow,
@@ -301,6 +329,12 @@ export async function processCaseSearchRecord(
         // Found the case - update status to 'found' and queue for data retrieval
         const foundStatus: FetchStatus = { status: 'found' };
         await StorageClient.saveCase({
+            caseNumber,
+            caseId,
+            fetchStatus: foundStatus,
+            lastUpdated: isoNow,
+        });
+        await publishCaseUpdate(userId, {
             caseNumber,
             caseId,
             fetchStatus: foundStatus,
@@ -324,6 +358,11 @@ export async function processCaseSearchRecord(
         // Try to save failure status
         try {
             await StorageClient.saveCase({
+                caseNumber,
+                fetchStatus: { status: 'failed', message },
+                lastUpdated: new Date().toISOString(),
+            });
+            await publishCaseUpdate(userId, {
                 caseNumber,
                 fetchStatus: { status: 'failed', message },
                 lastUpdated: new Date().toISOString(),

@@ -11,6 +11,9 @@
     "author": "",
     "license": "ISC",
     "description": "",
+    "overrides": {
+        "flatted": "^3.4.2"
+    },
     "devDependencies": {
         "@eslint/js": "^9.24.0",
         "eslint": "^9.24.0",

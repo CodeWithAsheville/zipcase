@@ -1,0 +1,75 @@
+service: ws
+
+provider:
+    name: aws
+    runtime: nodejs22.x
+    region: us-east-2
+    stage: ${opt:stage, 'dev'}
+    deploymentBucket:
+        name: zipcase-serverless-deployments-${self:provider.stage}
+    environment:
+        STAGE: ${self:provider.stage}
+        ZIPCASE_DATA_TABLE: ${cf:infra-${self:provider.stage}.ZipCaseDataTableName, 'zipcase-data-${self:provider.stage}'}
+        COGNITO_ISSUER_URL: https://cognito-idp.${self:provider.region}.amazonaws.com/${ssm:/zipcase/cognito/user_pool_id}
+        COGNITO_APP_CLIENT_ID: ${ssm:/zipcase/cognito/app_client_id}
+        WEBSOCKET_CONNECTION_TTL_SECONDS: 86400
+    iam:
+        role:
+            statements:
+                - Effect: Allow
+                  Action:
+                      - dynamodb:GetItem
+                      - dynamodb:PutItem
+                      - dynamodb:DeleteItem
+                      - dynamodb:Query
+                  Resource: arn:aws:dynamodb:*:*:table/*
+
+                - Effect: Allow
+                  Action:
+                      - logs:CreateLogGroup
+                      - logs:CreateLogStream
+                      - logs:PutLogEvents
+                  Resource: arn:aws:logs:*:*:*
+
+                - Effect: Allow
+                  Action:
+                      - ssm:GetParameter
+                  Resource:
+                      - arn:aws:ssm:${self:provider.region}:*:parameter/zipcase/*
+
+functions:
+    connect:
+        handler: handlers/connect.handler
+        events:
+            - websocket:
+                  route: $connect
+
+    disconnect:
+        handler: handlers/disconnect.handler
+        events:
+            - websocket:
+                  route: $disconnect
+
+    subscribe:
+        handler: handlers/subscribe.handler
+        events:
+            - websocket:
+                  route: subscribe
+
+    unsubscribe:
+        handler: handlers/unsubscribe.handler
+        events:
+            - websocket:
+                  route: unsubscribe
+
+resources:
+    Outputs:
+        WebSocketApiEndpoint:
+            Value: !Sub 'wss://${WebsocketsApi}.execute-api.${AWS::Region}.amazonaws.com/${self:provider.stage}'
+            Export:
+                Name: ${self:service}-${self:provider.stage}-WebSocketApiEndpoint
+
+        WebSocketManagementEndpoint:
+            Value: !Sub 'https://${WebsocketsApi}.execute-api.${AWS::Region}.amazonaws.com/${self:provider.stage}'
+            Export:
+                Name: ${self:service}-${self:provider.stage}-WebSocketManagementEndpoint

@@ -2,7 +2,7 @@ service: app
 
 provider:
     name: aws
-    runtime: nodejs20.x
+    runtime: nodejs22.x
     region: us-east-2
     stage: ${opt:stage, 'dev'}
     memorySize: 512
@@ -12,6 +12,7 @@ provider:
         STAGE: ${self:provider.stage}
         SEARCH_QUEUE_URL: ${cf:infra-${self:provider.stage}.SearchQueueUrl}
         CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
+        WEBSOCKET_MANAGEMENT_ENDPOINT: ${cf:ws-${self:provider.stage}.WebSocketManagementEndpoint, ''}
         KMS_KEY_ID: ${cf:infra-${self:provider.stage}.ZipCaseEncryptionKeyId, 'key-not-set'}
         ZIPCASE_DATA_TABLE: ${cf:infra-${self:provider.stage}.ZipCaseDataTableName, 'zipcase-data-${self:provider.stage}'}
         DEFAULT_USAGE_PLAN_ID: ${cf:api-${self:provider.stage}.TestUsagePlanId}
@@ -69,6 +70,11 @@ provider:
 
                 - Effect: Allow
                   Action:
+                      - execute-api:ManageConnections
+                  Resource: '*'
+
+                - Effect: Allow
+                  Action:
                       - sns:Publish
                   Resource: ${ssm:/zipcase/alert-topic-arn}
 
@@ -110,7 +116,7 @@ build:
     esbuild:
         minify: false
         sourcemap: true
-        target: node20
+        target: node22
         format: cjs # Use CommonJS format instead of ESM
         bundle: true # Ensure all dependencies are bundled
         external:

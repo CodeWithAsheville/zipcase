@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useEffect } from 'react';
-import { ZipCaseClient } from '../services';
+import { useRef, useEffect, useCallback } from 'react';
+import { ZipCaseClient, zipCaseSocketClient } from '../services';
 import { SearchResult } from '../../../shared/types';
 
 const client = new ZipCaseClient();
@@ -152,6 +152,7 @@ export function useFileSearch() {
 interface ResultsState {
     results: Record<string, SearchResult>;
     searchBatches: string[][]; // Array of case number batches, newest first
+    nameSearches?: Record<string, unknown>;
 }
 
 export function useSearchResults() {
@@ -202,12 +203,10 @@ export function useRemoveCase() {
 export function useConsolidatedPolling() {
     const queryClient = useQueryClient();
 
-    // Reference to track polling state across renders
     const pollingRef = useRef({
-        active: false, // Whether polling is currently active
-        lastChangeTime: Date.now(), // Last time a status changed
-        timeoutId: null as NodeJS.Timeout | null, // For manual timeout handling
-        pollCount: 0, // Count of polls since last change
+        active: false,
+        subscribedCases: new Set<string>(),
+        unsubscribeHandler: null as (() => void) | null,
     });
 
     // Extract non-terminal case numbers that need polling
@@ -228,137 +227,95 @@ export function useConsolidatedPolling() {
             .map(result => result.zipCase.caseNumber);
     };
 
-    // Function to poll all non-terminal cases
-    const pollNonTerminalCases = async () => {
-        const caseNumbers = getNonTerminalCaseNumbers();
-
-        // Clear any existing timeout
-        if (pollingRef.current.timeoutId) {
-            clearTimeout(pollingRef.current.timeoutId);
-            pollingRef.current.timeoutId = null;
-        }
-
-        // Stop if there are no non-terminal cases
-        if (caseNumbers.length === 0) {
-            pollingRef.current.active = false;
-            return;
-        }
-
-        // Increment poll count
-        pollingRef.current.pollCount++;
-
-        try {
-            // Use the dedicated status endpoint to poll multiple cases at once
-            const response = await client.cases.status(caseNumbers);
-
-            if (!response.success) {
-                scheduleNextPoll();
-                return;
-            }
-
-            const results = response.data?.results || {};
-
-            // Check if we have any state changes
-            let hasStateChanges = false;
+    const upsertSocketResult = useCallback(
+        (result: SearchResult) => {
+            const caseNumber = result.zipCase.caseNumber;
             const currentState = queryClient.getQueryData<ResultsState>(['searchResults']) || {
                 results: {},
                 searchBatches: [],
             };
 
-            Object.entries(results).forEach(([caseNumber, result]: [string, SearchResult]) => {
-                const existingResult = currentState.results[caseNumber];
-                if (!existingResult || existingResult.zipCase.fetchStatus.status !== result.zipCase.fetchStatus.status) {
-                    hasStateChanges = true;
-                }
+            queryClient.setQueryData(['searchResults'], {
+                ...currentState,
+                results: {
+                    ...currentState.results,
+                    [caseNumber]: result,
+                },
             });
+        },
+        [queryClient]
+    );
 
-            // If we have changes, reset the polling timer
-            if (hasStateChanges) {
-                pollingRef.current.lastChangeTime = Date.now();
-                pollingRef.current.pollCount = 0;
+    const pollNonTerminalCases = useCallback(async () => {
+        const caseNumbers = getNonTerminalCaseNumbers();
+
+        if (caseNumbers.length === 0) {
+            return;
+        }
+
+        if (!pollingRef.current.unsubscribeHandler) {
+            pollingRef.current.unsubscribeHandler = zipCaseSocketClient.onMessage(event => {
+                if (event.type !== 'case.status.updated' || event.subjectType !== 'case') {
+                    return;
+                }
+
+                const payload = event.payload as SearchResult;
+                if (!payload?.zipCase?.caseNumber) {
+                    return;
+                }
+
+                upsertSocketResult(payload);
+            });
+        }
+
+        try {
+            await zipCaseSocketClient.connect();
+            const alreadySubscribed = pollingRef.current.subscribedCases;
+            const toSubscribe = caseNumbers.filter(caseNumber => !alreadySubscribed.has(caseNumber.toUpperCase()));
+            if (toSubscribe.length > 0) {
+                zipCaseSocketClient.subscribe('case', toSubscribe);
+                toSubscribe.forEach(caseNumber => alreadySubscribed.add(caseNumber.toUpperCase()));
             }
-
-            // Create the new merged state
-            const newState = {
-                results: { ...currentState.results, ...results },
-                searchBatches: currentState.searchBatches,
-            };
-
-            // Update the query data without invalidation
-            queryClient.setQueryData(['searchResults'], newState);
-
-            // Schedule the next poll
-            scheduleNextPoll();
-        } catch {
-            scheduleNextPoll();
+        } catch (error) {
+            console.error('Failed to connect case WebSocket:', error);
         }
-    };
-
-    // Function to schedule the next poll or stop polling
-    const scheduleNextPoll = () => {
-        // Calculate how long we've been polling without any state changes
-        const elapsedSinceChange = (Date.now() - pollingRef.current.lastChangeTime) / 1000;
-
-        // If we've been polling for more than 30 seconds without changes, stop
-        if (elapsedSinceChange > 30) {
-            pollingRef.current.active = false;
-            return;
-        }
-
-        // Check if there are any non-terminal cases left
-        const nonTerminalCases = getNonTerminalCaseNumbers();
-        if (nonTerminalCases.length === 0) {
-            pollingRef.current.active = false;
-            return;
-        }
-
-        // Schedule next poll in 3 seconds
-        pollingRef.current.timeoutId = setTimeout(() => {
-            pollNonTerminalCases();
-        }, 3000);
-    };
+    }, [queryClient, upsertSocketResult]);
 
     // Start polling if it's not already active
-    const startPolling = () => {
-        if (!pollingRef.current.active) {
-            pollingRef.current.active = true;
-            pollingRef.current.lastChangeTime = Date.now();
-            pollingRef.current.pollCount = 0;
-
-            // Wait 3 seconds before the first poll
-            pollingRef.current.timeoutId = setTimeout(() => {
-                pollNonTerminalCases();
-            }, 3000);
-
-            return true;
-        }
-        return false;
-    };
+    const startPolling = useCallback(() => {
+        const isNewlyStarted = !pollingRef.current.active;
+        pollingRef.current.active = true;
+        void pollNonTerminalCases();
+        return isNewlyStarted;
+    }, [pollNonTerminalCases]);
 
     // Stop polling if it's active
-    const stopPolling = () => {
+    const stopPolling = useCallback(() => {
         if (pollingRef.current.active) {
-            if (pollingRef.current.timeoutId) {
-                clearTimeout(pollingRef.current.timeoutId);
-                pollingRef.current.timeoutId = null;
+            const subjects = Array.from(pollingRef.current.subscribedCases);
+            if (subjects.length > 0) {
+                zipCaseSocketClient.unsubscribe('case', subjects);
             }
+            pollingRef.current.subscribedCases.clear();
+
+            if (pollingRef.current.unsubscribeHandler) {
+                pollingRef.current.unsubscribeHandler();
+                pollingRef.current.unsubscribeHandler = null;
+            }
+
+            zipCaseSocketClient.disconnect();
             pollingRef.current.active = false;
             return true;
         }
         return false;
-    };
+    }, []);
 
     // Clean up on unmount
     useEffect(() => {
-        // Store a reference to the current polling ref
-        const currentPollingRef = pollingRef.current;
-
         return () => {
-            if (currentPollingRef.timeoutId) {
-                clearTimeout(currentPollingRef.timeoutId);
-            }
+            stopPolling();
         };
-    }, []);
+    }, [stopPolling]);
 
     // Placeholder query to make this hook compatible with the existing API
     const query = useQuery({

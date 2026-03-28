@@ -124,6 +124,7 @@ resource "aws_iam_policy" "github_actions_policy" {
           "arn:aws:lambda:${var.aws_region}:*:function:zipcase-*",
           "arn:aws:lambda:${var.aws_region}:*:function:api-*",
           "arn:aws:lambda:${var.aws_region}:*:function:app-*",
+          "arn:aws:lambda:${var.aws_region}:*:function:ws-*",
           "arn:aws:lambda:${var.aws_region}:*:function:infra-*"
         ]
       },
@@ -147,6 +148,7 @@ resource "aws_iam_policy" "github_actions_policy" {
           "arn:aws:iam::*:role/zipcase-*",
           "arn:aws:iam::*:role/api-*",
           "arn:aws:iam::*:role/app-*",
+          "arn:aws:iam::*:role/ws-*",
           "arn:aws:iam::*:role/infra-*"
         ]
       },
@@ -175,6 +177,8 @@ resource "aws_iam_policy" "github_actions_policy" {
           "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/api-*:*",
           "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/app-*",
           "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/app-*:*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/ws-*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/ws-*:*",
           "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/infra-*",
           "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/infra-*:*"
         ]

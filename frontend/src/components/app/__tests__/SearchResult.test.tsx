@@ -40,6 +40,7 @@ vi.mock('../../../hooks/useCaseSearch', () => ({
 // Mock constants from aws-exports
 vi.mock('../../../aws-exports', () => ({
     API_URL: 'https://api.example.com',
+    WS_URL: 'ws://test-ws.example.com',
     PORTAL_URL: 'https://portal.example.com',
     PORTAL_CASE_URL: 'https://portal.example.com/search-results',
 }));
