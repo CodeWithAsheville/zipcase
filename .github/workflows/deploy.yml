@@ -35,7 +35,7 @@ jobs:
         environment: ${{ needs.determine-environment.outputs.environment_name }}
         steps:
             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v5
+              uses: aws-actions/configure-aws-credentials@v6
               with:
                   aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -85,7 +85,7 @@ jobs:
                   terraform_version: '1.11.4'
 
             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v5
+              uses: aws-actions/configure-aws-credentials@v6
               with:
                   aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
@@ -156,7 +156,7 @@ jobs:
               run: npm ci
 
             - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v5
+              uses: aws-actions/configure-aws-credentials@v6
               with:
                   aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
