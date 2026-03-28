@@ -1,6 +1,7 @@
 {
     "overrides": {
         "flatted": "^3.4.2",
+        "handlebars": "^4.7.9",
         "rimraf": {
             "glob": "^10.5.0"
         }
