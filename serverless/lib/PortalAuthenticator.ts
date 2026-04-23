@@ -140,10 +140,7 @@ const PortalAuthenticator = {
                 if (debug) console.log('AWS WAF challenge detected, attempting to solve...');
 
                 try {
-                    const wafResult = await AwsWafChallengeSolver.solveChallenge(
-                        portalBaseUrl + '/Portal/Account/Login',
-                        loginPageResponse.data
-                    );
+                    const wafResult = await AwsWafChallengeSolver.solveChallenge(loginUrl);
 
                     if (wafResult.success && wafResult.cookie) {
                         // Add the solved WAF cookie to our cookie jar for both the login page domain and the portal domain
@@ -257,7 +254,7 @@ const PortalAuthenticator = {
                 if (debug) console.log('AWS WAF challenge detected after login submission, attempting to solve...');
 
                 try {
-                    const wafResult = await AwsWafChallengeSolver.solveChallenge(loginUrl, loginSubmitResponse.data);
+                    const wafResult = await AwsWafChallengeSolver.solveChallenge(loginUrl);
 
                     if (wafResult.success && wafResult.cookie) {
                         // Add the solved WAF cookie to our cookie jar
@@ -342,9 +339,7 @@ const PortalAuthenticator = {
                 });
             }
 
-            const hasSessionCookie =
-                cookies.some(cookie => cookie.key === 'FedAuth') &&
-                cookies.some(cookie => cookie.key === 'FedAuth1');
+            const hasSessionCookie = cookies.some(cookie => cookie.key === 'FedAuth') && cookies.some(cookie => cookie.key === 'FedAuth1');
 
             // Check for both "Sign In" button (failure) and "Welcome, " text (success)
             const hasWelcomeUser = completeWsFedResponse.data.includes('Welcome, ');
