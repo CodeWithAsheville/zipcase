@@ -1,5 +1,6 @@
 {
     "overrides": {
+        "@xmldom/xmldom": "^0.8.13",
         "flatted": "^3.4.2",
         "handlebars": "^4.7.9",
         "rimraf": {
