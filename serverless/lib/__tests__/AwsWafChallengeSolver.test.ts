@@ -165,11 +165,111 @@ describe('AwsWafChallengeSolver', () => {
             const { AwsWafChallengeSolver, mockedAlertService } = await loadSolverContext();
             mockSsmSend.mockRejectedValue(new Error('SSM error'));
 
-            const result = await AwsWafChallengeSolver.solveChallenge('https://example.com', '<html>challenge content</html>');
+            const result = await AwsWafChallengeSolver.solveChallenge('https://example.com');
 
             expect(result.success).toBe(false);
             expect(result.error).toBeDefined();
             expect(mockedAlertService.logError).toHaveBeenCalled();
+        });
+
+        it('should fail immediately on terminal CapSolver polling errors', async () => {
+            const { AwsWafChallengeSolver, mockedAxios, mockedAlertService } = await loadSolverContext();
+            mockSsmSend.mockResolvedValue({
+                Parameter: {
+                    Value: 'test-api-key',
+                },
+            });
+
+            mockedAxios.post
+                .mockResolvedValueOnce({
+                    data: {
+                        errorId: 0,
+                        taskId: 'task-123',
+                    },
+                } as any)
+                .mockResolvedValueOnce({
+                    data: {
+                        errorId: 1,
+                        status: 'failed',
+                        errorDescription: 'ERROR_TASK_NOT_SUPPORTED',
+                    },
+                } as any);
+
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((callback: any) => {
+                callback();
+                return 0 as any;
+            });
+
+            const result = await AwsWafChallengeSolver.solveChallenge('https://example.com/login', {
+                maxRetries: 5,
+                retryDelay: 1,
+            });
+
+            expect(result).toEqual({
+                success: false,
+                error: 'WAF solver task failed: ERROR_TASK_NOT_SUPPORTED',
+            });
+            expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+            expect(mockedAlertService.logError).toHaveBeenCalled();
+
+            setTimeoutSpy.mockRestore();
+        });
+
+        it('should retry transient polling transport errors', async () => {
+            const { AwsWafChallengeSolver, mockedAxios } = await loadSolverContext();
+            mockSsmSend.mockResolvedValue({
+                Parameter: {
+                    Value: 'test-api-key',
+                },
+            });
+
+            mockedAxios.post
+                .mockResolvedValueOnce({
+                    data: {
+                        errorId: 0,
+                        taskId: 'task-123',
+                    },
+                } as any)
+                .mockRejectedValueOnce({
+                    isAxiosError: true,
+                    message: 'socket hang up',
+                    response: {
+                        status: 502,
+                        data: { error: 'bad gateway' },
+                    },
+                } as any)
+                .mockResolvedValueOnce({
+                    data: {
+                        errorId: 0,
+                        status: 'ready',
+                        solution: {
+                            cookie: 'solved-cookie',
+                        },
+                    },
+                } as any);
+
+            const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((callback: any) => {
+                callback();
+                return 0 as any;
+            });
+
+            mockedAxios.isAxiosError.mockImplementation(error => Boolean((error as any)?.isAxiosError));
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+            const result = await AwsWafChallengeSolver.solveChallenge('https://example.com/login', {
+                maxRetries: 3,
+                retryDelay: 1,
+            });
+
+            expect(result).toEqual({
+                success: true,
+                cookie: 'solved-cookie',
+            });
+            expect(mockedAxios.post).toHaveBeenCalledTimes(3);
+            expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Error polling WAF solver result (attempt 1), retrying:'));
+
+            consoleLogSpy.mockRestore();
+            setTimeoutSpy.mockRestore();
         });
 
         // Note: We can't easily test the full solving flow without mocking the entire
