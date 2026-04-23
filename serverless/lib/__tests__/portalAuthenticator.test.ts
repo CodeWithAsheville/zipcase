@@ -2,6 +2,7 @@
  * Tests for the PortalAuthenticator module
  */
 import PortalAuthenticator from '../PortalAuthenticator';
+import AwsWafChallengeSolver from '../AwsWafChallengeSolver';
 import StorageClient from '../StorageClient';
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
@@ -125,6 +126,73 @@ describe('PortalAuthenticator', () => {
             expect(mockPost).toHaveBeenCalledTimes(2);
             expect(result.success).toBe(true);
             expect(result.cookieJar).toBeDefined();
+        });
+
+        it('should pass the final redirected login URL to the WAF solver', async () => {
+            const mockGet = jest
+                .fn()
+                .mockResolvedValueOnce({
+                    data: '<html><script>window.gokuProps = {"key":"test"}</script></html>',
+                    status: 202,
+                    request: { res: { responseUrl: 'https://test-idp.example.com/idp/account/signin' } },
+                })
+                .mockResolvedValueOnce({
+                    data: '<input name="__RequestVerificationToken" value="test-token" />',
+                    status: 200,
+                    request: { res: { responseUrl: 'https://test-idp.example.com/idp/account/signin' } },
+                });
+
+            const mockPost = jest
+                .fn()
+                .mockResolvedValueOnce({
+                    data: '<input name="wresult" value="test-wsfed-token" />',
+                    request: { res: { responseUrl: 'https://test-federation.example.com' } },
+                })
+                .mockResolvedValueOnce({
+                    data: 'Welcome, TestUser',
+                    headers: {},
+                });
+
+            // @ts-ignore - need to mock the axios create method
+            axios.create.mockReturnValue({
+                get: mockGet,
+                post: mockPost,
+            });
+
+            const mockCookies = [
+                {
+                    key: 'FedAuth',
+                    value: 'test-token',
+                    domain: 'portal.example.com',
+                    path: '/',
+                },
+                {
+                    key: 'FedAuth1',
+                    value: 'test-token',
+                    domain: 'portal.example.com',
+                    path: '/',
+                },
+            ];
+
+            // @ts-ignore - update the getCookiesSync mock for this test
+            CookieJar().getCookiesSync.mockReturnValue(mockCookies);
+
+            const detectChallengeSpy = jest
+                .spyOn(AwsWafChallengeSolver, 'detectChallenge')
+                .mockReturnValueOnce(true)
+                .mockReturnValueOnce(false);
+            const solveChallengeSpy = jest.spyOn(AwsWafChallengeSolver, 'solveChallenge').mockResolvedValue({
+                success: true,
+                cookie: 'solved-cookie',
+            });
+
+            const result = await PortalAuthenticator.authenticateWithPortal('testuser', 'password');
+
+            expect(solveChallengeSpy).toHaveBeenCalledWith('https://test-idp.example.com/idp/account/signin');
+            expect(result.success).toBe(true);
+
+            detectChallengeSpy.mockRestore();
+            solveChallengeSpy.mockRestore();
         });
     });
 
