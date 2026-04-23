@@ -9,6 +9,26 @@ import axios, { AxiosResponse } from 'axios';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 
+const formatPollingError = (error: unknown): string => {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const responseData = error.response?.data;
+        const message = error.message;
+
+        return JSON.stringify({
+            message,
+            status,
+            responseData,
+        });
+    }
+
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    return String(error);
+};
+
 export interface WafChallengeSolverResult {
     success: boolean;
     cookie?: string;
@@ -155,8 +175,14 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                 if (result.status === 'ready' && result.solution?.cookie) {
                     console.log('WAF challenge solved successfully');
                     return result.solution.cookie;
-                } else if (result.status === 'failed' || result.errorId !== 0) {
+                }
+
+                if (result.status === 'failed' || result.errorId !== 0) {
                     throw new Error(`WAF solver task failed: ${result.errorDescription || 'Unknown error'}`);
+                }
+
+                if (result.status !== 'processing' && result.status !== 'idle') {
+                    throw new Error(`WAF solver returned unexpected status: ${result.status || 'missing status'}`);
                 }
 
                 console.log(`WAF solver task still processing... (attempt ${attempt}/${maxAttempts})`);
@@ -164,7 +190,13 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                 if (attempt === maxAttempts) {
                     throw error;
                 }
-                console.log(`Error polling WAF solver result (attempt ${attempt}), retrying...`);
+
+                const shouldRetry = axios.isAxiosError(error);
+                if (!shouldRetry) {
+                    throw error;
+                }
+
+                console.log(`Error polling WAF solver result (attempt ${attempt}), retrying: ${formatPollingError(error)}`);
             }
         }
 
