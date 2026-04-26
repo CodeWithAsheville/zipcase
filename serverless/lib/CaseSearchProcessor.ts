@@ -5,12 +5,11 @@ import StorageClient from './StorageClient';
 import PortalAuthenticator from './PortalAuthenticator';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 import { CookieJar } from 'tough-cookie';
-import axios from 'axios';
-import { wrapper } from 'axios-cookiejar-support';
 import * as cheerio from 'cheerio';
 import UserAgentClient from './UserAgentClient';
 import { CASE_SUMMARY_VERSION_DATE } from './CaseProcessor';
 import WebSocketPublisher from './WebSocketPublisher';
+import PortalRequestClient from './PortalRequestClient';
 
 async function publishCaseUpdate(userId: string, zipCase: ZipCase): Promise<void> {
     await WebSocketPublisher.publishCaseStatusUpdated(userId, zipCase.caseNumber, {
@@ -61,7 +60,7 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                 const caseSummary = results[caseNumber].caseSummary;
 
                 switch (status) {
-                    case 'complete':
+                    case 'complete': {
                         const lastUpdated = results[caseNumber].zipCase.lastUpdated;
                         if (caseSummary && lastUpdated && new Date(lastUpdated) >= CASE_SUMMARY_VERSION_DATE) {
                             // Truly complete - has both ID and an up-to-date summary
@@ -99,6 +98,7 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                             casesToQueue.push(caseNumber);
                         }
                         break;
+                    }
                     case 'found':
                     case 'reprocessing':
                         console.log(`Case ${caseNumber} already has status ${status}, preserving`);
@@ -121,7 +121,7 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                     case 'notFound':
                     case 'failed':
                     case 'queued':
-                    case 'processing':
+                    case 'processing': {
                         // We requeue 'queued' and 'processing' because they might be stuck.
                         // When they get picked up from the queue, we'll see whether they became 'complete' in the mean time and exit early.
                         const zipCase = results[caseNumber].zipCase;
@@ -131,6 +131,8 @@ export async function processCaseSearchRequest(req: CaseSearchRequest): Promise<
                         await StorageClient.saveCase(zipCase);
 
                         casesToQueue.push(caseNumber);
+                        break;
+                    }
                 }
             } else {
                 // Case doesn't exist yet - create it with queued status and add to queue
@@ -381,6 +383,7 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
     try {
         // Get the portal URL from environment variable
         const portalUrl = process.env.PORTAL_URL;
+        const portalDashboardPath = process.env.PORTAL_DASHBOARD_PATH;
 
         if (!portalUrl) {
             const errorMsg = 'PORTAL_URL environment variable is not set';
@@ -396,19 +399,31 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
             };
         }
 
-        const userAgent = await UserAgentClient.getUserAgent('system');
+        if (!portalDashboardPath) {
+            const errorMsg = 'PORTAL_DASHBOARD_PATH environment variable is not set';
 
-        const client = wrapper(axios).create({
-            timeout: 20000,
-            maxRedirects: 10,
-            validateStatus: status => status < 500, // Only reject on 5xx errors
+            await AlertService.logError(Severity.CRITICAL, AlertCategory.SYSTEM, '', new Error(errorMsg), { resource: 'case-search' });
+
+            return {
+                caseId: null,
+                error: {
+                    message: 'Portal dashboard path environment variable is not set',
+                    isSystemError: true,
+                },
+            };
+        }
+
+        const userAgent = await UserAgentClient.getUserAgent('system');
+        const dashboardUrl = new URL(portalDashboardPath, `${portalUrl}/`).toString();
+
+        const client = new PortalRequestClient({
             jar: cookieJar,
-            withCredentials: true,
-            headers: {
-                ...PortalAuthenticator.getDefaultRequestHeaders(userAgent),
+            portalUrl,
+            userAgent,
+            defaultHeaders: {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 Origin: portalUrl,
-                Referer: 'https://portal-nc.tylertech.cloud/Portal/Home/Dashboard/29',
+                Referer: dashboardUrl,
             },
         });
 
@@ -419,7 +434,9 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
         searchFormData.append('caseCriteria.SearchCriteria', caseNumber);
         searchFormData.append('caseCriteria.SearchCases', 'true');
 
-        const searchResponse = await client.post(`${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`, searchFormData);
+        const searchResponse = await client.post(`${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`, searchFormData, {
+            wafContextUrl: `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
+        });
 
         if (searchResponse.status !== 200) {
             const errorMessage = `Search request failed with status ${searchResponse.status}`;
@@ -440,7 +457,9 @@ export async function fetchCaseIdFromPortal(caseNumber: string, cookieJar: Cooki
         }
 
         // Step 2: Get the search results page
-        const resultsResponse = await client.get(`${portalUrl}/Portal/SmartSearch/SmartSearchResults`);
+        const resultsResponse = await client.get(`${portalUrl}/Portal/SmartSearch/SmartSearchResults`, {
+            wafContextUrl: `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
+        });
 
         if (resultsResponse.status !== 200) {
             const errorMessage = `Results request failed with status ${resultsResponse.status}`;

@@ -1,9 +1,7 @@
 import { CookieJar } from 'tough-cookie';
-import axios from 'axios';
-import { wrapper } from 'axios-cookiejar-support';
 import AlertService, { Severity, AlertCategory } from './AlertService';
-import PortalAuthenticator from './PortalAuthenticator';
 import UserAgentClient from './UserAgentClient';
+import PortalRequestClient from './PortalRequestClient';
 
 // Interface for the result of a name search
 export interface NameSearchResult {
@@ -36,14 +34,12 @@ export async function fetchCasesByName(
 
         const userAgent = await UserAgentClient.getUserAgent('system');
 
-        const client = wrapper(axios).create({
-            timeout: 60000,
-            maxRedirects: 10,
-            validateStatus: status => status < 500, // Only reject on 5xx errors
+        const client = new PortalRequestClient({
             jar: cookieJar,
-            withCredentials: true,
-            headers: {
-                ...PortalAuthenticator.getDefaultRequestHeaders(userAgent),
+            portalUrl,
+            userAgent,
+            timeout: 60000,
+            defaultHeaders: {
                 Origin: portalUrl,
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
@@ -72,7 +68,9 @@ export async function fetchCasesByName(
             searchFormData.append('caseCriteria.UseSoundex', 'true');
         }
 
-        const searchResponse = await client.post(`${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`, searchFormData);
+        const searchResponse = await client.post(`${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`, searchFormData, {
+            wafContextUrl: `${portalUrl}/Portal/SmartSearch/SmartSearch/SmartSearch`,
+        });
 
         console.log(`Search response status: ${searchResponse.status}`);
 
@@ -101,7 +99,10 @@ export async function fetchCasesByName(
         const resultsRequestHeaders: Record<string, string> = {
             Referer: `${portalUrl}/Portal/Home/WorkspaceMode?p=0`,
         };
-        const resultsResponse = await client.get(`${portalUrl}/Portal/SmartSearch/SmartSearchResults`, { headers: resultsRequestHeaders });
+        const resultsResponse = await client.get(`${portalUrl}/Portal/SmartSearch/SmartSearchResults`, {
+            headers: resultsRequestHeaders,
+            wafContextUrl: `${portalUrl}/Portal/SmartSearch/SmartSearchResults`,
+        });
 
         console.log(`SmartSearchResults response status: ${resultsResponse.status}`);
 
@@ -173,9 +174,7 @@ export async function fetchCasesByName(
                         Severity.ERROR,
                         AlertCategory.PORTAL,
                         '',
-                        error instanceof Error
-                            ? error
-                            : new Error(`Error parsing search results: ${String(error)}`),
+                        error instanceof Error ? error : new Error(`Error parsing search results: ${String(error)}`),
                         {
                             name,
                             resource: 'portal-search-results-json',
