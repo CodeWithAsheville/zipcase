@@ -14,6 +14,7 @@ provider:
         CASE_DATA_QUEUE_URL: ${cf:infra-${self:provider.stage}.CaseDataQueueUrl}
         PORTAL_URL: ${ssm:/zipcase/portal_url}
         PORTAL_CASE_URL: ${ssm:/zipcase/portal_case_url}
+        PORTAL_DASHBOARD_PATH: ${ssm:/zipcase/portal_dashboard_path}
     iam:
         role:
             statements:
