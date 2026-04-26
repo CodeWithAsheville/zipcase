@@ -54,6 +54,7 @@ jobs:
                   REQUIRED_PARAMS=(
                     "/zipcase/portal_url"
                     "/zipcase/portal_case_url"
+                    "/zipcase/portal_dashboard_path"
                     "/zipcase/cognito/user_pool_id"
                     "/zipcase/cognito/app_client_id"
                   )
