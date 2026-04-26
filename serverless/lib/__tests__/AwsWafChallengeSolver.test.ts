@@ -2,11 +2,10 @@
  * Tests for the AwsWafChallengeSolver module
  */
 import { AwsWafChallengeSolver } from '../AwsWafChallengeSolver';
-import axios from 'axios';
+import { SSMClient } from '@aws-sdk/client-ssm';
 
 // Mock axios
 jest.mock('axios');
-const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 // Mock AWS SDK
 jest.mock('@aws-sdk/client-ssm', () => ({
@@ -90,12 +89,34 @@ describe('AwsWafChallengeSolver', () => {
             const result = AwsWafChallengeSolver.detectChallenge(mockResponse);
             expect(result).toBe(false);
         });
+
+        it('should not throw on JSON response bodies', () => {
+            const mockResponse = {
+                data: { CaseSummaryHeader: { CaseId: 'case-123' } },
+                status: 200,
+                headers: {},
+            } as any;
+
+            const result = AwsWafChallengeSolver.detectChallenge(mockResponse);
+            expect(result).toBe(false);
+        });
+
+        it('should detect challenge from x-amzn-waf-action header', () => {
+            const mockResponse = {
+                data: '',
+                status: 202,
+                headers: { 'x-amzn-waf-action': 'challenge' },
+            } as any;
+
+            const result = AwsWafChallengeSolver.detectChallenge(mockResponse);
+            expect(result).toBe(true);
+        });
     });
 
     describe('solveChallenge', () => {
         it('should handle solving errors gracefully', async () => {
             // Mock SSM to throw an error
-            const mockSSMClient = require('@aws-sdk/client-ssm').SSMClient;
+            const mockSSMClient = SSMClient as unknown as jest.Mock;
             mockSSMClient.mockImplementation(() => ({
                 send: jest.fn().mockRejectedValue(new Error('SSM error')),
             }));

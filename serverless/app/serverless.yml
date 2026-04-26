@@ -18,6 +18,7 @@ provider:
         DEFAULT_USAGE_PLAN_ID: ${cf:api-${self:provider.stage}.TestUsagePlanId}
         PORTAL_URL: ${ssm:/zipcase/portal_url}
         PORTAL_CASE_URL: ${ssm:/zipcase/portal_case_url}
+        PORTAL_DASHBOARD_PATH: ${ssm:/zipcase/portal_dashboard_path}
         UPLOADS_BUCKET: ${ssm:/zipcase/uploads_bucket}
     iam:
         role:

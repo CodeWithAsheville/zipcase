@@ -34,11 +34,7 @@ export interface WafChallengeSolverOptions {
  */
 export interface IAwsWafChallengeSolver {
     detectChallenge(response: AxiosResponse): boolean;
-    solveChallenge(
-        websiteURL: string,
-        htmlContent: string,
-        options?: WafChallengeSolverOptions
-    ): Promise<WafChallengeSolverResult>;
+    solveChallenge(websiteURL: string, htmlContent: string, options?: WafChallengeSolverOptions): Promise<WafChallengeSolverResult>;
 }
 
 /**
@@ -83,11 +79,14 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
     }
 
     detectChallenge(response: AxiosResponse): boolean {
-        const html = response.data;
+        const html = typeof response.data === 'string' ? response.data : '';
         const status = response.status;
+        const wafActionHeader = response.headers?.['x-amzn-waf-action'];
+        const wafAction = Array.isArray(wafActionHeader) ? wafActionHeader[0] : wafActionHeader;
 
         // Check for common AWS WAF challenge indicators
         return (
+            wafAction === 'challenge' ||
             status === 405 ||
             html.includes('window.gokuProps') ||
             html.includes('challenge.js') ||
@@ -150,11 +149,7 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
         }
     }
 
-    private async waitForTaskResult(
-        taskId: string,
-        apiKey: string,
-        options: WafChallengeSolverOptions
-    ): Promise<string | null> {
+    private async waitForTaskResult(taskId: string, apiKey: string, options: WafChallengeSolverOptions): Promise<string | null> {
         const maxAttempts = options.maxRetries || 30; // Default: 30 attempts
         const delay = options.retryDelay || 5000; // Default: 5 seconds
 
@@ -180,13 +175,10 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                 } else if (result.status === 'failed' || result.errorId !== 0) {
                     throw new Error(`WAF solver task failed: ${result.errorDescription || 'Unknown error'}`);
                 }
-
-                console.log(`WAF solver task still processing... (attempt ${attempt}/${maxAttempts})`);
             } catch (error) {
                 if (attempt === maxAttempts) {
                     throw error;
                 }
-                console.log(`Error polling WAF solver result (attempt ${attempt}), retrying...`);
             }
         }
 
@@ -220,10 +212,8 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                     challengeData.awsProblemUrl = problemUrlMatch[0];
                 }
             }
-
-            console.log('Parsed AWS WAF challenge data:', challengeData);
-        } catch (error) {
-            console.log('Error parsing AWS WAF challenge data:', error);
+        } catch {
+            console.warn('Error parsing AWS WAF challenge data');
         }
 
         return challengeData;

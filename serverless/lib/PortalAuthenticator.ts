@@ -16,6 +16,7 @@ import StorageClient from './StorageClient';
 import UserAgentClient from './UserAgentClient';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 import AwsWafChallengeSolver from './AwsWafChallengeSolver';
+import PortalRequestClient from './PortalRequestClient';
 
 const DEFAULT_TIMEOUT = 20000;
 
@@ -24,6 +25,7 @@ const axiosWithCookies = wrapper(axios);
 
 const DEFAULT_USER_AGENT =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36';
+const isDevStage = (): boolean => (process.env.STAGE || '').toLowerCase() === 'dev';
 
 export function getDefaultRequestHeaders(userAgent?: string): Record<string, string> {
     return {
@@ -83,14 +85,35 @@ function extractWsFedToken(html: string): string | null {
     }
 }
 
+function addWafCookieToJar(cookieJar: CookieJar, cookie: string, urls: string[]): void {
+    const normalizedCookie = cookie.startsWith('aws-waf-token=') ? cookie : `aws-waf-token=${cookie}`;
+
+    for (const url of urls) {
+        cookieJar.setCookieSync(normalizedCookie, url);
+    }
+}
+
 const PortalAuthenticator = {
+    addWafCookieToJar,
     getDefaultRequestHeaders,
 
     async authenticateWithPortal(username: string, password: string, options: PortalAuthOptions = {}): Promise<PortalAuthResult> {
         const portalBaseUrl = process.env.PORTAL_URL;
+        const portalDashboardPath = process.env.PORTAL_DASHBOARD_PATH;
 
         if (!portalBaseUrl) {
             const errorMsg = 'PORTAL_URL environment variable is not set';
+
+            await AlertService.logError(Severity.CRITICAL, AlertCategory.SYSTEM, '', new Error(errorMsg), { resource: 'portal-auth' });
+
+            return {
+                success: false,
+                message: errorMsg,
+            };
+        }
+
+        if (!portalDashboardPath) {
+            const errorMsg = 'PORTAL_DASHBOARD_PATH environment variable is not set';
 
             await AlertService.logError(Severity.CRITICAL, AlertCategory.SYSTEM, '', new Error(errorMsg), { resource: 'portal-auth' });
 
@@ -140,25 +163,19 @@ const PortalAuthenticator = {
                 if (debug) console.log('AWS WAF challenge detected, attempting to solve...');
 
                 try {
-                    const wafResult = await AwsWafChallengeSolver.solveChallenge(
-                        portalBaseUrl + '/Portal/Account/Login',
-                        loginPageResponse.data
-                    );
+                    const wafResult = await AwsWafChallengeSolver.solveChallenge(loginUrl, loginPageResponse.data);
 
                     if (wafResult.success && wafResult.cookie) {
                         // Add the solved WAF cookie to our cookie jar for both the login page domain and the portal domain
                         const loginUrlBase = new URL(loginUrl).origin;
                         const portalBase = new URL(portalBaseUrl).origin;
-                        jar.setCookieSync(`aws-waf-token=${wafResult.cookie}`, loginUrlBase);
-                        if (loginUrlBase !== portalBase) {
-                            jar.setCookieSync(`aws-waf-token=${wafResult.cookie}`, portalBase);
-                        }
+                        addWafCookieToJar(jar, wafResult.cookie, [loginUrlBase, portalBase]);
                         if (debug) {
                             console.log('AWS WAF challenge solved, cookie added to jar for domains:', loginUrlBase, portalBase);
                         }
 
-                        // Re-fetch the login page with the WAF cookie
-                        const retryLoginPageResponse = await client.get(portalBaseUrl + '/Portal/Account/Login');
+                        // Re-fetch the redirected login page with the WAF cookie
+                        const retryLoginPageResponse = await client.get(loginUrl);
 
                         // Use the retry response for subsequent processing
                         Object.assign(loginPageResponse, retryLoginPageResponse);
@@ -261,7 +278,7 @@ const PortalAuthenticator = {
 
                     if (wafResult.success && wafResult.cookie) {
                         // Add the solved WAF cookie to our cookie jar
-                        jar.setCookieSync(wafResult.cookie, portalBaseUrl);
+                        addWafCookieToJar(jar, wafResult.cookie, [portalBaseUrl, loginUrl]);
                         if (debug) console.log('AWS WAF challenge solved after login, cookie added to jar');
 
                         // Re-submit the login form with the WAF cookie
@@ -342,9 +359,7 @@ const PortalAuthenticator = {
                 });
             }
 
-            const hasSessionCookie =
-                cookies.some(cookie => cookie.key === 'FedAuth') &&
-                cookies.some(cookie => cookie.key === 'FedAuth1');
+            const hasSessionCookie = cookies.some(cookie => cookie.key === 'FedAuth') && cookies.some(cookie => cookie.key === 'FedAuth1');
 
             // Check for both "Sign In" button (failure) and "Welcome, " text (success)
             const hasWelcomeUser = completeWsFedResponse.data.includes('Welcome, ');
@@ -374,6 +389,34 @@ const PortalAuthenticator = {
                 };
             }
 
+            const dashboardUrl = new URL(portalDashboardPath, `${portalBaseUrl}/`).toString();
+            const dashboardResponse = await client.get(dashboardUrl, {
+                headers: {
+                    Referer: portalBaseUrl,
+                    'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
+                },
+            });
+
+            if (AwsWafChallengeSolver.detectChallenge(dashboardResponse)) {
+                if (debug) console.log('AWS WAF challenge detected on dashboard, attempting to solve...');
+
+                const dashboardChallengeUrl = dashboardResponse.request?.res?.responseUrl || dashboardUrl;
+                const dashboardWafResult = await AwsWafChallengeSolver.solveChallenge(dashboardChallengeUrl, dashboardResponse.data);
+
+                if (!dashboardWafResult.success || !dashboardWafResult.cookie) {
+                    return {
+                        success: false,
+                        message: dashboardWafResult.error || 'Failed to solve dashboard AWS WAF challenge',
+                    };
+                }
+
+                addWafCookieToJar(jar, dashboardWafResult.cookie, [portalBaseUrl, dashboardChallengeUrl, dashboardUrl]);
+
+                if (debug) {
+                    console.log('AWS WAF challenge solved on dashboard, cookie added to jar');
+                }
+            }
+
             // Success! Return the cookie jar for session management
             return {
                 success: true,
@@ -396,6 +439,7 @@ const PortalAuthenticator = {
 
     async verifySession(cookieJar: CookieJar, options: PortalAuthOptions = {}): Promise<boolean> {
         const portalBaseUrl = process.env.PORTAL_URL;
+        const portalDashboardPath = process.env.PORTAL_DASHBOARD_PATH;
 
         if (!portalBaseUrl) {
             const errorMsg = 'PORTAL_URL environment variable is not set';
@@ -410,12 +454,27 @@ const PortalAuthenticator = {
             return false;
         }
 
+        if (!portalDashboardPath) {
+            const errorMsg = 'PORTAL_DASHBOARD_PATH environment variable is not set';
+
+            await AlertService.logError(
+                Severity.CRITICAL,
+                AlertCategory.SYSTEM,
+                'Missing required environment variable: PORTAL_DASHBOARD_PATH',
+                new Error(errorMsg)
+            );
+
+            return false;
+        }
+
         const timeout = options.timeout || DEFAULT_TIMEOUT;
         const debug = options.debug || false;
+        const dashboardUrl = new URL(portalDashboardPath, `${portalBaseUrl}/`).toString();
 
         try {
             // Check for FedAuth cookies which are critical for authentication
             const cookies = cookieJar.getCookiesSync(portalBaseUrl, { allPaths: true });
+            const wafCookies = cookies.filter(cookie => cookie.key === 'aws-waf-token');
 
             if (debug) {
                 console.log('Number of cookies before verification:', cookies.length);
@@ -429,16 +488,18 @@ const PortalAuthenticator = {
                 const fedAuth1Cookie = cookies.find(cookie => cookie.key === 'FedAuth1');
                 console.log('FedAuth cookie exists:', !!fedAuthCookie);
                 console.log('FedAuth1 cookie exists:', !!fedAuth1Cookie);
+                console.log('aws-waf-token cookie count:', wafCookies.length);
+                wafCookies.forEach((cookie, index) => {
+                    const expires = cookie.expires instanceof Date ? cookie.expires.toISOString() : String(cookie.expires || 'session');
+                    console.log(`aws-waf-token[${index}] domain=${cookie.domain} path=${cookie.path} expires=${expires}`);
+                });
             }
 
-            // Create axios instance with cookie jar support
-            const client = axiosWithCookies.create({
-                timeout,
-                maxRedirects: 10,
-                validateStatus: status => status < 500,
+            const client = new PortalRequestClient({
                 jar: cookieJar,
-                withCredentials: true,
-                headers: getDefaultRequestHeaders(options.userAgent),
+                portalUrl: portalBaseUrl,
+                userAgent: options.userAgent || DEFAULT_USER_AGENT,
+                timeout,
             });
 
             // Build a manual cookie string to ensure all cookies are properly sent
@@ -452,23 +513,29 @@ const PortalAuthenticator = {
                 console.log('Manual cookie header:', cookieHeader);
             }
 
-            const response = await client.get(portalBaseUrl + '/Portal', {
+            const response = await client.get(dashboardUrl, {
                 headers: {
                     Cookie: cookieHeader,
+                    Referer: portalBaseUrl,
                     'User-Agent': options.userAgent || DEFAULT_USER_AGENT,
                 },
+                wafContextUrl: dashboardUrl,
             });
 
             if (debug) {
+                console.log('Verification URL:', dashboardUrl);
                 console.log('Response status:', response.status);
                 console.log('Response URL (after redirects):', response.request?.res?.responseUrl || 'No redirect URL');
+                console.log('x-amzn-waf-action:', response.headers?.['x-amzn-waf-action'] || 'none');
 
                 // Check for login indicators
                 const hasSignIn = response.data.includes('Sign In');
                 const hasWelcomeUser = response.data.includes('Welcome, ');
+                const hasWafChallenge = AwsWafChallengeSolver.detectChallenge(response);
 
                 console.log('Page contains "Sign In":', hasSignIn);
                 console.log('Page contains "Welcome, ":', hasWelcomeUser);
+                console.log('WAF challenge detected during verifySession:', hasWafChallenge);
 
                 // If the response is too large, just log a snippet
                 if (response.data.length > 500) {
@@ -477,7 +544,10 @@ const PortalAuthenticator = {
             }
 
             // Session is valid if the welcome message is present or no sign in button
-            return response.data.includes('Welcome, ') || !response.data.includes('Sign In');
+            return (
+                !AwsWafChallengeSolver.detectChallenge(response) &&
+                (response.data.includes('Welcome, ') || !response.data.includes('Sign In'))
+            );
         } catch (error) {
             if (debug) {
                 console.error('Error verifying session:', error);
@@ -494,10 +564,22 @@ const PortalAuthenticator = {
 
         if (sessionCookieJar) {
             console.log('Session cookie jar found in storage.');
-            return {
-                success: true,
-                cookieJar: CookieJar.fromJSON(sessionCookieJar),
-            };
+
+            const restoredCookieJar = CookieJar.fromJSON(sessionCookieJar);
+            const shouldDebugSession = isDevStage();
+            const isValidSession = await this.verifySession(restoredCookieJar, {
+                userAgent,
+                debug: shouldDebugSession,
+            });
+
+            if (isValidSession) {
+                return {
+                    success: true,
+                    cookieJar: restoredCookieJar,
+                };
+            }
+
+            console.log('Stored portal session is invalid for dashboard access, re-authenticating.');
         }
 
         const portalCredentials = await StorageClient.sensitiveGetPortalCredentials(userId);
@@ -521,6 +603,7 @@ const PortalAuthenticator = {
 
         const authResult = await this.authenticateWithPortal(portalCredentials.username, portalCredentials.password, {
             userAgent: resolvedUserAgent,
+            debug: isDevStage(),
         });
 
         if (authResult.success && authResult.cookieJar) {

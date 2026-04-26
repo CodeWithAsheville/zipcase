@@ -1,9 +1,12 @@
 {
     "overrides": {
+        "@xmldom/xmldom": "^0.8.13",
         "flatted": "^3.4.2",
+        "handlebars": "^4.7.9",
         "rimraf": {
             "glob": "^10.5.0"
-        }
+        },
+        "undici": "^6.24.0"
     },
     "devDependencies": {
         "@eslint/js": "^9.24.0",
@@ -36,7 +39,7 @@
         "@aws-sdk/client-textract": "^3.994.0",
         "@aws-sdk/lib-dynamodb": "^3.994.0",
         "@aws-sdk/s3-request-presigner": "^3.994.0",
-        "axios": "^1.12.1",
+        "axios": "^1.15.0",
         "axios-cookiejar-support": "^5.0.5",
         "cheerio": "^1.0.0",
         "exceljs": "^4.4.0",
