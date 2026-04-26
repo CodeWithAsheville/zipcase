@@ -9,25 +9,13 @@ import axios, { AxiosResponse } from 'axios';
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import AlertService, { Severity, AlertCategory } from './AlertService';
 
-const formatPollingError = (error: unknown): string => {
-    if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
-        const responseData = error.response?.data;
-        const message = error.message;
-
-        return JSON.stringify({
-            message,
-            status,
-            responseData,
-        });
-    }
-
-    if (error instanceof Error) {
-        return error.message;
-    }
-
-    return String(error);
-};
+export interface AwsWafChallengeData {
+    awsKey?: string;
+    awsIv?: string;
+    awsContext?: string;
+    awsChallengeJS?: string;
+    awsProblemUrl?: string;
+}
 
 export interface WafChallengeSolverResult {
     success: boolean;
@@ -46,7 +34,7 @@ export interface WafChallengeSolverOptions {
  */
 export interface IAwsWafChallengeSolver {
     detectChallenge(response: AxiosResponse): boolean;
-    solveChallenge(websiteURL: string, options?: WafChallengeSolverOptions): Promise<WafChallengeSolverResult>;
+    solveChallenge(websiteURL: string, htmlContent: string, options?: WafChallengeSolverOptions): Promise<WafChallengeSolverResult>;
 }
 
 /**
@@ -91,11 +79,14 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
     }
 
     detectChallenge(response: AxiosResponse): boolean {
-        const html = response.data;
+        const html = typeof response.data === 'string' ? response.data : '';
         const status = response.status;
+        const wafActionHeader = response.headers?.['x-amzn-waf-action'];
+        const wafAction = Array.isArray(wafActionHeader) ? wafActionHeader[0] : wafActionHeader;
 
         // Check for common AWS WAF challenge indicators
         return (
+            wafAction === 'challenge' ||
             status === 405 ||
             html.includes('window.gokuProps') ||
             html.includes('challenge.js') ||
@@ -106,9 +97,14 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
         );
     }
 
-    async solveChallenge(websiteURL: string, options: WafChallengeSolverOptions = {}): Promise<WafChallengeSolverResult> {
+    async solveChallenge(
+        websiteURL: string,
+        htmlContent: string,
+        options: WafChallengeSolverOptions = {}
+    ): Promise<WafChallengeSolverResult> {
         try {
             const apiKey = await CapSolverProvider.getApiKey();
+            const challengeData = this.parseAwsWafChallenge(htmlContent);
 
             // Create task
             const createTaskPayload = {
@@ -116,6 +112,7 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                 task: {
                     type: 'AntiAwsWafTaskProxyLess',
                     websiteURL,
+                    ...challengeData,
                 },
             };
 
@@ -175,32 +172,51 @@ class CapSolverProvider implements IAwsWafChallengeSolver {
                 if (result.status === 'ready' && result.solution?.cookie) {
                     console.log('WAF challenge solved successfully');
                     return result.solution.cookie;
-                }
-
-                if (result.status === 'failed' || result.errorId !== 0) {
+                } else if (result.status === 'failed' || result.errorId !== 0) {
                     throw new Error(`WAF solver task failed: ${result.errorDescription || 'Unknown error'}`);
                 }
-
-                if (result.status !== 'processing' && result.status !== 'idle') {
-                    throw new Error(`WAF solver returned unexpected status: ${result.status || 'missing status'}`);
-                }
-
-                console.log(`WAF solver task still processing... (attempt ${attempt}/${maxAttempts})`);
             } catch (error) {
                 if (attempt === maxAttempts) {
                     throw error;
                 }
-
-                const shouldRetry = axios.isAxiosError(error);
-                if (!shouldRetry) {
-                    throw error;
-                }
-
-                console.log(`Error polling WAF solver result (attempt ${attempt}), retrying: ${formatPollingError(error)}`);
             }
         }
 
         throw new Error('WAF solver task timed out after maximum attempts');
+    }
+
+    private parseAwsWafChallenge(htmlContent: string): AwsWafChallengeData {
+        const challengeData: AwsWafChallengeData = {};
+
+        try {
+            // Look for gokuProps (Situation 1)
+            const gokuPropsMatch = htmlContent.match(/window\.gokuProps\s*=\s*({[^}]+})/);
+            if (gokuPropsMatch) {
+                const gokuProps = JSON.parse(gokuPropsMatch[1]);
+                if (gokuProps.key) challengeData.awsKey = gokuProps.key;
+                if (gokuProps.iv) challengeData.awsIv = gokuProps.iv;
+                if (gokuProps.context) challengeData.awsContext = gokuProps.context;
+            }
+
+            // Look for challenge.js URL (Situation 3)
+            const challengeJsMatch = htmlContent.match(/https?:\/\/[^"'\s]*challenge\.js[^"'\s]*/);
+            if (challengeJsMatch) {
+                challengeData.awsChallengeJS = challengeJsMatch[0];
+            }
+
+            // Look for problem URL with visualSolutionsRequired (Situation 4)
+            const visualSolutionsMatch = htmlContent.match(/visualSolutionsRequired/);
+            if (visualSolutionsMatch) {
+                const problemUrlMatch = htmlContent.match(/https?:\/\/[^"'\s]*problem[^"'\s]*num_solutions_required[^"'\s]*/);
+                if (problemUrlMatch) {
+                    challengeData.awsProblemUrl = problemUrlMatch[0];
+                }
+            }
+        } catch {
+            console.warn('Error parsing AWS WAF challenge data');
+        }
+
+        return challengeData;
     }
 }
 
@@ -228,8 +244,12 @@ export class AwsWafChallengeSolver {
     /**
      * Solve an AWS WAF challenge
      */
-    static async solveChallenge(websiteURL: string, options?: WafChallengeSolverOptions): Promise<WafChallengeSolverResult> {
-        return this.provider.solveChallenge(websiteURL, options);
+    static async solveChallenge(
+        websiteURL: string,
+        htmlContent: string,
+        options?: WafChallengeSolverOptions
+    ): Promise<WafChallengeSolverResult> {
+        return this.provider.solveChallenge(websiteURL, htmlContent, options);
     }
 }
 

@@ -3,6 +3,7 @@
  */
 import PortalAuthenticator from '../PortalAuthenticator';
 import AwsWafChallengeSolver from '../AwsWafChallengeSolver';
+import AlertService from '../AlertService';
 import StorageClient from '../StorageClient';
 import { CookieJar } from 'tough-cookie';
 import axios from 'axios';
@@ -41,14 +42,47 @@ jest.mock('../StorageClient', () => ({
     getCaseMetadata: jest.fn(),
     saveUserSession: jest.fn(),
 }));
+jest.mock('../AlertService', () => ({
+    __esModule: true,
+    default: {
+        logError: jest.fn(),
+        forCategory: jest.fn(),
+    },
+    Severity: {
+        CRITICAL: 'CRITICAL',
+        ERROR: 'ERROR',
+        WARNING: 'WARNING',
+        INFO: 'INFO',
+    },
+    AlertCategory: {
+        SYSTEM: 'SYS',
+        PORTAL: 'PORTAL',
+        AUTHENTICATION: 'AUTH',
+    },
+}));
 
 // Set environment variable before importing the module
 process.env.PORTAL_URL = 'https://test-portal.example.com';
+process.env.PORTAL_DASHBOARD_PATH = '/Portal/Home/Dashboard/29';
 
 describe('PortalAuthenticator', () => {
+    let logSpy: jest.SpyInstance;
+    let warnSpy: jest.SpyInstance;
+    let errorSpy: jest.SpyInstance;
+
     beforeEach(() => {
         // Reset all mocks before each test
         jest.clearAllMocks();
+        (AlertService.logError as jest.Mock).mockResolvedValue(undefined);
+        logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        logSpy.mockRestore();
+        warnSpy.mockRestore();
+        errorSpy.mockRestore();
     });
 
     describe('Public API', () => {
@@ -72,6 +106,19 @@ describe('PortalAuthenticator', () => {
 
             expect(result.success).toBe(false);
             expect(result.message).toBeDefined();
+            expect(result.cookieJar).toBeUndefined();
+        });
+
+        it('should return error if PORTAL_DASHBOARD_PATH is not set', async () => {
+            const originalDashboardPath = process.env.PORTAL_DASHBOARD_PATH;
+            delete process.env.PORTAL_DASHBOARD_PATH;
+
+            const result = await PortalAuthenticator.authenticateWithPortal('username', 'password');
+
+            process.env.PORTAL_DASHBOARD_PATH = originalDashboardPath;
+
+            expect(result.success).toBe(false);
+            expect(result.message).toBe('PORTAL_DASHBOARD_PATH environment variable is not set');
             expect(result.cookieJar).toBeUndefined();
         });
 
@@ -128,18 +175,17 @@ describe('PortalAuthenticator', () => {
             expect(result.cookieJar).toBeDefined();
         });
 
-        it('should pass the final redirected login URL to the WAF solver', async () => {
+        it('should solve the dashboard WAF challenge after WS-Fed completes', async () => {
             const mockGet = jest
                 .fn()
                 .mockResolvedValueOnce({
-                    data: '<html><script>window.gokuProps = {"key":"test"}</script></html>',
-                    status: 202,
-                    request: { res: { responseUrl: 'https://test-idp.example.com/idp/account/signin' } },
+                    data: '<input name="__RequestVerificationToken" value="test-token" />',
+                    request: { res: { responseUrl: 'https://test-login.example.com' } },
                 })
                 .mockResolvedValueOnce({
-                    data: '<input name="__RequestVerificationToken" value="test-token" />',
-                    status: 200,
-                    request: { res: { responseUrl: 'https://test-idp.example.com/idp/account/signin' } },
+                    data: '<html><script src="https://example.com/challenge.js"></script><script src="https://example.com/captcha.js"></script></html>',
+                    status: 405,
+                    request: { res: { responseUrl: 'https://test-portal.example.com/Portal/Home/Dashboard/29' } },
                 });
 
             const mockPost = jest
@@ -151,6 +197,7 @@ describe('PortalAuthenticator', () => {
                 .mockResolvedValueOnce({
                     data: 'Welcome, TestUser',
                     headers: {},
+                    request: { res: { responseUrl: 'https://test-portal.example.com/Portal/Home/Dashboard/29' } },
                 });
 
             // @ts-ignore - need to mock the axios create method
@@ -160,18 +207,8 @@ describe('PortalAuthenticator', () => {
             });
 
             const mockCookies = [
-                {
-                    key: 'FedAuth',
-                    value: 'test-token',
-                    domain: 'portal.example.com',
-                    path: '/',
-                },
-                {
-                    key: 'FedAuth1',
-                    value: 'test-token',
-                    domain: 'portal.example.com',
-                    path: '/',
-                },
+                { key: 'FedAuth', value: 'test-token', domain: 'portal.example.com', path: '/' },
+                { key: 'FedAuth1', value: 'test-token', domain: 'portal.example.com', path: '/' },
             ];
 
             // @ts-ignore - update the getCookiesSync mock for this test
@@ -179,16 +216,28 @@ describe('PortalAuthenticator', () => {
 
             const detectChallengeSpy = jest
                 .spyOn(AwsWafChallengeSolver, 'detectChallenge')
-                .mockReturnValueOnce(true)
-                .mockReturnValueOnce(false);
+                .mockReturnValueOnce(false)
+                .mockReturnValueOnce(false)
+                .mockReturnValueOnce(true);
             const solveChallengeSpy = jest.spyOn(AwsWafChallengeSolver, 'solveChallenge').mockResolvedValue({
                 success: true,
-                cookie: 'solved-cookie',
+                cookie: 'dashboard-waf-cookie',
             });
 
             const result = await PortalAuthenticator.authenticateWithPortal('testuser', 'password');
 
-            expect(solveChallengeSpy).toHaveBeenCalledWith('https://test-idp.example.com/idp/account/signin');
+            expect(mockGet).toHaveBeenCalledWith(
+                'https://test-portal.example.com/Portal/Home/Dashboard/29',
+                expect.objectContaining({
+                    headers: expect.objectContaining({
+                        Referer: 'https://test-portal.example.com',
+                    }),
+                })
+            );
+            expect(solveChallengeSpy).toHaveBeenCalledWith(
+                'https://test-portal.example.com/Portal/Home/Dashboard/29',
+                expect.stringContaining('challenge.js')
+            );
             expect(result.success).toBe(true);
 
             detectChallengeSpy.mockRestore();
@@ -202,12 +251,46 @@ describe('PortalAuthenticator', () => {
 
             // @ts-ignore - mock implementation
             StorageClient.getUserSession.mockResolvedValue(JSON.stringify(mockSessionJson));
+            const verifySessionSpy = jest.spyOn(PortalAuthenticator, 'verifySession').mockResolvedValue(true);
 
             const result = await PortalAuthenticator.getOrCreateUserSession('test-user');
 
             expect(StorageClient.getUserSession).toHaveBeenCalledWith('test-user');
             expect(result.success).toBe(true);
             expect(result.cookieJar).toBeDefined();
+
+            verifySessionSpy.mockRestore();
+        });
+
+        it('should reauthenticate when stored session fails dashboard verification', async () => {
+            const mockSessionJson = { cookies: [{ key: 'FedAuth', value: 'test' }] };
+
+            // @ts-ignore - mock implementation
+            StorageClient.getUserSession.mockResolvedValue(JSON.stringify(mockSessionJson));
+            // @ts-ignore - mock implementation
+            StorageClient.sensitiveGetPortalCredentials.mockResolvedValue({
+                username: 'testuser',
+                password: 'password',
+                isBad: false,
+            });
+
+            const verifySessionSpy = jest.spyOn(PortalAuthenticator, 'verifySession').mockResolvedValue(false);
+            const mockCookieJar = new CookieJar();
+            const authenticateSpy = jest.spyOn(PortalAuthenticator, 'authenticateWithPortal').mockResolvedValue({
+                success: true,
+                cookieJar: mockCookieJar,
+            });
+
+            const result = await PortalAuthenticator.getOrCreateUserSession('test-user');
+
+            expect(verifySessionSpy).toHaveBeenCalled();
+            expect(StorageClient.sensitiveGetPortalCredentials).toHaveBeenCalledWith('test-user');
+            expect(authenticateSpy).toHaveBeenCalledWith('testuser', 'password', expect.any(Object));
+            expect(result.success).toBe(true);
+            expect(result.cookieJar).toBe(mockCookieJar);
+
+            verifySessionSpy.mockRestore();
+            authenticateSpy.mockRestore();
         });
 
         it('should try to create a new session if none exists', async () => {
@@ -273,6 +356,18 @@ describe('PortalAuthenticator', () => {
             expect(result).toBe(false);
         });
 
+        it('should return false if PORTAL_DASHBOARD_PATH is not set', async () => {
+            const originalDashboardPath = process.env.PORTAL_DASHBOARD_PATH;
+            delete process.env.PORTAL_DASHBOARD_PATH;
+
+            const mockJar = new CookieJar();
+            const result = await PortalAuthenticator.verifySession(mockJar);
+
+            process.env.PORTAL_DASHBOARD_PATH = originalDashboardPath;
+
+            expect(result).toBe(false);
+        });
+
         it('should check for welcome message in response', async () => {
             const mockJar = new CookieJar();
 
@@ -289,7 +384,14 @@ describe('PortalAuthenticator', () => {
 
             const result = await PortalAuthenticator.verifySession(mockJar);
 
-            expect(mockGet).toHaveBeenCalledWith(expect.stringContaining('/Portal'), expect.any(Object));
+            expect(mockGet).toHaveBeenCalledWith(
+                'https://test-portal.example.com/Portal/Home/Dashboard/29',
+                expect.objectContaining({
+                    headers: expect.objectContaining({
+                        Referer: 'https://test-portal.example.com',
+                    }),
+                })
+            );
             expect(result).toBe(true);
         });
 
@@ -308,6 +410,27 @@ describe('PortalAuthenticator', () => {
             });
 
             const result = await PortalAuthenticator.verifySession(mockJar);
+
+            expect(result).toBe(false);
+        });
+
+        it('should return false if the dashboard response is a WAF challenge', async () => {
+            const mockJar = new CookieJar();
+
+            const mockGet = jest.fn().mockResolvedValue({
+                data: '<html><script src="https://example.com/challenge.js"></script></html>',
+                status: 405,
+                headers: {
+                    'x-amzn-waf-action': 'captcha',
+                },
+            });
+
+            // @ts-ignore - need to mock the axios create method
+            axios.create.mockReturnValue({
+                get: mockGet,
+            });
+
+            const result = await PortalAuthenticator.verifySession(mockJar, { debug: true });
 
             expect(result).toBe(false);
         });
