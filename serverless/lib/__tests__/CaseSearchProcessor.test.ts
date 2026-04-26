@@ -20,8 +20,15 @@ const mockQueueClient = QueueClient as jest.Mocked<typeof QueueClient>;
 const mockPortalAuthenticator = PortalAuthenticator as jest.Mocked<typeof PortalAuthenticator>;
 
 describe('CaseSearchProcessor', () => {
+    let logSpy: jest.SpyInstance;
+    let warnSpy: jest.SpyInstance;
+    let errorSpy: jest.SpyInstance;
+
     beforeEach(() => {
         jest.clearAllMocks();
+        logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
         // Default mock for portal authenticator
         mockPortalAuthenticator.getOrCreateUserSession.mockResolvedValue({
@@ -29,6 +36,12 @@ describe('CaseSearchProcessor', () => {
             cookieJar: {} as any,
             message: 'Session created',
         });
+    });
+
+    afterEach(() => {
+        logSpy.mockRestore();
+        warnSpy.mockRestore();
+        errorSpy.mockRestore();
     });
 
     describe('processCaseSearchRequest', () => {
