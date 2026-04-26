@@ -8,7 +8,18 @@ import CaseProcessor from '../../../lib/CaseProcessor';
 jest.mock('../../../lib/StorageClient');
 jest.mock('../../../lib/PortalAuthenticator');
 jest.mock('../../../lib/QueueClient');
-jest.mock('../../../lib/CaseProcessor');
+jest.mock('../../../lib/CaseProcessor', () => {
+    const actual = jest.requireActual('../../../lib/CaseProcessor');
+
+    return {
+        __esModule: true,
+        ...actual,
+        default: {
+            ...actual.default,
+            processCaseData: jest.fn(),
+        },
+    };
+});
 
 // Mock event with auth context
 const createEvent = (pathParams?: any, userId = 'test-user-id') => ({
@@ -25,8 +36,18 @@ const createEvent = (pathParams?: any, userId = 'test-user-id') => ({
 });
 
 describe('case handler', () => {
+    let logSpy: jest.SpyInstance;
+    let errorSpy: jest.SpyInstance;
+
     beforeEach(() => {
         jest.clearAllMocks();
+        logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        logSpy.mockRestore();
+        errorSpy.mockRestore();
     });
 
     describe('get function', () => {
