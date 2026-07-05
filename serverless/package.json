@@ -48,7 +48,7 @@
         "pdf-parse": "^1.1.1",
         "jose": "^5.10.0",
         "tough-cookie": "^5.1.2",
-        "uuid": "^9.0.0",
+        "uuid": "^14.0.0",
         "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
     },
     "scripts": {
