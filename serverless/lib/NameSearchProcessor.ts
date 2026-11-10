@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { NameSearchResponse, NameSearchData } from '../../shared/types';
 import StorageClient from './StorageClient';
 import NameParser from './NameParser';
@@ -18,7 +18,7 @@ export async function processNameSearchRequest(
     },
     userId: string
 ): Promise<NameSearchResponse> {
-    const searchId = uuidv4();
+    const searchId = randomUUID();
 
     let success = true;
     let error: string | undefined;
